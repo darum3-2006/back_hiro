@@ -1,8 +1,13 @@
+export interface TaskLink {
+  label: string
+  url: string
+}
+
 export interface Task {
   id: number
   projectId: string
   content: string
-  trelloUrl: string | null
+  links: TaskLink[]
   requesterMemberId: string | null
   requestingDeptCode: string | null
   assigneeMemberId: string

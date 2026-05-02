@@ -29,7 +29,7 @@ function makeInitialDraft(): Draft {
   return {
     content: '',
     description: '',
-    trelloUrl: null,
+    links: [],
     requesterMemberId: props.currentMemberId,
     requestingDeptCode: null,
     assigneeMemberId: props.currentMemberId ?? '',
@@ -41,6 +41,13 @@ function makeInitialDraft(): Draft {
   }
 }
 
+function addLink() {
+  draft.value.links.push({ label: '', url: '' })
+}
+
+function removeLink(index: number) {
+  draft.value.links.splice(index, 1)
+}
 
 const draft = ref<Draft>(makeInitialDraft())
 const submitting = ref(false)
@@ -364,14 +371,41 @@ function toggleTag(tagCode: string, enabled: boolean) {
 
         <div>
           <p class="text-xs text-muted mb-1">
-            Trello URL
+            リンク
           </p>
-          <UInput
-            :model-value="draft.trelloUrl ?? ''"
-            type="url"
-            placeholder="https://trello.com/c/..."
-            class="w-full"
-            @update:model-value="(v: string) => draft.trelloUrl = v.trim() || null"
+          <div class="space-y-1">
+            <div
+              v-for="(link, i) in draft.links"
+              :key="i"
+              class="flex items-center gap-2"
+            >
+              <UInput
+                v-model="link.label"
+                placeholder="ラベル"
+                class="w-32"
+              />
+              <UInput
+                v-model="link.url"
+                placeholder="https://..."
+                class="flex-1"
+              />
+              <UButton
+                size="xs"
+                color="neutral"
+                variant="ghost"
+                icon="i-lucide-trash-2"
+                @click="removeLink(i)"
+              />
+            </div>
+          </div>
+          <UButton
+            size="xs"
+            color="neutral"
+            variant="ghost"
+            icon="i-lucide-plus"
+            label="リンクを追加"
+            class="mt-1"
+            @click="addLink"
           />
         </div>
       </div>

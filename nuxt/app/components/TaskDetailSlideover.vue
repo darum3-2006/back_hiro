@@ -5,7 +5,7 @@ import { createComment, updateComment } from '~/api/comments'
 import { calendarDateToIso, isoToCalendarDate } from '~/utils/date'
 import type { Member } from '~/types/member'
 import type { Department, Tag, TaskPriority, TaskStatus } from '~/types/master'
-import type { Task } from '~/types/task'
+import type { Task, TaskLink } from '~/types/task'
 
 const props = defineProps<{
   task: Task | null
@@ -89,7 +89,7 @@ function fmtDateTime(d: string): string {
 }
 
 // ===== Text inline edit =====
-type EditableField = 'content' | 'description' | 'trelloUrl'
+type EditableField = 'content' | 'description'
 const editingField = ref<EditableField | null>(null)
 const editBuffer = ref('')
 const cancelling = ref(false)
@@ -121,11 +121,6 @@ function commitEdit() {
     if (value !== props.task.description) {
       emit('change-field', { description: value })
     }
-  } else if (field === 'trelloUrl') {
-    const trimmed = value.trim() || null
-    if (trimmed !== props.task.trelloUrl) {
-      emit('change-field', { trelloUrl: trimmed })
-    }
   }
   editingField.value = null
 }
@@ -135,8 +130,49 @@ function cancelEdit() {
   editingField.value = null
 }
 
+// ===== Links inline edit =====
+const editingLinkIndex = ref<number | null>(null)
+const linkEditBuffer = ref<TaskLink>({ label: '', url: '' })
+
+function startAddLink() {
+  editingLinkIndex.value = -1
+  linkEditBuffer.value = { label: '', url: '' }
+}
+
+function startEditLink(index: number, link: TaskLink) {
+  editingLinkIndex.value = index
+  linkEditBuffer.value = { ...link }
+}
+
+function cancelLinkEdit() {
+  editingLinkIndex.value = null
+}
+
+function saveLink() {
+  if (!props.task) return
+  const buffer = linkEditBuffer.value
+  const label = buffer.label.trim()
+  const url = buffer.url.trim()
+  if (!label || !url) return
+  const next = [...props.task.links]
+  if (editingLinkIndex.value === -1) {
+    next.push({ label, url })
+  } else if (editingLinkIndex.value !== null) {
+    next[editingLinkIndex.value] = { label, url }
+  }
+  emit('change-field', { links: next })
+  editingLinkIndex.value = null
+}
+
+function deleteLink(index: number) {
+  if (!props.task) return
+  const next = props.task.links.filter((_, i) => i !== index)
+  emit('change-field', { links: next })
+}
+
 watch(() => props.task?.id, () => {
   editingField.value = null
+  editingLinkIndex.value = null
 })
 
 // ===== Status / Assignee / Priority / Requester / Department dropdowns =====
@@ -514,47 +550,118 @@ function setPlannedCompletionDate(value: string | null) {
           </UPopover>
         </div>
 
-        <!-- Trello (editable) -->
+        <!-- Links (editable list) -->
         <div>
           <p class="text-xs text-muted mb-1">
-            Trello
+            リンク
           </p>
-          <UInput
-            v-if="editingField === 'trelloUrl'"
-            v-model="editBuffer"
-            autofocus
-            type="url"
-            placeholder="https://trello.com/c/..."
-            class="w-full"
-            @blur="commitEdit"
-            @keydown.enter.prevent="commitEdit"
-            @keydown.escape.prevent="cancelEdit"
-          />
-          <div v-else class="flex items-center gap-1">
-            <ULink
-              v-if="task.trelloUrl"
-              :to="task.trelloUrl"
-              target="_blank"
-              class="text-sm flex-1 truncate"
+          <div class="space-y-1">
+            <div
+              v-for="(link, i) in task.links"
+              :key="i"
+              class="flex items-center gap-2 group"
             >
-              {{ task.trelloUrl }}
-            </ULink>
-            <button
-              v-else
-              class="text-sm text-muted hover:text-default flex-1 text-left"
-              @click="startEdit('trelloUrl', null)"
-            >
-              + URL を追加
-            </button>
-            <UButton
-              v-if="task.trelloUrl"
-              size="xs"
-              color="neutral"
-              variant="ghost"
-              icon="i-lucide-pencil"
-              @click="startEdit('trelloUrl', task.trelloUrl)"
-            />
+              <template v-if="editingLinkIndex === i">
+                <UInput
+                  v-model="linkEditBuffer.label"
+                  placeholder="ラベル"
+                  class="w-32"
+                  @keydown.enter.prevent="saveLink"
+                  @keydown.escape.prevent="cancelLinkEdit"
+                />
+                <UInput
+                  v-model="linkEditBuffer.url"
+                  placeholder="https://..."
+                  class="flex-1"
+                  @keydown.enter.prevent="saveLink"
+                  @keydown.escape.prevent="cancelLinkEdit"
+                />
+                <UButton
+                  size="xs"
+                  color="primary"
+                  icon="i-lucide-check"
+                  :disabled="!linkEditBuffer.label.trim() || !linkEditBuffer.url.trim()"
+                  @click="saveLink"
+                />
+                <UButton
+                  size="xs"
+                  color="neutral"
+                  variant="ghost"
+                  icon="i-lucide-x"
+                  @click="cancelLinkEdit"
+                />
+              </template>
+              <template v-else>
+                <UBadge :label="link.label" color="neutral" variant="soft" size="sm" />
+                <ULink
+                  :to="link.url"
+                  target="_blank"
+                  class="text-sm flex-1 truncate"
+                >
+                  {{ link.url }}
+                </ULink>
+                <UButton
+                  size="xs"
+                  color="neutral"
+                  variant="ghost"
+                  icon="i-lucide-pencil"
+                  class="opacity-0 group-hover:opacity-100 transition"
+                  @click="startEditLink(i, link)"
+                />
+                <UButton
+                  size="xs"
+                  color="neutral"
+                  variant="ghost"
+                  icon="i-lucide-trash-2"
+                  class="opacity-0 group-hover:opacity-100 transition"
+                  @click="deleteLink(i)"
+                />
+              </template>
+            </div>
+
+            <div v-if="editingLinkIndex === -1" class="flex items-center gap-2">
+              <UInput
+                v-model="linkEditBuffer.label"
+                autofocus
+                placeholder="ラベル"
+                class="w-32"
+                @keydown.enter.prevent="saveLink"
+                @keydown.escape.prevent="cancelLinkEdit"
+              />
+              <UInput
+                v-model="linkEditBuffer.url"
+                placeholder="https://..."
+                class="flex-1"
+                @keydown.enter.prevent="saveLink"
+                @keydown.escape.prevent="cancelLinkEdit"
+              />
+              <UButton
+                size="xs"
+                color="primary"
+                icon="i-lucide-check"
+                :disabled="!linkEditBuffer.label.trim() || !linkEditBuffer.url.trim()"
+                @click="saveLink"
+              />
+              <UButton
+                size="xs"
+                color="neutral"
+                variant="ghost"
+                icon="i-lucide-x"
+                @click="cancelLinkEdit"
+              />
+            </div>
           </div>
+
+          <UButton
+            v-if="editingLinkIndex !== -1"
+            size="xs"
+            color="neutral"
+            variant="ghost"
+            icon="i-lucide-plus"
+            label="リンクを追加"
+            class="mt-1"
+            @click="startAddLink"
+          />
         </div>
 
         <USeparator />
