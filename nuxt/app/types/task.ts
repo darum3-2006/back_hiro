@@ -3,7 +3,7 @@ export interface Task {
   projectId: string
   content: string
   trelloUrl: string | null
-  requesterMemberId: string
+  requesterMemberId: string | null
   requestingDeptCode: string | null
   assigneeMemberId: string
   priorityCode: string | null

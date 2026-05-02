@@ -21,8 +21,28 @@ export async function createComment(
     taskId,
     authorMemberId: input.authorMemberId,
     body: input.body,
-    createdAt: new Date().toISOString().slice(0, 19)
+    createdAt: new Date().toISOString().slice(0, 19),
+    updatedAt: null
   }
   MOCK_COMMENTS.push(c)
   return c
+}
+
+/** PATCH /projects/{projectId}/tasks/{taskId}/comments/{commentId} */
+export async function updateComment(
+  projectId: string,
+  taskId: number,
+  commentId: number,
+  patch: { body: string }
+): Promise<Comment> {
+  const idx = MOCK_COMMENTS.findIndex(
+    c => c.projectId === projectId && c.taskId === taskId && c.id === commentId
+  )
+  if (idx < 0) throw new Error(`Comment ${commentId} not found`)
+  MOCK_COMMENTS[idx] = {
+    ...MOCK_COMMENTS[idx]!,
+    body: patch.body,
+    updatedAt: new Date().toISOString().slice(0, 19)
+  }
+  return MOCK_COMMENTS[idx]!
 }

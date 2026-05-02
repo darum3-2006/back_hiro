@@ -5,4 +5,5 @@ export interface Comment {
   authorMemberId: string
   body: string
   createdAt: string
+  updatedAt: string | null
 }
