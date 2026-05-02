@@ -50,7 +50,17 @@ function resetFilters() {
 }
 
 const slideoverOpen = ref(false)
+const createSlideoverOpen = ref(false)
 const selectedTaskId = ref<number | null>(null)
+
+const toast = useToast()
+
+async function onTaskCreated(task: Task) {
+  await refreshTasks()
+  toast.add({ title: 'タスクを作成しました', description: `#${task.id} ${task.content}`, color: 'success', icon: 'i-lucide-check' })
+  selectedTaskId.value = task.id
+  slideoverOpen.value = true
+}
 
 const selectedTask = computed<Task | null>(() =>
   selectedTaskId.value !== null
@@ -222,7 +232,12 @@ function setDeadline(task: Task, value: string | null) {
     <template #header>
       <UDashboardNavbar title="タスク一覧" icon="i-lucide-list-checks">
         <template #right>
-          <UButton color="primary" icon="i-lucide-plus" label="新規タスク" disabled />
+          <UButton
+            color="primary"
+            icon="i-lucide-plus"
+            label="新規タスク"
+            @click="createSlideoverOpen = true"
+          />
         </template>
       </UDashboardNavbar>
     </template>
@@ -410,5 +425,17 @@ function setDeadline(task: Task, value: string | null) {
     :tag-map="tagMap"
     :department-map="departmentMap"
     @change-field="(patch: Partial<Task>) => selectedTask && updateTaskField(selectedTask.id, patch)"
+  />
+
+  <TaskCreateSlideover
+    v-model:open="createSlideoverOpen"
+    :project-id="currentProjectId"
+    :current-member-id="currentMemberId"
+    :statuses="statuses"
+    :priorities="priorities"
+    :tags="tags"
+    :members="members"
+    :departments="departments"
+    @created="onTaskCreated"
   />
 </template>

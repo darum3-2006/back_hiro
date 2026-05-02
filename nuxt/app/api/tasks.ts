@@ -17,3 +17,19 @@ export async function updateTask(
   MOCK_TASKS[idx] = { ...MOCK_TASKS[idx]!, ...patch }
   return MOCK_TASKS[idx]!
 }
+
+/** POST /projects/{projectId}/tasks */
+export async function createTask(
+  projectId: string,
+  input: Omit<Task, 'id' | 'projectId' | 'createdAt'>
+): Promise<Task> {
+  const nextId = MOCK_TASKS.length === 0 ? 1 : Math.max(...MOCK_TASKS.map(t => t.id)) + 1
+  const task: Task = {
+    id: nextId,
+    projectId,
+    createdAt: new Date().toISOString().slice(0, 19),
+    ...input
+  }
+  MOCK_TASKS.push(task)
+  return task
+}
