@@ -31,7 +31,7 @@ const { data: comments, refresh: refreshComments } = await useTaskComments(proje
 const commentBody = ref('')
 const posting = ref(false)
 
-async function postComment() {
+const postComment = async () => {
   const task = props.task
   const memberId = props.currentMemberId
   const body = commentBody.value.trim()
@@ -50,17 +50,17 @@ const editingCommentId = ref<number | null>(null)
 const commentEditBuffer = ref('')
 const savingEdit = ref(false)
 
-function startEditComment(commentId: number, body: string) {
+const startEditComment = (commentId: number, body: string) => {
   editingCommentId.value = commentId
   commentEditBuffer.value = body
 }
 
-function cancelCommentEdit() {
+const cancelCommentEdit = () => {
   editingCommentId.value = null
   commentEditBuffer.value = ''
 }
 
-async function saveCommentEdit() {
+const saveCommentEdit = async () => {
   const task = props.task
   const id = editingCommentId.value
   const body = commentEditBuffer.value.trim()
@@ -80,11 +80,11 @@ watch(() => props.task?.id, () => {
   cancelCommentEdit()
 })
 
-function fmtDate(d: string | null): string {
+const fmtDate = (d: string | null): string => {
   return d ?? '—'
 }
 
-function fmtDateTime(d: string): string {
+const fmtDateTime = (d: string): string => {
   return d.replace('T', ' ')
 }
 
@@ -94,13 +94,13 @@ const editingField = ref<EditableField | null>(null)
 const editBuffer = ref('')
 const cancelling = ref(false)
 
-function startEdit(field: EditableField, current: string | null) {
+const startEdit = (field: EditableField, current: string | null) => {
   editingField.value = field
   editBuffer.value = current ?? ''
   cancelling.value = false
 }
 
-function commitEdit() {
+const commitEdit = () => {
   if (cancelling.value) {
     cancelling.value = false
     editingField.value = null
@@ -125,7 +125,7 @@ function commitEdit() {
   editingField.value = null
 }
 
-function cancelEdit() {
+const cancelEdit = () => {
   cancelling.value = true
   editingField.value = null
 }
@@ -134,21 +134,21 @@ function cancelEdit() {
 const editingLinkIndex = ref<number | null>(null)
 const linkEditBuffer = ref<TaskLink>({ label: '', url: '' })
 
-function startAddLink() {
+const startAddLink = () => {
   editingLinkIndex.value = -1
   linkEditBuffer.value = { label: '', url: '' }
 }
 
-function startEditLink(index: number, link: TaskLink) {
+const startEditLink = (index: number, link: TaskLink) => {
   editingLinkIndex.value = index
   linkEditBuffer.value = { ...link }
 }
 
-function cancelLinkEdit() {
+const cancelLinkEdit = () => {
   editingLinkIndex.value = null
 }
 
-function saveLink() {
+const saveLink = () => {
   if (!props.task) return
   const buffer = linkEditBuffer.value
   const label = buffer.label.trim()
@@ -164,7 +164,7 @@ function saveLink() {
   editingLinkIndex.value = null
 }
 
-function deleteLink(index: number) {
+const deleteLink = (index: number) => {
   if (!props.task) return
   const next = props.task.links.filter((_, i) => i !== index)
   emit('change-field', { links: next })
@@ -195,11 +195,11 @@ const statusItems = computed<DropdownMenuItem[][]>(() => {
   ]
 })
 
-function buildMemberItems(
+const buildMemberItems = (
   currentId: string | null | undefined,
   fieldName: 'assigneeMemberId' | 'requesterMemberId',
   allowNone: boolean
-): DropdownMenuItem[][] {
+): DropdownMenuItem[][] => {
   const list = Object.values(props.memberMap)
   const items: DropdownMenuItem[] = list.map((m) => {
     const isCurrent = m.id === currentId
@@ -285,7 +285,7 @@ const departmentItems = computed<DropdownMenuItem[][]>(() => {
 
 const tagsList = computed(() => Object.values(props.tagMap))
 
-function toggleTag(tagCode: string, enabled: boolean) {
+const toggleTag = (tagCode: string, enabled: boolean) => {
   if (!props.task) return
   const newTags = enabled
     ? [...props.task.tagCodes, tagCode]
@@ -293,11 +293,11 @@ function toggleTag(tagCode: string, enabled: boolean) {
   emit('change-field', { tagCodes: newTags })
 }
 
-function setDeadline(value: string | null) {
+const setDeadline = (value: string | null) => {
   emit('change-field', { deadline: value })
 }
 
-function setPlannedCompletionDate(value: string | null) {
+const setPlannedCompletionDate = (value: string | null) => {
   emit('change-field', { plannedCompletionDate: value })
 }
 </script>

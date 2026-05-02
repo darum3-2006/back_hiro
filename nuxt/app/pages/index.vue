@@ -42,7 +42,7 @@ const hasActiveFilter = computed(() =>
   Boolean(search.value || statusFilter.value || priorityFilter.value || assigneeFilter.value)
 )
 
-function resetFilters() {
+const resetFilters = () => {
   search.value = ''
   statusFilter.value = ''
   priorityFilter.value = ''
@@ -55,7 +55,7 @@ const selectedTaskId = ref<number | null>(null)
 
 const toast = useToast()
 
-async function onTaskCreated(task: Task) {
+const onTaskCreated = async (task: Task) => {
   await refreshTasks()
   toast.add({ title: 'タスクを作成しました', description: `#${task.id} ${task.content}`, color: 'success', icon: 'i-lucide-check' })
   selectedTaskId.value = task.id
@@ -74,7 +74,7 @@ watch(currentProjectId, () => {
   selectedTaskId.value = null
 })
 
-function openTask(task: Task) {
+const openTask = (task: Task) => {
   selectedTaskId.value = task.id
   slideoverOpen.value = true
 }
@@ -91,7 +91,7 @@ const filteredTasks = computed(() => {
 
 const sorting = ref<{ id: string, desc: boolean }[]>([{ id: 'id', desc: false }])
 
-function sortHeader(label: string) {
+const sortHeader = (label: string) => {
   return ({ column }: { column: { getIsSorted: () => false | 'asc' | 'desc', toggleSorting: (desc: boolean) => void } }) => {
     const sorted = column.getIsSorted()
     return h(UButton, {
@@ -151,12 +151,12 @@ const columns: TableColumn<Task>[] = [
   }
 ]
 
-async function updateTaskField(taskId: number, patch: Partial<Omit<Task, 'id' | 'projectId' | 'createdAt'>>) {
+const updateTaskField = async (taskId: number, patch: Partial<Omit<Task, 'id' | 'projectId' | 'createdAt'>>) => {
   await updateTask(currentProjectId.value, taskId, patch)
   await refreshTasks()
 }
 
-function buildStatusItems(task: Task): DropdownMenuItem[][] {
+const buildStatusItems = (task: Task): DropdownMenuItem[][] => {
   return [
     statuses.value.map((s) => {
       const isCurrent = s.code === task.statusCode
@@ -173,7 +173,7 @@ function buildStatusItems(task: Task): DropdownMenuItem[][] {
   ]
 }
 
-function buildAssigneeItems(task: Task): DropdownMenuItem[][] {
+const buildAssigneeItems = (task: Task): DropdownMenuItem[][] => {
   return [
     members.value.map((m) => {
       const isCurrent = m.id === task.assigneeMemberId
@@ -190,7 +190,7 @@ function buildAssigneeItems(task: Task): DropdownMenuItem[][] {
   ]
 }
 
-function buildPriorityItems(task: Task): DropdownMenuItem[][] {
+const buildPriorityItems = (task: Task): DropdownMenuItem[][] => {
   const items: DropdownMenuItem[] = priorities.value.map((p) => {
     const isCurrent = p.code === task.priorityCode
     return {
@@ -215,14 +215,14 @@ function buildPriorityItems(task: Task): DropdownMenuItem[][] {
   return [items, [noneItem]]
 }
 
-function toggleTag(task: Task, tagCode: string, enabled: boolean) {
+const toggleTag = (task: Task, tagCode: string, enabled: boolean) => {
   const newTags = enabled
     ? [...task.tagCodes, tagCode]
     : task.tagCodes.filter(c => c !== tagCode)
   updateTaskField(task.id, { tagCodes: newTags })
 }
 
-function setDeadline(task: Task, value: string | null) {
+const setDeadline = (task: Task, value: string | null) => {
   updateTaskField(task.id, { deadline: value })
 }
 </script>

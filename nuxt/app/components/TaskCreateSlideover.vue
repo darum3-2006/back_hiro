@@ -25,7 +25,7 @@ const emit = defineEmits<{
 
 type Draft = Omit<Task, 'id' | 'projectId' | 'createdAt'>
 
-function makeInitialDraft(): Draft {
+const makeInitialDraft = (): Draft => {
   return {
     content: '',
     description: '',
@@ -41,11 +41,11 @@ function makeInitialDraft(): Draft {
   }
 }
 
-function addLink() {
+const addLink = () => {
   draft.value.links.push({ label: '', url: '' })
 }
 
-function removeLink(index: number) {
+const removeLink = (index: number) => {
   draft.value.links.splice(index, 1)
 }
 
@@ -64,7 +64,7 @@ const canSubmit = computed(() => Boolean(
   && draft.value.statusCode
 ))
 
-async function submit() {
+const submit = async () => {
   if (!canSubmit.value) return
   submitting.value = true
   try {
@@ -120,7 +120,7 @@ const priorityItems = computed<DropdownMenuItem[][]>(() => {
   return [items, [noneItem]]
 })
 
-function buildMemberItems(currentId: string | null, fieldName: 'assigneeMemberId' | 'requesterMemberId', allowNone: boolean): DropdownMenuItem[][] {
+const buildMemberItems = (currentId: string | null, fieldName: 'assigneeMemberId' | 'requesterMemberId', allowNone: boolean): DropdownMenuItem[][] => {
   const items: DropdownMenuItem[] = props.members.map((m) => {
     const isCurrent = m.id === currentId
     return {
@@ -164,7 +164,7 @@ const departmentItems = computed<DropdownMenuItem[][]>(() => {
   return [items, [noneItem]]
 })
 
-function toggleTag(tagCode: string, enabled: boolean) {
+const toggleTag = (tagCode: string, enabled: boolean) => {
   draft.value.tagCodes = enabled
     ? [...draft.value.tagCodes, tagCode]
     : draft.value.tagCodes.filter(c => c !== tagCode)
