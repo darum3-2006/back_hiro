@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { h, resolveComponent } from 'vue'
 import type { Row } from '@tanstack/vue-table'
-import type { TableColumn } from '@nuxt/ui'
+import type { TableColumn, DropdownMenuItem } from '@nuxt/ui'
+import type { DateValue } from '@internationalized/date'
+import { updateTask } from '~/api/tasks'
+import { calendarDateToIso, isoToCalendarDate } from '~/utils/date'
 import type { Task } from '~/types/task'
 
 const UButton = resolveComponent('UButton')
@@ -9,7 +12,7 @@ const UButton = resolveComponent('UButton')
 const currentProjectId = useCurrentProjectId()
 const currentUserId = useCurrentUserId()
 
-const { data: tasks } = await useTasks(currentProjectId)
+const { data: tasks, refresh: refreshTasks } = await useTasks(currentProjectId)
 const { data: statuses } = await useTaskStatuses(currentProjectId)
 const { data: priorities } = await useTaskPriorities(currentProjectId)
 const { data: tags } = await useTags(currentProjectId)
@@ -46,7 +49,25 @@ function resetFilters() {
   assigneeFilter.value = ''
 }
 
-watch(currentProjectId, resetFilters)
+const slideoverOpen = ref(false)
+const selectedTaskId = ref<number | null>(null)
+
+const selectedTask = computed<Task | null>(() =>
+  selectedTaskId.value !== null
+    ? tasks.value.find(t => t.id === selectedTaskId.value) ?? null
+    : null
+)
+
+watch(currentProjectId, () => {
+  resetFilters()
+  slideoverOpen.value = false
+  selectedTaskId.value = null
+})
+
+function openTask(task: Task) {
+  selectedTaskId.value = task.id
+  slideoverOpen.value = true
+}
 
 const filteredTasks = computed(() => {
   return tasks.value.filter((t) => {
@@ -120,12 +141,79 @@ const columns: TableColumn<Task>[] = [
   }
 ]
 
-const slideoverOpen = ref(false)
-const selectedTask = ref<Task | null>(null)
+async function updateTaskField(taskId: number, patch: Partial<Omit<Task, 'id' | 'projectId' | 'createdAt'>>) {
+  await updateTask(currentProjectId.value, taskId, patch)
+  await refreshTasks()
+}
 
-function openTask(task: Task) {
-  selectedTask.value = task
-  slideoverOpen.value = true
+function buildStatusItems(task: Task): DropdownMenuItem[][] {
+  return [
+    statuses.value.map((s) => {
+      const isCurrent = s.code === task.statusCode
+      return {
+        label: s.label,
+        icon: isCurrent ? 'i-lucide-check' : 'i-lucide-circle-dashed',
+        class: isCurrent ? 'bg-elevated/80 font-semibold' : '',
+        onSelect: () => {
+          if (isCurrent) return
+          updateTaskField(task.id, { statusCode: s.code })
+        }
+      }
+    })
+  ]
+}
+
+function buildAssigneeItems(task: Task): DropdownMenuItem[][] {
+  return [
+    members.value.map((m) => {
+      const isCurrent = m.id === task.assigneeMemberId
+      return {
+        label: m.displayName,
+        icon: isCurrent ? 'i-lucide-check' : 'i-lucide-user',
+        class: isCurrent ? 'bg-elevated/80 font-semibold' : '',
+        onSelect: () => {
+          if (isCurrent) return
+          updateTaskField(task.id, { assigneeMemberId: m.id })
+        }
+      }
+    })
+  ]
+}
+
+function buildPriorityItems(task: Task): DropdownMenuItem[][] {
+  const items: DropdownMenuItem[] = priorities.value.map((p) => {
+    const isCurrent = p.code === task.priorityCode
+    return {
+      label: p.label,
+      icon: isCurrent ? 'i-lucide-check' : 'i-lucide-flag',
+      class: isCurrent ? 'bg-elevated/80 font-semibold' : '',
+      onSelect: () => {
+        if (isCurrent) return
+        updateTaskField(task.id, { priorityCode: p.code })
+      }
+    }
+  })
+  const noneItem: DropdownMenuItem = {
+    label: 'なし',
+    icon: task.priorityCode === null ? 'i-lucide-check' : 'i-lucide-x',
+    class: task.priorityCode === null ? 'bg-elevated/80 font-semibold' : '',
+    onSelect: () => {
+      if (task.priorityCode === null) return
+      updateTaskField(task.id, { priorityCode: null })
+    }
+  }
+  return [items, [noneItem]]
+}
+
+function toggleTag(task: Task, tagCode: string, enabled: boolean) {
+  const newTags = enabled
+    ? [...task.tagCodes, tagCode]
+    : task.tagCodes.filter(c => c !== tagCode)
+  updateTaskField(task.id, { tagCodes: newTags })
+}
+
+function setDeadline(task: Task, value: string | null) {
+  updateTaskField(task.id, { deadline: value })
 }
 </script>
 
@@ -185,7 +273,7 @@ function openTask(task: Task) {
         v-model:sorting="sorting"
         :data="filteredTasks"
         :columns="columns"
-        :ui="{ tr: 'cursor-pointer hover:bg-elevated/40', td: 'align-top py-2' }"
+        :ui="{ td: 'align-top py-2' }"
       >
         <template #id-cell="{ row }">
           <button
@@ -206,45 +294,107 @@ function openTask(task: Task) {
         </template>
 
         <template #assigneeMemberId-cell="{ row }">
-          <span class="text-sm">
-            {{ memberMap[row.original.assigneeMemberId]?.displayName ?? '—' }}
-          </span>
+          <UDropdownMenu :items="buildAssigneeItems(row.original)">
+            <button class="text-sm hover:underline cursor-pointer">
+              {{ memberMap[row.original.assigneeMemberId]?.displayName ?? '—' }}
+            </button>
+          </UDropdownMenu>
         </template>
 
         <template #statusCode-cell="{ row }">
-          <UBadge
+          <UDropdownMenu
             v-if="statusMap[row.original.statusCode]"
-            :color="statusMap[row.original.statusCode]!.color"
-            variant="subtle"
-            :label="statusMap[row.original.statusCode]!.label"
-          />
+            :items="buildStatusItems(row.original)"
+          >
+            <UBadge
+              :color="statusMap[row.original.statusCode]!.color"
+              variant="subtle"
+              :label="statusMap[row.original.statusCode]!.label"
+              class="cursor-pointer hover:opacity-80"
+            />
+          </UDropdownMenu>
         </template>
 
         <template #priorityCode-cell="{ row }">
-          <UBadge
-            v-if="row.original.priorityCode && priorityMap[row.original.priorityCode]"
-            :color="priorityMap[row.original.priorityCode]!.color"
-            variant="subtle"
-            :label="priorityMap[row.original.priorityCode]!.label"
-          />
-          <span v-else class="text-muted">—</span>
+          <UDropdownMenu :items="buildPriorityItems(row.original)">
+            <UBadge
+              v-if="row.original.priorityCode && priorityMap[row.original.priorityCode]"
+              :color="priorityMap[row.original.priorityCode]!.color"
+              variant="subtle"
+              :label="priorityMap[row.original.priorityCode]!.label"
+              class="cursor-pointer hover:opacity-80"
+            />
+            <UBadge
+              v-else
+              color="neutral"
+              variant="outline"
+              label="—"
+              class="cursor-pointer hover:opacity-80"
+            />
+          </UDropdownMenu>
         </template>
 
         <template #tagCodes-cell="{ row }">
-          <div class="flex flex-wrap gap-1">
-            <UBadge
-              v-for="code in row.original.tagCodes"
-              :key="code"
-              :color="tagMap[code]?.color ?? 'neutral'"
-              variant="soft"
-              size="sm"
-              :label="tagMap[code]?.name ?? code"
-            />
-          </div>
+          <UPopover>
+            <button class="flex flex-wrap gap-1 cursor-pointer min-w-12">
+              <UBadge
+                v-for="code in row.original.tagCodes"
+                :key="code"
+                :color="tagMap[code]?.color ?? 'neutral'"
+                variant="soft"
+                size="sm"
+                :label="tagMap[code]?.name ?? code"
+              />
+              <UBadge
+                v-if="row.original.tagCodes.length === 0"
+                color="neutral"
+                variant="outline"
+                label="+ タグ"
+                size="sm"
+              />
+            </button>
+            <template #content>
+              <div class="p-2 space-y-1 min-w-44">
+                <label
+                  v-for="t in tags"
+                  :key="t.code"
+                  class="flex items-center gap-2 px-2 py-1 hover:bg-elevated/40 rounded cursor-pointer"
+                >
+                  <UCheckbox
+                    :model-value="row.original.tagCodes.includes(t.code)"
+                    @update:model-value="(v: boolean) => toggleTag(row.original, t.code, v)"
+                  />
+                  <UBadge :color="t.color" variant="soft" size="sm" :label="t.name" />
+                </label>
+              </div>
+            </template>
+          </UPopover>
         </template>
 
         <template #deadline-cell="{ row }">
-          <span class="text-sm tabular-nums">{{ row.original.deadline ?? '—' }}</span>
+          <UPopover>
+            <button class="text-sm tabular-nums hover:underline cursor-pointer min-w-16 text-left">
+              {{ row.original.deadline ?? '—' }}
+            </button>
+            <template #content>
+              <div class="p-2 space-y-2">
+                <UCalendar
+                  :model-value="isoToCalendarDate(row.original.deadline)"
+                  locale="ja"
+                  @update:model-value="(d: DateValue | null) => setDeadline(row.original, calendarDateToIso(d))"
+                />
+                <UButton
+                  v-if="row.original.deadline"
+                  size="sm"
+                  color="neutral"
+                  variant="ghost"
+                  block
+                  label="クリア"
+                  @click="setDeadline(row.original, null)"
+                />
+              </div>
+            </template>
+          </UPopover>
         </template>
       </UTable>
     </template>
@@ -259,5 +409,6 @@ function openTask(task: Task) {
     :member-map="memberMap"
     :tag-map="tagMap"
     :department-map="departmentMap"
+    @change-field="(patch: Partial<Task>) => selectedTask && updateTaskField(selectedTask.id, patch)"
   />
 </template>
