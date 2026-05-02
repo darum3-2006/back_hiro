@@ -1,77 +1,74 @@
-<script setup>
+<script setup lang="ts">
 useHead({
-  meta: [
-    { name: 'viewport', content: 'width=device-width, initial-scale=1' }
-  ],
-  link: [
-    { rel: 'icon', href: '/favicon.ico' }
-  ],
-  htmlAttrs: {
-    lang: 'en'
-  }
+  htmlAttrs: { lang: 'ja' },
+  meta: [{ name: 'viewport', content: 'width=device-width, initial-scale=1' }],
+  link: [{ rel: 'icon', href: '/favicon.ico' }]
 })
 
-const title = 'Nuxt Starter Template'
-const description = 'A production-ready starter template powered by Nuxt UI. Build beautiful, accessible, and performant applications in minutes, not hours.'
+useSeoMeta({ title: 'プロジェクト管理' })
 
-useSeoMeta({
-  title,
-  description,
-  ogTitle: title,
-  ogDescription: description,
-  ogImage: 'https://ui.nuxt.com/assets/templates/nuxt/starter-light.png',
-  twitterCard: 'summary_large_image'
-})
+const { data: projects } = await useProjects()
+const currentProjectId = useCurrentProjectId()
+
+const currentProject = computed(() =>
+  projects.value.find(p => p.id === currentProjectId.value)
+)
+
+const projectMenuItems = computed(() => [
+  projects.value.map(p => ({
+    label: p.name,
+    description: p.description ?? undefined,
+    icon: p.id === currentProjectId.value ? 'i-lucide-check' : 'i-lucide-folder-kanban',
+    onSelect: () => { currentProjectId.value = p.id }
+  }))
+])
+
+const navItems = [
+  [
+    { label: 'タスク一覧', icon: 'i-lucide-list-checks', to: '/' }
+  ]
+]
 </script>
 
 <template>
   <UApp>
-    <UHeader>
-      <template #left>
-        <NuxtLink to="/">
-          <AppLogo class="w-auto h-6 shrink-0" />
-        </NuxtLink>
+    <UDashboardGroup>
+      <UDashboardSidebar
+        id="default"
+        collapsible
+        resizable
+        :default-size="18"
+        :min-size="14"
+        :max-size="28"
+      >
+        <template #header>
+          <UDropdownMenu
+            :items="projectMenuItems"
+            :ui="{ content: 'w-(--reka-dropdown-menu-trigger-width)' }"
+          >
+            <UButton
+              color="neutral"
+              variant="outline"
+              block
+              class="justify-between"
+              trailing-icon="i-lucide-chevrons-up-down"
+            >
+              <UIcon name="i-lucide-folder-kanban" class="size-4" />
+              <span class="truncate flex-1 text-left">{{ currentProject?.name ?? 'プロジェクト' }}</span>
+            </UButton>
+          </UDropdownMenu>
+        </template>
 
-        <TemplateMenu />
-      </template>
+        <UNavigationMenu :items="navItems" orientation="vertical" />
 
-      <template #right>
-        <UColorModeButton />
+        <template #footer>
+          <p class="px-2 py-1 text-xs text-muted">
+            v0.0.1 (mockup)
+          </p>
+        </template>
+      </UDashboardSidebar>
 
-        <UButton
-          to="https://github.com/nuxt-ui-templates/starter"
-          target="_blank"
-          icon="i-simple-icons-github"
-          aria-label="GitHub"
-          color="neutral"
-          variant="ghost"
-        />
-      </template>
-    </UHeader>
-
-    <UMain>
       <NuxtPage />
-    </UMain>
-
-    <USeparator icon="i-simple-icons-nuxtdotjs" />
-
-    <UFooter>
-      <template #left>
-        <p class="text-sm text-muted">
-          Built with Nuxt UI • © {{ new Date().getFullYear() }}
-        </p>
-      </template>
-
-      <template #right>
-        <UButton
-          to="https://github.com/nuxt-ui-templates/starter"
-          target="_blank"
-          icon="i-simple-icons-github"
-          aria-label="GitHub"
-          color="neutral"
-          variant="ghost"
-        />
-      </template>
-    </UFooter>
+    </UDashboardGroup>
   </UApp>
 </template>
