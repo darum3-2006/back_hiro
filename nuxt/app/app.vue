@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { Project } from '~/types/project'
+
 useHead({
   htmlAttrs: { lang: 'ja' },
   meta: [{ name: 'viewport', content: 'width=device-width, initial-scale=1' }],
@@ -7,23 +9,65 @@ useHead({
 
 useSeoMeta({ title: 'プロジェクト管理' })
 
-const { data: projects } = await useProjects()
+const route = useRoute()
+
+const { data: projects, refresh: refreshProjects } = await useProjects()
 const currentProjectId = useCurrentProjectId()
+const projectCreateModalOpen = useProjectCreateModalOpen()
+
+const activeProjects = computed(() => projects.value.filter((p) => !p.archivedAt))
 
 const currentProject = computed(() => projects.value.find((p) => p.id === currentProjectId.value))
 
+watchEffect(() => {
+  // プロジェクト固有のルートにいるときだけ、現在プロジェクトが無効/アーカイブなら別へ自動遷移
+  if (!route.params.projectId) return
+  const current = currentProject.value
+  if (!current || current.archivedAt) {
+    const firstActive = activeProjects.value[0]
+    if (firstActive) {
+      navigateTo(`/projects/${firstActive.id}/tasks`, { replace: true })
+    } else {
+      navigateTo('/projects', { replace: true })
+    }
+  }
+})
+
 const projectMenuItems = computed(() => [
-  projects.value.map((p) => ({
+  activeProjects.value.map((p) => ({
     label: p.name,
     description: p.description ?? undefined,
     icon: p.id === currentProjectId.value ? 'i-lucide-check' : 'i-lucide-folder-kanban',
     onSelect: () => {
-      currentProjectId.value = p.id
+      navigateTo(`/projects/${p.id}/tasks`)
     }
-  }))
+  })),
+  [
+    {
+      label: '新規プロジェクト',
+      icon: 'i-lucide-plus',
+      onSelect: () => {
+        projectCreateModalOpen.value = true
+      }
+    }
+  ]
 ])
 
-const navItems = [[{ label: 'タスク一覧', icon: 'i-lucide-list-checks', to: '/' }]]
+const navItems = computed(() => [
+  [
+    {
+      label: 'タスク一覧',
+      icon: 'i-lucide-list-checks',
+      to: currentProjectId.value ? `/projects/${currentProjectId.value}/tasks` : '/'
+    }
+  ],
+  [{ label: 'プロジェクト', icon: 'i-lucide-folders', to: '/projects' }]
+])
+
+const onProjectCreated = async (project: Project) => {
+  await refreshProjects()
+  await navigateTo(`/projects/${project.id}/tasks`)
+}
 </script>
 
 <template>
@@ -66,5 +110,7 @@ const navItems = [[{ label: 'タスク一覧', icon: 'i-lucide-list-checks', to:
 
       <NuxtPage />
     </UDashboardGroup>
+
+    <ProjectCreateModal v-model:open="projectCreateModalOpen" @created="onProjectCreated" />
   </UApp>
 </template>

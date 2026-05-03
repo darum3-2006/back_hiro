@@ -3,4 +3,5 @@ export interface Project {
   key: string
   name: string
   description: string | null
+  archivedAt: string | null
 }
