@@ -1,8 +1,5 @@
 <script setup lang="ts">
-import type { DropdownMenuItem } from '@nuxt/ui'
-import type { DateValue } from '@internationalized/date'
 import { createComment, updateComment } from '~/api/comments'
-import { calendarDateToIso, isoToCalendarDate } from '~/utils/date'
 import type { Member } from '~/types/member'
 import type { Department, Tag, TaskPriority, TaskStatus } from '~/types/master'
 import type { Task, TaskLink } from '~/types/task'
@@ -28,6 +25,7 @@ const taskIdRef = computed<number | null>(() => props.task?.id ?? null)
 
 const { data: comments, refresh: refreshComments } = await useTaskComments(projectIdRef, taskIdRef)
 
+// ===== Comments =====
 const commentBody = ref('')
 const posting = ref(false)
 
@@ -76,17 +74,9 @@ const saveCommentEdit = async () => {
   }
 }
 
-watch(() => props.task?.id, () => {
-  cancelCommentEdit()
-})
-
-const fmtDate = (d: string | null): string => {
-  return d ?? '—'
-}
-
-const fmtDateTime = (d: string): string => {
-  return d.replace('T', ' ')
-}
+// ===== Formatters =====
+const fmtDate = (d: string | null): string => d ?? '—'
+const fmtDateTime = (d: string): string => d.replace('T', ' ')
 
 // ===== Text inline edit =====
 type EditableField = 'content' | 'description'
@@ -173,133 +163,31 @@ const deleteLink = (index: number) => {
 watch(() => props.task?.id, () => {
   editingField.value = null
   editingLinkIndex.value = null
+  cancelCommentEdit()
 })
 
-// ===== Status / Assignee / Priority / Requester / Department dropdowns =====
-const statusItems = computed<DropdownMenuItem[][]>(() => {
-  const list = Object.values(props.statusMap).sort((a, b) => a.order - b.order)
-  const currentCode = props.task?.statusCode
-  return [
-    list.map((s) => {
-      const isCurrent = s.code === currentCode
-      return {
-        label: s.label,
-        icon: isCurrent ? 'i-lucide-check' : 'i-lucide-circle-dashed',
-        class: isCurrent ? 'bg-elevated/80 font-semibold' : '',
-        onSelect: () => {
-          if (isCurrent) return
-          emit('change-field', { statusCode: s.code })
-        }
-      }
-    })
-  ]
-})
+// ===== Master select items =====
+const statusSelectItems = computed(() =>
+  Object.values(props.statusMap)
+    .sort((a, b) => a.order - b.order)
+    .map(s => ({ value: s.code, label: s.label }))
+)
 
-const buildMemberItems = (
-  currentId: string | null | undefined,
-  fieldName: 'assigneeMemberId' | 'requesterMemberId',
-  allowNone: boolean
-): DropdownMenuItem[][] => {
-  const list = Object.values(props.memberMap)
-  const items: DropdownMenuItem[] = list.map((m) => {
-    const isCurrent = m.id === currentId
-    return {
-      label: m.displayName,
-      icon: isCurrent ? 'i-lucide-check' : 'i-lucide-user',
-      class: isCurrent ? 'bg-elevated/80 font-semibold' : '',
-      onSelect: () => {
-        if (isCurrent) return
-        emit('change-field', { [fieldName]: m.id })
-      }
-    }
-  })
-  if (!allowNone) return [items]
-  const noneItem: DropdownMenuItem = {
-    label: 'なし',
-    icon: !currentId ? 'i-lucide-check' : 'i-lucide-x',
-    class: !currentId ? 'bg-elevated/80 font-semibold' : '',
-    onSelect: () => {
-      if (!currentId) return
-      emit('change-field', { [fieldName]: null })
-    }
-  }
-  return [items, [noneItem]]
-}
+const prioritySelectItems = computed(() =>
+  Object.values(props.priorityMap)
+    .sort((a, b) => a.order - b.order)
+    .map(p => ({ value: p.code, label: p.label }))
+)
 
-const assigneeItems = computed(() => buildMemberItems(props.task?.assigneeMemberId, 'assigneeMemberId', false))
-const requesterItems = computed(() => buildMemberItems(props.task?.requesterMemberId, 'requesterMemberId', true))
+const memberSelectItems = computed(() =>
+  Object.values(props.memberMap).map(m => ({ value: m.id, label: m.displayName }))
+)
 
-const priorityItems = computed<DropdownMenuItem[][]>(() => {
-  const list = Object.values(props.priorityMap).sort((a, b) => a.order - b.order)
-  const currentCode = props.task?.priorityCode ?? null
-  const items: DropdownMenuItem[] = list.map((p) => {
-    const isCurrent = p.code === currentCode
-    return {
-      label: p.label,
-      icon: isCurrent ? 'i-lucide-check' : 'i-lucide-flag',
-      class: isCurrent ? 'bg-elevated/80 font-semibold' : '',
-      onSelect: () => {
-        if (isCurrent) return
-        emit('change-field', { priorityCode: p.code })
-      }
-    }
-  })
-  const noneItem: DropdownMenuItem = {
-    label: 'なし',
-    icon: currentCode === null ? 'i-lucide-check' : 'i-lucide-x',
-    class: currentCode === null ? 'bg-elevated/80 font-semibold' : '',
-    onSelect: () => {
-      if (currentCode === null) return
-      emit('change-field', { priorityCode: null })
-    }
-  }
-  return [items, [noneItem]]
-})
-
-const departmentItems = computed<DropdownMenuItem[][]>(() => {
-  const list = Object.values(props.departmentMap)
-  const currentCode = props.task?.requestingDeptCode ?? null
-  const items: DropdownMenuItem[] = list.map((d) => {
-    const isCurrent = d.code === currentCode
-    return {
-      label: d.name,
-      icon: isCurrent ? 'i-lucide-check' : 'i-lucide-building-2',
-      class: isCurrent ? 'bg-elevated/80 font-semibold' : '',
-      onSelect: () => {
-        if (isCurrent) return
-        emit('change-field', { requestingDeptCode: d.code })
-      }
-    }
-  })
-  const noneItem: DropdownMenuItem = {
-    label: 'なし',
-    icon: currentCode === null ? 'i-lucide-check' : 'i-lucide-x',
-    class: currentCode === null ? 'bg-elevated/80 font-semibold' : '',
-    onSelect: () => {
-      if (currentCode === null) return
-      emit('change-field', { requestingDeptCode: null })
-    }
-  }
-  return [items, [noneItem]]
-})
+const departmentSelectItems = computed(() =>
+  Object.values(props.departmentMap).map(d => ({ value: d.code, label: d.name }))
+)
 
 const tagsList = computed(() => Object.values(props.tagMap))
-
-const toggleTag = (tagCode: string, enabled: boolean) => {
-  if (!props.task) return
-  const newTags = enabled
-    ? [...props.task.tagCodes, tagCode]
-    : props.task.tagCodes.filter(c => c !== tagCode)
-  emit('change-field', { tagCodes: newTags })
-}
-
-const setDeadline = (value: string | null) => {
-  emit('change-field', { deadline: value })
-}
-
-const setPlannedCompletionDate = (value: string | null) => {
-  emit('change-field', { plannedCompletionDate: value })
-}
 </script>
 
 <template>
@@ -367,9 +255,12 @@ const setPlannedCompletionDate = (value: string | null) => {
             <p class="text-xs text-muted mb-1">
               ステータス
             </p>
-            <UDropdownMenu
+            <SelectMenu
               v-if="statusMap[task.statusCode]"
-              :items="statusItems"
+              :items="statusSelectItems"
+              :current="task.statusCode"
+              default-icon="i-lucide-circle-dashed"
+              @select="(c: string | null) => c && emit('change-field', { statusCode: c })"
             >
               <UBadge
                 :color="statusMap[task.statusCode]!.color"
@@ -377,13 +268,19 @@ const setPlannedCompletionDate = (value: string | null) => {
                 :label="statusMap[task.statusCode]!.label"
                 class="cursor-pointer hover:opacity-80"
               />
-            </UDropdownMenu>
+            </SelectMenu>
           </div>
           <div>
             <p class="text-xs text-muted mb-1">
               優先度
             </p>
-            <UDropdownMenu :items="priorityItems">
+            <SelectMenu
+              :items="prioritySelectItems"
+              :current="task.priorityCode"
+              allow-none
+              default-icon="i-lucide-flag"
+              @select="(c: string | null) => emit('change-field', { priorityCode: c })"
+            >
               <UBadge
                 v-if="task.priorityCode && priorityMap[task.priorityCode]"
                 :color="priorityMap[task.priorityCode]!.color"
@@ -398,13 +295,18 @@ const setPlannedCompletionDate = (value: string | null) => {
                 label="—"
                 class="cursor-pointer hover:opacity-80"
               />
-            </UDropdownMenu>
+            </SelectMenu>
           </div>
           <div>
             <p class="text-xs text-muted mb-1">
               担当者
             </p>
-            <UDropdownMenu :items="assigneeItems">
+            <SelectMenu
+              :items="memberSelectItems"
+              :current="task.assigneeMemberId"
+              default-icon="i-lucide-user"
+              @select="(c: string | null) => c && emit('change-field', { assigneeMemberId: c })"
+            >
               <button class="text-sm hover:underline cursor-pointer text-left">
                 {{ memberMap[task.assigneeMemberId]?.displayName ?? '—' }}
                 <UBadge
@@ -416,51 +318,48 @@ const setPlannedCompletionDate = (value: string | null) => {
                   class="ml-1"
                 />
               </button>
-            </UDropdownMenu>
+            </SelectMenu>
           </div>
           <div>
             <p class="text-xs text-muted mb-1">
               期限
             </p>
-            <UPopover>
+            <DatePopover
+              :model-value="task.deadline"
+              @update:model-value="(v: string | null) => emit('change-field', { deadline: v })"
+            >
               <button class="text-sm tabular-nums hover:underline cursor-pointer text-left">
                 {{ fmtDate(task.deadline) }}
               </button>
-              <template #content>
-                <div class="p-2 space-y-2">
-                  <UCalendar
-                    :model-value="isoToCalendarDate(task.deadline)"
-                    locale="ja"
-                    @update:model-value="(d: DateValue | null) => setDeadline(calendarDateToIso(d))"
-                  />
-                  <UButton
-                    v-if="task.deadline"
-                    size="sm"
-                    color="neutral"
-                    variant="ghost"
-                    block
-                    label="クリア"
-                    @click="setDeadline(null)"
-                  />
-                </div>
-              </template>
-            </UPopover>
+            </DatePopover>
           </div>
           <div>
             <p class="text-xs text-muted mb-1">
               依頼部署
             </p>
-            <UDropdownMenu :items="departmentItems">
+            <SelectMenu
+              :items="departmentSelectItems"
+              :current="task.requestingDeptCode"
+              allow-none
+              default-icon="i-lucide-building-2"
+              @select="(c: string | null) => emit('change-field', { requestingDeptCode: c })"
+            >
               <button class="text-sm hover:underline cursor-pointer text-left">
                 {{ task.requestingDeptCode ? departmentMap[task.requestingDeptCode]?.name ?? '—' : '—' }}
               </button>
-            </UDropdownMenu>
+            </SelectMenu>
           </div>
           <div>
             <p class="text-xs text-muted mb-1">
               依頼者
             </p>
-            <UDropdownMenu :items="requesterItems">
+            <SelectMenu
+              :items="memberSelectItems"
+              :current="task.requesterMemberId"
+              allow-none
+              default-icon="i-lucide-user"
+              @select="(c: string | null) => emit('change-field', { requesterMemberId: c })"
+            >
               <button class="text-sm hover:underline cursor-pointer text-left">
                 {{ task.requesterMemberId ? (memberMap[task.requesterMemberId]?.displayName ?? '—') : '—' }}
                 <UBadge
@@ -472,35 +371,20 @@ const setPlannedCompletionDate = (value: string | null) => {
                   class="ml-1"
                 />
               </button>
-            </UDropdownMenu>
+            </SelectMenu>
           </div>
           <div>
             <p class="text-xs text-muted mb-1">
               完了予定日
             </p>
-            <UPopover>
+            <DatePopover
+              :model-value="task.plannedCompletionDate"
+              @update:model-value="(v: string | null) => emit('change-field', { plannedCompletionDate: v })"
+            >
               <button class="text-sm tabular-nums hover:underline cursor-pointer text-left">
                 {{ fmtDate(task.plannedCompletionDate) }}
               </button>
-              <template #content>
-                <div class="p-2 space-y-2">
-                  <UCalendar
-                    :model-value="isoToCalendarDate(task.plannedCompletionDate)"
-                    locale="ja"
-                    @update:model-value="(d: DateValue | null) => setPlannedCompletionDate(calendarDateToIso(d))"
-                  />
-                  <UButton
-                    v-if="task.plannedCompletionDate"
-                    size="sm"
-                    color="neutral"
-                    variant="ghost"
-                    block
-                    label="クリア"
-                    @click="setPlannedCompletionDate(null)"
-                  />
-                </div>
-              </template>
-            </UPopover>
+            </DatePopover>
           </div>
           <div>
             <p class="text-xs text-muted mb-1">
@@ -516,7 +400,11 @@ const setPlannedCompletionDate = (value: string | null) => {
           <p class="text-xs text-muted mb-1">
             タグ
           </p>
-          <UPopover>
+          <TagPicker
+            :tags="tagsList"
+            :selected="task.tagCodes"
+            @update:selected="(codes: string[]) => emit('change-field', { tagCodes: codes })"
+          >
             <button class="flex flex-wrap gap-1 cursor-pointer">
               <UBadge
                 v-for="code in task.tagCodes"
@@ -532,22 +420,7 @@ const setPlannedCompletionDate = (value: string | null) => {
                 label="+ タグ"
               />
             </button>
-            <template #content>
-              <div class="p-2 space-y-1 min-w-48">
-                <label
-                  v-for="t in tagsList"
-                  :key="t.code"
-                  class="flex items-center gap-2 px-2 py-1 hover:bg-elevated/40 rounded cursor-pointer"
-                >
-                  <UCheckbox
-                    :model-value="task.tagCodes.includes(t.code)"
-                    @update:model-value="(v: boolean) => toggleTag(t.code, v)"
-                  />
-                  <UBadge :color="t.color" variant="soft" size="sm" :label="t.name" />
-                </label>
-              </div>
-            </template>
-          </UPopover>
+          </TagPicker>
         </div>
 
         <!-- Links (editable list) -->

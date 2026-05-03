@@ -1,8 +1,5 @@
 <script setup lang="ts">
-import type { DropdownMenuItem } from '@nuxt/ui'
-import type { DateValue } from '@internationalized/date'
 import { createTask } from '~/api/tasks'
-import { calendarDateToIso, isoToCalendarDate } from '~/utils/date'
 import type { Member } from '~/types/member'
 import type { Department, Tag, TaskPriority, TaskStatus } from '~/types/master'
 import type { Task } from '~/types/task'
@@ -25,21 +22,22 @@ const emit = defineEmits<{
 
 type Draft = Omit<Task, 'id' | 'projectId' | 'createdAt'>
 
-const makeInitialDraft = (): Draft => {
-  return {
-    content: '',
-    description: '',
-    links: [],
-    requesterMemberId: props.currentMemberId,
-    requestingDeptCode: null,
-    assigneeMemberId: props.currentMemberId ?? '',
-    priorityCode: null,
-    statusCode: props.statuses[0]?.code ?? '',
-    deadline: null,
-    plannedCompletionDate: null,
-    tagCodes: []
-  }
-}
+const makeInitialDraft = (): Draft => ({
+  content: '',
+  description: '',
+  links: [],
+  requesterMemberId: props.currentMemberId,
+  requestingDeptCode: null,
+  assigneeMemberId: props.currentMemberId ?? '',
+  priorityCode: null,
+  statusCode: props.statuses[0]?.code ?? '',
+  deadline: null,
+  plannedCompletionDate: null,
+  tagCodes: []
+})
+
+const draft = ref<Draft>(makeInitialDraft())
+const submitting = ref(false)
 
 const addLink = () => {
   draft.value.links.push({ label: '', url: '' })
@@ -48,9 +46,6 @@ const addLink = () => {
 const removeLink = (index: number) => {
   draft.value.links.splice(index, 1)
 }
-
-const draft = ref<Draft>(makeInitialDraft())
-const submitting = ref(false)
 
 watch(() => props.open, (isOpen) => {
   if (isOpen) {
@@ -85,90 +80,17 @@ const priorityMap = computed(() => Object.fromEntries(props.priorities.map(p => 
 const memberMap = computed(() => Object.fromEntries(props.members.map(m => [m.id, m])))
 const departmentMap = computed(() => Object.fromEntries(props.departments.map(d => [d.code, d])))
 
-const statusItems = computed<DropdownMenuItem[][]>(() => {
-  const sorted = [...props.statuses].sort((a, b) => a.order - b.order)
-  return [
-    sorted.map((s) => {
-      const isCurrent = s.code === draft.value.statusCode
-      return {
-        label: s.label,
-        icon: isCurrent ? 'i-lucide-check' : 'i-lucide-circle-dashed',
-        class: isCurrent ? 'bg-elevated/80 font-semibold' : '',
-        onSelect: () => { draft.value.statusCode = s.code }
-      }
-    })
-  ]
-})
+const statusSelectItems = computed(() =>
+  [...props.statuses].sort((a, b) => a.order - b.order).map(s => ({ value: s.code, label: s.label }))
+)
 
-const priorityItems = computed<DropdownMenuItem[][]>(() => {
-  const sorted = [...props.priorities].sort((a, b) => a.order - b.order)
-  const items: DropdownMenuItem[] = sorted.map((p) => {
-    const isCurrent = p.code === draft.value.priorityCode
-    return {
-      label: p.label,
-      icon: isCurrent ? 'i-lucide-check' : 'i-lucide-flag',
-      class: isCurrent ? 'bg-elevated/80 font-semibold' : '',
-      onSelect: () => { draft.value.priorityCode = p.code }
-    }
-  })
-  const noneItem: DropdownMenuItem = {
-    label: 'なし',
-    icon: draft.value.priorityCode === null ? 'i-lucide-check' : 'i-lucide-x',
-    class: draft.value.priorityCode === null ? 'bg-elevated/80 font-semibold' : '',
-    onSelect: () => { draft.value.priorityCode = null }
-  }
-  return [items, [noneItem]]
-})
+const prioritySelectItems = computed(() =>
+  [...props.priorities].sort((a, b) => a.order - b.order).map(p => ({ value: p.code, label: p.label }))
+)
 
-const buildMemberItems = (currentId: string | null, fieldName: 'assigneeMemberId' | 'requesterMemberId', allowNone: boolean): DropdownMenuItem[][] => {
-  const items: DropdownMenuItem[] = props.members.map((m) => {
-    const isCurrent = m.id === currentId
-    return {
-      label: m.displayName,
-      icon: isCurrent ? 'i-lucide-check' : 'i-lucide-user',
-      class: isCurrent ? 'bg-elevated/80 font-semibold' : '',
-      onSelect: () => {
-        draft.value[fieldName] = m.id
-      }
-    }
-  })
-  if (!allowNone) return [items]
-  const noneItem: DropdownMenuItem = {
-    label: 'なし',
-    icon: !currentId ? 'i-lucide-check' : 'i-lucide-x',
-    class: !currentId ? 'bg-elevated/80 font-semibold' : '',
-    onSelect: () => { draft.value[fieldName] = null }
-  }
-  return [items, [noneItem]]
-}
+const memberSelectItems = computed(() => props.members.map(m => ({ value: m.id, label: m.displayName })))
 
-const assigneeItems = computed(() => buildMemberItems(draft.value.assigneeMemberId, 'assigneeMemberId', false))
-const requesterItems = computed(() => buildMemberItems(draft.value.requesterMemberId, 'requesterMemberId', true))
-
-const departmentItems = computed<DropdownMenuItem[][]>(() => {
-  const items: DropdownMenuItem[] = props.departments.map((d) => {
-    const isCurrent = d.code === draft.value.requestingDeptCode
-    return {
-      label: d.name,
-      icon: isCurrent ? 'i-lucide-check' : 'i-lucide-building-2',
-      class: isCurrent ? 'bg-elevated/80 font-semibold' : '',
-      onSelect: () => { draft.value.requestingDeptCode = d.code }
-    }
-  })
-  const noneItem: DropdownMenuItem = {
-    label: 'なし',
-    icon: draft.value.requestingDeptCode === null ? 'i-lucide-check' : 'i-lucide-x',
-    class: draft.value.requestingDeptCode === null ? 'bg-elevated/80 font-semibold' : '',
-    onSelect: () => { draft.value.requestingDeptCode = null }
-  }
-  return [items, [noneItem]]
-})
-
-const toggleTag = (tagCode: string, enabled: boolean) => {
-  draft.value.tagCodes = enabled
-    ? [...draft.value.tagCodes, tagCode]
-    : draft.value.tagCodes.filter(c => c !== tagCode)
-}
+const departmentSelectItems = computed(() => props.departments.map(d => ({ value: d.code, label: d.name })))
 </script>
 
 <template>
@@ -212,7 +134,12 @@ const toggleTag = (tagCode: string, enabled: boolean) => {
             <p class="text-xs text-muted mb-1">
               ステータス <span class="text-error">*</span>
             </p>
-            <UDropdownMenu :items="statusItems">
+            <SelectMenu
+              :items="statusSelectItems"
+              :current="draft.statusCode"
+              default-icon="i-lucide-circle-dashed"
+              @select="(c: string | null) => c && (draft.statusCode = c)"
+            >
               <UBadge
                 v-if="statusMap[draft.statusCode]"
                 :color="statusMap[draft.statusCode]!.color"
@@ -220,13 +147,19 @@ const toggleTag = (tagCode: string, enabled: boolean) => {
                 :label="statusMap[draft.statusCode]!.label"
                 class="cursor-pointer hover:opacity-80"
               />
-            </UDropdownMenu>
+            </SelectMenu>
           </div>
           <div>
             <p class="text-xs text-muted mb-1">
               優先度
             </p>
-            <UDropdownMenu :items="priorityItems">
+            <SelectMenu
+              :items="prioritySelectItems"
+              :current="draft.priorityCode"
+              allow-none
+              default-icon="i-lucide-flag"
+              @select="(c: string | null) => draft.priorityCode = c"
+            >
               <UBadge
                 v-if="draft.priorityCode && priorityMap[draft.priorityCode]"
                 :color="priorityMap[draft.priorityCode]!.color"
@@ -241,93 +174,80 @@ const toggleTag = (tagCode: string, enabled: boolean) => {
                 label="—"
                 class="cursor-pointer hover:opacity-80"
               />
-            </UDropdownMenu>
+            </SelectMenu>
           </div>
           <div>
             <p class="text-xs text-muted mb-1">
               担当者 <span class="text-error">*</span>
             </p>
-            <UDropdownMenu :items="assigneeItems">
+            <SelectMenu
+              :items="memberSelectItems"
+              :current="draft.assigneeMemberId || null"
+              default-icon="i-lucide-user"
+              @select="(c: string | null) => c && (draft.assigneeMemberId = c)"
+            >
               <button class="text-sm hover:underline cursor-pointer text-left">
                 {{ draft.assigneeMemberId ? (memberMap[draft.assigneeMemberId]?.displayName ?? '—') : '選択してください' }}
               </button>
-            </UDropdownMenu>
+            </SelectMenu>
           </div>
           <div>
             <p class="text-xs text-muted mb-1">
               期限
             </p>
-            <UPopover>
+            <DatePopover
+              :model-value="draft.deadline"
+              @update:model-value="(v: string | null) => draft.deadline = v"
+            >
               <button class="text-sm tabular-nums hover:underline cursor-pointer text-left">
                 {{ draft.deadline ?? '—' }}
               </button>
-              <template #content>
-                <div class="p-2 space-y-2">
-                  <UCalendar
-                    :model-value="isoToCalendarDate(draft.deadline)"
-                    locale="ja"
-                    @update:model-value="(d: DateValue | null) => draft.deadline = calendarDateToIso(d)"
-                  />
-                  <UButton
-                    v-if="draft.deadline"
-                    size="sm"
-                    color="neutral"
-                    variant="ghost"
-                    block
-                    label="クリア"
-                    @click="draft.deadline = null"
-                  />
-                </div>
-              </template>
-            </UPopover>
+            </DatePopover>
           </div>
           <div>
             <p class="text-xs text-muted mb-1">
               依頼部署
             </p>
-            <UDropdownMenu :items="departmentItems">
+            <SelectMenu
+              :items="departmentSelectItems"
+              :current="draft.requestingDeptCode"
+              allow-none
+              default-icon="i-lucide-building-2"
+              @select="(c: string | null) => draft.requestingDeptCode = c"
+            >
               <button class="text-sm hover:underline cursor-pointer text-left">
                 {{ draft.requestingDeptCode ? (departmentMap[draft.requestingDeptCode]?.name ?? '—') : '—' }}
               </button>
-            </UDropdownMenu>
+            </SelectMenu>
           </div>
           <div>
             <p class="text-xs text-muted mb-1">
               依頼者
             </p>
-            <UDropdownMenu :items="requesterItems">
+            <SelectMenu
+              :items="memberSelectItems"
+              :current="draft.requesterMemberId"
+              allow-none
+              default-icon="i-lucide-user"
+              @select="(c: string | null) => draft.requesterMemberId = c"
+            >
               <button class="text-sm hover:underline cursor-pointer text-left">
                 {{ draft.requesterMemberId ? (memberMap[draft.requesterMemberId]?.displayName ?? '—') : '—' }}
               </button>
-            </UDropdownMenu>
+            </SelectMenu>
           </div>
           <div>
             <p class="text-xs text-muted mb-1">
               完了予定日
             </p>
-            <UPopover>
+            <DatePopover
+              :model-value="draft.plannedCompletionDate"
+              @update:model-value="(v: string | null) => draft.plannedCompletionDate = v"
+            >
               <button class="text-sm tabular-nums hover:underline cursor-pointer text-left">
                 {{ draft.plannedCompletionDate ?? '—' }}
               </button>
-              <template #content>
-                <div class="p-2 space-y-2">
-                  <UCalendar
-                    :model-value="isoToCalendarDate(draft.plannedCompletionDate)"
-                    locale="ja"
-                    @update:model-value="(d: DateValue | null) => draft.plannedCompletionDate = calendarDateToIso(d)"
-                  />
-                  <UButton
-                    v-if="draft.plannedCompletionDate"
-                    size="sm"
-                    color="neutral"
-                    variant="ghost"
-                    block
-                    label="クリア"
-                    @click="draft.plannedCompletionDate = null"
-                  />
-                </div>
-              </template>
-            </UPopover>
+            </DatePopover>
           </div>
         </div>
 
@@ -335,7 +255,11 @@ const toggleTag = (tagCode: string, enabled: boolean) => {
           <p class="text-xs text-muted mb-1">
             タグ
           </p>
-          <UPopover>
+          <TagPicker
+            :tags="tags"
+            :selected="draft.tagCodes"
+            @update:selected="(codes: string[]) => draft.tagCodes = codes"
+          >
             <button class="flex flex-wrap gap-1 cursor-pointer min-w-12">
               <UBadge
                 v-for="code in draft.tagCodes"
@@ -351,22 +275,7 @@ const toggleTag = (tagCode: string, enabled: boolean) => {
                 label="+ タグ"
               />
             </button>
-            <template #content>
-              <div class="p-2 space-y-1 min-w-48">
-                <label
-                  v-for="t in tags"
-                  :key="t.code"
-                  class="flex items-center gap-2 px-2 py-1 hover:bg-elevated/40 rounded cursor-pointer"
-                >
-                  <UCheckbox
-                    :model-value="draft.tagCodes.includes(t.code)"
-                    @update:model-value="(v: boolean) => toggleTag(t.code, v)"
-                  />
-                  <UBadge :color="t.color" variant="soft" size="sm" :label="t.name" />
-                </label>
-              </div>
-            </template>
-          </UPopover>
+          </TagPicker>
         </div>
 
         <div>
