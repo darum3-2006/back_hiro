@@ -158,7 +158,10 @@ const updateTaskField = async (taskId: number, patch: Partial<Omit<Task, 'id' | 
 <template>
   <UDashboardPanel id="tasks">
     <template #header>
-      <UDashboardNavbar title="タスク一覧" icon="i-lucide-list-checks">
+      <UDashboardNavbar
+        title="タスク一覧"
+        icon="i-lucide-list-checks"
+      >
         <template #right>
           <UButton
             color="primary"

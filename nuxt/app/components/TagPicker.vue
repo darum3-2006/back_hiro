@@ -32,7 +32,12 @@ const toggleTag = (code: string, enabled: boolean) => {
             :model-value="selected.includes(t.code)"
             @update:model-value="(v: boolean) => toggleTag(t.code, v)"
           />
-          <UBadge :color="t.color" variant="soft" size="sm" :label="t.name" />
+          <UBadge
+            :color="t.color"
+            variant="soft"
+            size="sm"
+            :label="t.name"
+          />
         </label>
       </div>
     </template>

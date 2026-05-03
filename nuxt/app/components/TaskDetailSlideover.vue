@@ -199,7 +199,10 @@ const tagsList = computed(() => Object.values(props.tagMap))
     @update:open="(v: boolean) => $emit('update:open', v)"
   >
     <template #body>
-      <div v-if="task" class="space-y-4 p-1">
+      <div
+        v-if="task"
+        class="space-y-4 p-1"
+      >
         <!-- 内容 (editable) -->
         <div>
           <p class="text-xs text-muted mb-1">
@@ -244,7 +247,10 @@ const tagsList = computed(() => Object.values(props.tagMap))
             @click="startEdit('description', task.description)"
           >
             <span v-if="task.description">{{ task.description }}</span>
-            <span v-else class="text-muted">クリックして説明を追加</span>
+            <span
+              v-else
+              class="text-muted"
+            >クリックして説明を追加</span>
           </button>
         </div>
 
@@ -465,7 +471,12 @@ const tagsList = computed(() => Object.values(props.tagMap))
                 />
               </template>
               <template v-else>
-                <UBadge :label="link.label" color="neutral" variant="soft" size="sm" />
+                <UBadge
+                  :label="link.label"
+                  color="neutral"
+                  variant="soft"
+                  size="sm"
+                />
                 <ULink
                   :to="link.url"
                   target="_blank"
@@ -492,7 +503,10 @@ const tagsList = computed(() => Object.values(props.tagMap))
               </template>
             </div>
 
-            <div v-if="editingLinkIndex === -1" class="flex items-center gap-2">
+            <div
+              v-if="editingLinkIndex === -1"
+              class="flex items-center gap-2"
+            >
               <UInput
                 v-model="linkEditBuffer.label"
                 autofocus
@@ -544,11 +558,17 @@ const tagsList = computed(() => Object.values(props.tagMap))
             コメント <span class="text-muted">({{ comments.length }})</span>
           </p>
 
-          <div v-if="comments.length === 0" class="text-sm text-muted py-2">
+          <div
+            v-if="comments.length === 0"
+            class="text-sm text-muted py-2"
+          >
             まだコメントはありません。
           </div>
 
-          <div v-else class="space-y-3">
+          <div
+            v-else
+            class="space-y-3"
+          >
             <div
               v-for="c in comments"
               :key="c.id"
@@ -564,7 +584,10 @@ const tagsList = computed(() => Object.values(props.tagMap))
                     {{ memberMap[c.authorMemberId]?.displayName ?? '不明' }}
                   </span>
                   <span class="text-xs text-muted">{{ fmtDateTime(c.createdAt) }}</span>
-                  <span v-if="c.updatedAt" class="text-xs text-muted">
+                  <span
+                    v-if="c.updatedAt"
+                    class="text-xs text-muted"
+                  >
                     (編集済み {{ fmtDateTime(c.updatedAt) }})
                   </span>
                   <UButton
@@ -578,7 +601,10 @@ const tagsList = computed(() => Object.values(props.tagMap))
                   />
                 </div>
 
-                <div v-if="editingCommentId === c.id" class="mt-1 space-y-2">
+                <div
+                  v-if="editingCommentId === c.id"
+                  class="mt-1 space-y-2"
+                >
                   <UTextarea
                     v-model="commentEditBuffer"
                     autofocus
@@ -605,7 +631,10 @@ const tagsList = computed(() => Object.values(props.tagMap))
                   </div>
                 </div>
 
-                <p v-else class="text-sm whitespace-pre-wrap mt-0.5">
+                <p
+                  v-else
+                  class="text-sm whitespace-pre-wrap mt-0.5"
+                >
                   {{ c.body }}
                 </p>
               </div>
@@ -621,10 +650,16 @@ const tagsList = computed(() => Object.values(props.tagMap))
               class="w-full"
             />
             <div class="flex items-center justify-between">
-              <span v-if="!currentMemberId" class="text-xs text-warning">
+              <span
+                v-if="!currentMemberId"
+                class="text-xs text-warning"
+              >
                 このプロジェクトのメンバーではないためコメントできません
               </span>
-              <span v-else class="text-xs text-muted">
+              <span
+                v-else
+                class="text-xs text-muted"
+              >
                 投稿者: {{ memberMap[currentMemberId!]?.displayName ?? '?' }}
               </span>
               <UButton

@@ -53,13 +53,19 @@ const navItems = [
               class="justify-between"
               trailing-icon="i-lucide-chevrons-up-down"
             >
-              <UIcon name="i-lucide-folder-kanban" class="size-4" />
+              <UIcon
+                name="i-lucide-folder-kanban"
+                class="size-4"
+              />
               <span class="truncate flex-1 text-left">{{ currentProject?.name ?? 'プロジェクト' }}</span>
             </UButton>
           </UDropdownMenu>
         </template>
 
-        <UNavigationMenu :items="navItems" orientation="vertical" />
+        <UNavigationMenu
+          :items="navItems"
+          orientation="vertical"
+        />
 
         <template #footer>
           <p class="px-2 py-1 text-xs text-muted">
