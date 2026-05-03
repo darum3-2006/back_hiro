@@ -160,31 +160,34 @@ const deleteLink = (index: number) => {
   emit('change-field', { links: next })
 }
 
-watch(() => props.task?.id, () => {
-  editingField.value = null
-  editingLinkIndex.value = null
-  cancelCommentEdit()
-})
+watch(
+  () => props.task?.id,
+  () => {
+    editingField.value = null
+    editingLinkIndex.value = null
+    cancelCommentEdit()
+  }
+)
 
 // ===== Master select items =====
 const statusSelectItems = computed(() =>
   Object.values(props.statusMap)
     .sort((a, b) => a.order - b.order)
-    .map(s => ({ value: s.code, label: s.label }))
+    .map((s) => ({ value: s.code, label: s.label }))
 )
 
 const prioritySelectItems = computed(() =>
   Object.values(props.priorityMap)
     .sort((a, b) => a.order - b.order)
-    .map(p => ({ value: p.code, label: p.label }))
+    .map((p) => ({ value: p.code, label: p.label }))
 )
 
 const memberSelectItems = computed(() =>
-  Object.values(props.memberMap).map(m => ({ value: m.id, label: m.displayName }))
+  Object.values(props.memberMap).map((m) => ({ value: m.id, label: m.displayName }))
 )
 
 const departmentSelectItems = computed(() =>
-  Object.values(props.departmentMap).map(d => ({ value: d.code, label: d.name }))
+  Object.values(props.departmentMap).map((d) => ({ value: d.code, label: d.name }))
 )
 
 const tagsList = computed(() => Object.values(props.tagMap))
@@ -199,15 +202,10 @@ const tagsList = computed(() => Object.values(props.tagMap))
     @update:open="(v: boolean) => $emit('update:open', v)"
   >
     <template #body>
-      <div
-        v-if="task"
-        class="space-y-4 p-1"
-      >
+      <div v-if="task" class="space-y-4 p-1">
         <!-- 内容 (editable) -->
         <div>
-          <p class="text-xs text-muted mb-1">
-            内容
-          </p>
+          <p class="text-xs text-muted mb-1">内容</p>
           <UInput
             v-if="editingField === 'content'"
             v-model="editBuffer"
@@ -228,9 +226,7 @@ const tagsList = computed(() => Object.values(props.tagMap))
 
         <!-- 説明 (editable) -->
         <div>
-          <p class="text-xs text-muted mb-1">
-            説明
-          </p>
+          <p class="text-xs text-muted mb-1">説明</p>
           <UTextarea
             v-if="editingField === 'description'"
             v-model="editBuffer"
@@ -247,10 +243,7 @@ const tagsList = computed(() => Object.values(props.tagMap))
             @click="startEdit('description', task.description)"
           >
             <span v-if="task.description">{{ task.description }}</span>
-            <span
-              v-else
-              class="text-muted"
-            >クリックして説明を追加</span>
+            <span v-else class="text-muted">クリックして説明を追加</span>
           </button>
         </div>
 
@@ -258,9 +251,7 @@ const tagsList = computed(() => Object.values(props.tagMap))
 
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <p class="text-xs text-muted mb-1">
-              ステータス
-            </p>
+            <p class="text-xs text-muted mb-1">ステータス</p>
             <SelectMenu
               v-if="statusMap[task.statusCode]"
               :items="statusSelectItems"
@@ -277,9 +268,7 @@ const tagsList = computed(() => Object.values(props.tagMap))
             </SelectMenu>
           </div>
           <div>
-            <p class="text-xs text-muted mb-1">
-              優先度
-            </p>
+            <p class="text-xs text-muted mb-1">優先度</p>
             <SelectMenu
               :items="prioritySelectItems"
               :current="task.priorityCode"
@@ -304,9 +293,7 @@ const tagsList = computed(() => Object.values(props.tagMap))
             </SelectMenu>
           </div>
           <div>
-            <p class="text-xs text-muted mb-1">
-              担当者
-            </p>
+            <p class="text-xs text-muted mb-1">担当者</p>
             <SelectMenu
               :items="memberSelectItems"
               :current="task.assigneeMemberId"
@@ -327,9 +314,7 @@ const tagsList = computed(() => Object.values(props.tagMap))
             </SelectMenu>
           </div>
           <div>
-            <p class="text-xs text-muted mb-1">
-              期限
-            </p>
+            <p class="text-xs text-muted mb-1">期限</p>
             <DatePopover
               :model-value="task.deadline"
               @update:model-value="(v: string | null) => emit('change-field', { deadline: v })"
@@ -340,9 +325,7 @@ const tagsList = computed(() => Object.values(props.tagMap))
             </DatePopover>
           </div>
           <div>
-            <p class="text-xs text-muted mb-1">
-              依頼部署
-            </p>
+            <p class="text-xs text-muted mb-1">依頼部署</p>
             <SelectMenu
               :items="departmentSelectItems"
               :current="task.requestingDeptCode"
@@ -351,14 +334,16 @@ const tagsList = computed(() => Object.values(props.tagMap))
               @select="(c: string | null) => emit('change-field', { requestingDeptCode: c })"
             >
               <button class="text-sm hover:underline cursor-pointer text-left">
-                {{ task.requestingDeptCode ? departmentMap[task.requestingDeptCode]?.name ?? '—' : '—' }}
+                {{
+                  task.requestingDeptCode
+                    ? (departmentMap[task.requestingDeptCode]?.name ?? '—')
+                    : '—'
+                }}
               </button>
             </SelectMenu>
           </div>
           <div>
-            <p class="text-xs text-muted mb-1">
-              依頼者
-            </p>
+            <p class="text-xs text-muted mb-1">依頼者</p>
             <SelectMenu
               :items="memberSelectItems"
               :current="task.requesterMemberId"
@@ -367,9 +352,15 @@ const tagsList = computed(() => Object.values(props.tagMap))
               @select="(c: string | null) => emit('change-field', { requesterMemberId: c })"
             >
               <button class="text-sm hover:underline cursor-pointer text-left">
-                {{ task.requesterMemberId ? (memberMap[task.requesterMemberId]?.displayName ?? '—') : '—' }}
+                {{
+                  task.requesterMemberId
+                    ? (memberMap[task.requesterMemberId]?.displayName ?? '—')
+                    : '—'
+                }}
                 <UBadge
-                  v-if="task.requesterMemberId && memberMap[task.requesterMemberId]?.userId === null"
+                  v-if="
+                    task.requesterMemberId && memberMap[task.requesterMemberId]?.userId === null
+                  "
                   color="neutral"
                   size="sm"
                   variant="soft"
@@ -380,12 +371,12 @@ const tagsList = computed(() => Object.values(props.tagMap))
             </SelectMenu>
           </div>
           <div>
-            <p class="text-xs text-muted mb-1">
-              完了予定日
-            </p>
+            <p class="text-xs text-muted mb-1">完了予定日</p>
             <DatePopover
               :model-value="task.plannedCompletionDate"
-              @update:model-value="(v: string | null) => emit('change-field', { plannedCompletionDate: v })"
+              @update:model-value="
+                (v: string | null) => emit('change-field', { plannedCompletionDate: v })
+              "
             >
               <button class="text-sm tabular-nums hover:underline cursor-pointer text-left">
                 {{ fmtDate(task.plannedCompletionDate) }}
@@ -393,9 +384,7 @@ const tagsList = computed(() => Object.values(props.tagMap))
             </DatePopover>
           </div>
           <div>
-            <p class="text-xs text-muted mb-1">
-              作成日時
-            </p>
+            <p class="text-xs text-muted mb-1">作成日時</p>
             <p class="text-sm">
               {{ fmtDateTime(task.createdAt) }}
             </p>
@@ -403,9 +392,7 @@ const tagsList = computed(() => Object.values(props.tagMap))
         </div>
 
         <div>
-          <p class="text-xs text-muted mb-1">
-            タグ
-          </p>
+          <p class="text-xs text-muted mb-1">タグ</p>
           <TagPicker
             :tags="tagsList"
             :selected="task.tagCodes"
@@ -431,15 +418,9 @@ const tagsList = computed(() => Object.values(props.tagMap))
 
         <!-- Links (editable list) -->
         <div>
-          <p class="text-xs text-muted mb-1">
-            リンク
-          </p>
+          <p class="text-xs text-muted mb-1">リンク</p>
           <div class="space-y-1">
-            <div
-              v-for="(link, i) in task.links"
-              :key="i"
-              class="flex items-center gap-2 group"
-            >
+            <div v-for="(link, i) in task.links" :key="i" class="flex items-center gap-2 group">
               <template v-if="editingLinkIndex === i">
                 <UInput
                   v-model="linkEditBuffer.label"
@@ -471,17 +452,8 @@ const tagsList = computed(() => Object.values(props.tagMap))
                 />
               </template>
               <template v-else>
-                <UBadge
-                  :label="link.label"
-                  color="neutral"
-                  variant="soft"
-                  size="sm"
-                />
-                <ULink
-                  :to="link.url"
-                  target="_blank"
-                  class="text-sm flex-1 truncate"
-                >
+                <UBadge :label="link.label" color="neutral" variant="soft" size="sm" />
+                <ULink :to="link.url" target="_blank" class="text-sm flex-1 truncate">
                   {{ link.url }}
                 </ULink>
                 <UButton
@@ -503,10 +475,7 @@ const tagsList = computed(() => Object.values(props.tagMap))
               </template>
             </div>
 
-            <div
-              v-if="editingLinkIndex === -1"
-              class="flex items-center gap-2"
-            >
+            <div v-if="editingLinkIndex === -1" class="flex items-center gap-2">
               <UInput
                 v-model="linkEditBuffer.label"
                 autofocus
@@ -558,36 +527,20 @@ const tagsList = computed(() => Object.values(props.tagMap))
             コメント <span class="text-muted">({{ comments.length }})</span>
           </p>
 
-          <div
-            v-if="comments.length === 0"
-            class="text-sm text-muted py-2"
-          >
+          <div v-if="comments.length === 0" class="text-sm text-muted py-2">
             まだコメントはありません。
           </div>
 
-          <div
-            v-else
-            class="space-y-3"
-          >
-            <div
-              v-for="c in comments"
-              :key="c.id"
-              class="flex gap-3 group"
-            >
-              <UAvatar
-                :alt="memberMap[c.authorMemberId]?.displayName ?? '?'"
-                size="sm"
-              />
+          <div v-else class="space-y-3">
+            <div v-for="c in comments" :key="c.id" class="flex gap-3 group">
+              <UAvatar :alt="memberMap[c.authorMemberId]?.displayName ?? '?'" size="sm" />
               <div class="flex-1 min-w-0">
                 <div class="flex items-baseline gap-2">
                   <span class="text-sm font-medium">
                     {{ memberMap[c.authorMemberId]?.displayName ?? '不明' }}
                   </span>
                   <span class="text-xs text-muted">{{ fmtDateTime(c.createdAt) }}</span>
-                  <span
-                    v-if="c.updatedAt"
-                    class="text-xs text-muted"
-                  >
+                  <span v-if="c.updatedAt" class="text-xs text-muted">
                     (編集済み {{ fmtDateTime(c.updatedAt) }})
                   </span>
                   <UButton
@@ -601,10 +554,7 @@ const tagsList = computed(() => Object.values(props.tagMap))
                   />
                 </div>
 
-                <div
-                  v-if="editingCommentId === c.id"
-                  class="mt-1 space-y-2"
-                >
+                <div v-if="editingCommentId === c.id" class="mt-1 space-y-2">
                   <UTextarea
                     v-model="commentEditBuffer"
                     autofocus
@@ -631,10 +581,7 @@ const tagsList = computed(() => Object.values(props.tagMap))
                   </div>
                 </div>
 
-                <p
-                  v-else
-                  class="text-sm whitespace-pre-wrap mt-0.5"
-                >
+                <p v-else class="text-sm whitespace-pre-wrap mt-0.5">
                   {{ c.body }}
                 </p>
               </div>
@@ -650,16 +597,10 @@ const tagsList = computed(() => Object.values(props.tagMap))
               class="w-full"
             />
             <div class="flex items-center justify-between">
-              <span
-                v-if="!currentMemberId"
-                class="text-xs text-warning"
-              >
+              <span v-if="!currentMemberId" class="text-xs text-warning">
                 このプロジェクトのメンバーではないためコメントできません
               </span>
-              <span
-                v-else
-                class="text-xs text-muted"
-              >
+              <span v-else class="text-xs text-muted">
                 投稿者: {{ memberMap[currentMemberId!]?.displayName ?? '?' }}
               </span>
               <UButton

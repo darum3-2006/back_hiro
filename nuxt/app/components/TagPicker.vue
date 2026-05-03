@@ -11,9 +11,7 @@ const emit = defineEmits<{
 }>()
 
 const toggleTag = (code: string, enabled: boolean) => {
-  const next = enabled
-    ? [...props.selected, code]
-    : props.selected.filter(c => c !== code)
+  const next = enabled ? [...props.selected, code] : props.selected.filter((c) => c !== code)
   emit('update:selected', next)
 }
 </script>
@@ -32,12 +30,7 @@ const toggleTag = (code: string, enabled: boolean) => {
             :model-value="selected.includes(t.code)"
             @update:model-value="(v: boolean) => toggleTag(t.code, v)"
           />
-          <UBadge
-            :color="t.color"
-            variant="soft"
-            size="sm"
-            :label="t.name"
-          />
+          <UBadge :color="t.color" variant="soft" size="sm" :label="t.name" />
         </label>
       </div>
     </template>

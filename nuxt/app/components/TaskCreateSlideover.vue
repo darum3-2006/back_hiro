@@ -17,7 +17,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:open': [boolean]
-  'created': [Task]
+  created: [Task]
 }>()
 
 type Draft = Omit<Task, 'id' | 'projectId' | 'createdAt'>
@@ -47,17 +47,18 @@ const removeLink = (index: number) => {
   draft.value.links.splice(index, 1)
 }
 
-watch(() => props.open, (isOpen) => {
-  if (isOpen) {
-    draft.value = makeInitialDraft()
+watch(
+  () => props.open,
+  (isOpen) => {
+    if (isOpen) {
+      draft.value = makeInitialDraft()
+    }
   }
-})
+)
 
-const canSubmit = computed(() => Boolean(
-  draft.value.content.trim()
-  && draft.value.assigneeMemberId
-  && draft.value.statusCode
-))
+const canSubmit = computed(() =>
+  Boolean(draft.value.content.trim() && draft.value.assigneeMemberId && draft.value.statusCode)
+)
 
 const submit = async () => {
   if (!canSubmit.value) return
@@ -75,22 +76,30 @@ const submit = async () => {
   }
 }
 
-const statusMap = computed(() => Object.fromEntries(props.statuses.map(s => [s.code, s])))
-const priorityMap = computed(() => Object.fromEntries(props.priorities.map(p => [p.code, p])))
-const memberMap = computed(() => Object.fromEntries(props.members.map(m => [m.id, m])))
-const departmentMap = computed(() => Object.fromEntries(props.departments.map(d => [d.code, d])))
+const statusMap = computed(() => Object.fromEntries(props.statuses.map((s) => [s.code, s])))
+const priorityMap = computed(() => Object.fromEntries(props.priorities.map((p) => [p.code, p])))
+const memberMap = computed(() => Object.fromEntries(props.members.map((m) => [m.id, m])))
+const departmentMap = computed(() => Object.fromEntries(props.departments.map((d) => [d.code, d])))
 
 const statusSelectItems = computed(() =>
-  [...props.statuses].sort((a, b) => a.order - b.order).map(s => ({ value: s.code, label: s.label }))
+  [...props.statuses]
+    .sort((a, b) => a.order - b.order)
+    .map((s) => ({ value: s.code, label: s.label }))
 )
 
 const prioritySelectItems = computed(() =>
-  [...props.priorities].sort((a, b) => a.order - b.order).map(p => ({ value: p.code, label: p.label }))
+  [...props.priorities]
+    .sort((a, b) => a.order - b.order)
+    .map((p) => ({ value: p.code, label: p.label }))
 )
 
-const memberSelectItems = computed(() => props.members.map(m => ({ value: m.id, label: m.displayName })))
+const memberSelectItems = computed(() =>
+  props.members.map((m) => ({ value: m.id, label: m.displayName }))
+)
 
-const departmentSelectItems = computed(() => props.departments.map(d => ({ value: d.code, label: d.name })))
+const departmentSelectItems = computed(() =>
+  props.departments.map((d) => ({ value: d.code, label: d.name }))
+)
 </script>
 
 <template>
@@ -103,21 +112,12 @@ const departmentSelectItems = computed(() => props.departments.map(d => ({ value
     <template #body>
       <div class="space-y-4 p-1">
         <div>
-          <p class="text-xs text-muted mb-1">
-            内容 <span class="text-error">*</span>
-          </p>
-          <UInput
-            v-model="draft.content"
-            placeholder="タスクの概要"
-            autofocus
-            class="w-full"
-          />
+          <p class="text-xs text-muted mb-1">内容 <span class="text-error">*</span></p>
+          <UInput v-model="draft.content" placeholder="タスクの概要" autofocus class="w-full" />
         </div>
 
         <div>
-          <p class="text-xs text-muted mb-1">
-            説明
-          </p>
+          <p class="text-xs text-muted mb-1">説明</p>
           <UTextarea
             v-model="draft.description"
             :rows="4"
@@ -131,9 +131,7 @@ const departmentSelectItems = computed(() => props.departments.map(d => ({ value
 
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <p class="text-xs text-muted mb-1">
-              ステータス <span class="text-error">*</span>
-            </p>
+            <p class="text-xs text-muted mb-1">ステータス <span class="text-error">*</span></p>
             <SelectMenu
               :items="statusSelectItems"
               :current="draft.statusCode"
@@ -150,15 +148,13 @@ const departmentSelectItems = computed(() => props.departments.map(d => ({ value
             </SelectMenu>
           </div>
           <div>
-            <p class="text-xs text-muted mb-1">
-              優先度
-            </p>
+            <p class="text-xs text-muted mb-1">優先度</p>
             <SelectMenu
               :items="prioritySelectItems"
               :current="draft.priorityCode"
               allow-none
               default-icon="i-lucide-flag"
-              @select="(c: string | null) => draft.priorityCode = c"
+              @select="(c: string | null) => (draft.priorityCode = c)"
             >
               <UBadge
                 v-if="draft.priorityCode && priorityMap[draft.priorityCode]"
@@ -177,9 +173,7 @@ const departmentSelectItems = computed(() => props.departments.map(d => ({ value
             </SelectMenu>
           </div>
           <div>
-            <p class="text-xs text-muted mb-1">
-              担当者 <span class="text-error">*</span>
-            </p>
+            <p class="text-xs text-muted mb-1">担当者 <span class="text-error">*</span></p>
             <SelectMenu
               :items="memberSelectItems"
               :current="draft.assigneeMemberId || null"
@@ -187,17 +181,19 @@ const departmentSelectItems = computed(() => props.departments.map(d => ({ value
               @select="(c: string | null) => c && (draft.assigneeMemberId = c)"
             >
               <button class="text-sm hover:underline cursor-pointer text-left">
-                {{ draft.assigneeMemberId ? (memberMap[draft.assigneeMemberId]?.displayName ?? '—') : '選択してください' }}
+                {{
+                  draft.assigneeMemberId
+                    ? (memberMap[draft.assigneeMemberId]?.displayName ?? '—')
+                    : '選択してください'
+                }}
               </button>
             </SelectMenu>
           </div>
           <div>
-            <p class="text-xs text-muted mb-1">
-              期限
-            </p>
+            <p class="text-xs text-muted mb-1">期限</p>
             <DatePopover
               :model-value="draft.deadline"
-              @update:model-value="(v: string | null) => draft.deadline = v"
+              @update:model-value="(v: string | null) => (draft.deadline = v)"
             >
               <button class="text-sm tabular-nums hover:underline cursor-pointer text-left">
                 {{ draft.deadline ?? '—' }}
@@ -205,44 +201,46 @@ const departmentSelectItems = computed(() => props.departments.map(d => ({ value
             </DatePopover>
           </div>
           <div>
-            <p class="text-xs text-muted mb-1">
-              依頼部署
-            </p>
+            <p class="text-xs text-muted mb-1">依頼部署</p>
             <SelectMenu
               :items="departmentSelectItems"
               :current="draft.requestingDeptCode"
               allow-none
               default-icon="i-lucide-building-2"
-              @select="(c: string | null) => draft.requestingDeptCode = c"
+              @select="(c: string | null) => (draft.requestingDeptCode = c)"
             >
               <button class="text-sm hover:underline cursor-pointer text-left">
-                {{ draft.requestingDeptCode ? (departmentMap[draft.requestingDeptCode]?.name ?? '—') : '—' }}
+                {{
+                  draft.requestingDeptCode
+                    ? (departmentMap[draft.requestingDeptCode]?.name ?? '—')
+                    : '—'
+                }}
               </button>
             </SelectMenu>
           </div>
           <div>
-            <p class="text-xs text-muted mb-1">
-              依頼者
-            </p>
+            <p class="text-xs text-muted mb-1">依頼者</p>
             <SelectMenu
               :items="memberSelectItems"
               :current="draft.requesterMemberId"
               allow-none
               default-icon="i-lucide-user"
-              @select="(c: string | null) => draft.requesterMemberId = c"
+              @select="(c: string | null) => (draft.requesterMemberId = c)"
             >
               <button class="text-sm hover:underline cursor-pointer text-left">
-                {{ draft.requesterMemberId ? (memberMap[draft.requesterMemberId]?.displayName ?? '—') : '—' }}
+                {{
+                  draft.requesterMemberId
+                    ? (memberMap[draft.requesterMemberId]?.displayName ?? '—')
+                    : '—'
+                }}
               </button>
             </SelectMenu>
           </div>
           <div>
-            <p class="text-xs text-muted mb-1">
-              完了予定日
-            </p>
+            <p class="text-xs text-muted mb-1">完了予定日</p>
             <DatePopover
               :model-value="draft.plannedCompletionDate"
-              @update:model-value="(v: string | null) => draft.plannedCompletionDate = v"
+              @update:model-value="(v: string | null) => (draft.plannedCompletionDate = v)"
             >
               <button class="text-sm tabular-nums hover:underline cursor-pointer text-left">
                 {{ draft.plannedCompletionDate ?? '—' }}
@@ -252,21 +250,19 @@ const departmentSelectItems = computed(() => props.departments.map(d => ({ value
         </div>
 
         <div>
-          <p class="text-xs text-muted mb-1">
-            タグ
-          </p>
+          <p class="text-xs text-muted mb-1">タグ</p>
           <TagPicker
             :tags="tags"
             :selected="draft.tagCodes"
-            @update:selected="(codes: string[]) => draft.tagCodes = codes"
+            @update:selected="(codes: string[]) => (draft.tagCodes = codes)"
           >
             <button class="flex flex-wrap gap-1 cursor-pointer min-w-12">
               <UBadge
                 v-for="code in draft.tagCodes"
                 :key="code"
-                :color="tags.find(t => t.code === code)?.color ?? 'neutral'"
+                :color="tags.find((t) => t.code === code)?.color ?? 'neutral'"
                 variant="soft"
-                :label="tags.find(t => t.code === code)?.name ?? code"
+                :label="tags.find((t) => t.code === code)?.name ?? code"
               />
               <UBadge
                 v-if="draft.tagCodes.length === 0"
@@ -279,25 +275,11 @@ const departmentSelectItems = computed(() => props.departments.map(d => ({ value
         </div>
 
         <div>
-          <p class="text-xs text-muted mb-1">
-            リンク
-          </p>
+          <p class="text-xs text-muted mb-1">リンク</p>
           <div class="space-y-1">
-            <div
-              v-for="(link, i) in draft.links"
-              :key="i"
-              class="flex items-center gap-2"
-            >
-              <UInput
-                v-model="link.label"
-                placeholder="ラベル"
-                class="w-32"
-              />
-              <UInput
-                v-model="link.url"
-                placeholder="https://..."
-                class="flex-1"
-              />
+            <div v-for="(link, i) in draft.links" :key="i" class="flex items-center gap-2">
+              <UInput v-model="link.label" placeholder="ラベル" class="w-32" />
+              <UInput v-model="link.url" placeholder="https://..." class="flex-1" />
               <UButton
                 size="xs"
                 color="neutral"

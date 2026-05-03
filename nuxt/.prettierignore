@@ -1,0 +1,9 @@
+node_modules
+.nuxt
+.output
+.cache
+.data
+dist
+public
+pnpm-lock.yaml
+LICENSE

@@ -17,24 +17,30 @@ const { data: tags } = await useTags(currentProjectId)
 const { data: members } = await useMembers(currentProjectId)
 const { data: departments } = await useDepartments()
 
-const currentMemberId = computed<string | null>(() =>
-  members.value.find(m => m.userId === currentUserId.value)?.id ?? null
+const currentMemberId = computed<string | null>(
+  () => members.value.find((m) => m.userId === currentUserId.value)?.id ?? null
 )
 
-const statusMap = computed(() => Object.fromEntries(statuses.value.map(s => [s.code, s])))
-const priorityMap = computed(() => Object.fromEntries(priorities.value.map(p => [p.code, p])))
-const tagMap = computed(() => Object.fromEntries(tags.value.map(t => [t.code, t])))
-const memberMap = computed(() => Object.fromEntries(members.value.map(m => [m.id, m])))
-const departmentMap = computed(() => Object.fromEntries(departments.value.map(d => [d.code, d])))
+const statusMap = computed(() => Object.fromEntries(statuses.value.map((s) => [s.code, s])))
+const priorityMap = computed(() => Object.fromEntries(priorities.value.map((p) => [p.code, p])))
+const tagMap = computed(() => Object.fromEntries(tags.value.map((t) => [t.code, t])))
+const memberMap = computed(() => Object.fromEntries(members.value.map((m) => [m.id, m])))
+const departmentMap = computed(() => Object.fromEntries(departments.value.map((d) => [d.code, d])))
 
 const search = ref('')
 const statusFilter = ref<string>('')
 const priorityFilter = ref<string>('')
 const assigneeFilter = ref<string>('')
 
-const statusSelectItems = computed(() => statuses.value.map(s => ({ label: s.label, value: s.code })))
-const prioritySelectItems = computed(() => priorities.value.map(p => ({ label: p.label, value: p.code })))
-const memberSelectItems = computed(() => members.value.map(m => ({ label: m.displayName, value: m.id })))
+const statusSelectItems = computed(() =>
+  statuses.value.map((s) => ({ label: s.label, value: s.code }))
+)
+const prioritySelectItems = computed(() =>
+  priorities.value.map((p) => ({ label: p.label, value: p.code }))
+)
+const memberSelectItems = computed(() =>
+  members.value.map((m) => ({ label: m.displayName, value: m.id }))
+)
 
 const hasActiveFilter = computed(() =>
   Boolean(search.value || statusFilter.value || priorityFilter.value || assigneeFilter.value)
@@ -55,14 +61,19 @@ const toast = useToast()
 
 const onTaskCreated = async (task: Task) => {
   await refreshTasks()
-  toast.add({ title: 'タスクを作成しました', description: `#${task.id} ${task.content}`, color: 'success', icon: 'i-lucide-check' })
+  toast.add({
+    title: 'タスクを作成しました',
+    description: `#${task.id} ${task.content}`,
+    color: 'success',
+    icon: 'i-lucide-check'
+  })
   selectedTaskId.value = task.id
   slideoverOpen.value = true
 }
 
 const selectedTask = computed<Task | null>(() =>
   selectedTaskId.value !== null
-    ? tasks.value.find(t => t.id === selectedTaskId.value) ?? null
+    ? (tasks.value.find((t) => t.id === selectedTaskId.value) ?? null)
     : null
 )
 
@@ -87,21 +98,26 @@ const filteredTasks = computed(() => {
   })
 })
 
-const sorting = ref<{ id: string, desc: boolean }[]>([{ id: 'id', desc: false }])
+const sorting = ref<{ id: string; desc: boolean }[]>([{ id: 'id', desc: false }])
 
 const sortHeader = (label: string) => {
-  return ({ column }: { column: { getIsSorted: () => false | 'asc' | 'desc', toggleSorting: (desc: boolean) => void } }) => {
+  return ({
+    column
+  }: {
+    column: { getIsSorted: () => false | 'asc' | 'desc'; toggleSorting: (desc: boolean) => void }
+  }) => {
     const sorted = column.getIsSorted()
     return h(UButton, {
       color: 'neutral',
       variant: 'ghost',
       label,
       class: '-mx-2.5 data-[state=open]:bg-elevated',
-      icon: sorted === 'asc'
-        ? 'i-lucide-arrow-up'
-        : sorted === 'desc'
-          ? 'i-lucide-arrow-down'
-          : 'i-lucide-arrow-up-down',
+      icon:
+        sorted === 'asc'
+          ? 'i-lucide-arrow-up'
+          : sorted === 'desc'
+            ? 'i-lucide-arrow-down'
+            : 'i-lucide-arrow-up-down',
       onClick: () => column.toggleSorting(sorted === 'asc')
     })
   }
@@ -132,8 +148,12 @@ const columns: TableColumn<Task>[] = [
     accessorKey: 'priorityCode',
     header: sortHeader('優先度'),
     sortingFn: (a: Row<Task>, b: Row<Task>) => {
-      const oa = a.original.priorityCode ? priorityMap.value[a.original.priorityCode]?.order ?? 999 : 999
-      const ob = b.original.priorityCode ? priorityMap.value[b.original.priorityCode]?.order ?? 999 : 999
+      const oa = a.original.priorityCode
+        ? (priorityMap.value[a.original.priorityCode]?.order ?? 999)
+        : 999
+      const ob = b.original.priorityCode
+        ? (priorityMap.value[b.original.priorityCode]?.order ?? 999)
+        : 999
       return oa - ob
     }
   },
@@ -149,7 +169,10 @@ const columns: TableColumn<Task>[] = [
   }
 ]
 
-const updateTaskField = async (taskId: number, patch: Partial<Omit<Task, 'id' | 'projectId' | 'createdAt'>>) => {
+const updateTaskField = async (
+  taskId: number,
+  patch: Partial<Omit<Task, 'id' | 'projectId' | 'createdAt'>>
+) => {
   await updateTask(currentProjectId.value, taskId, patch)
   await refreshTasks()
 }
@@ -158,10 +181,7 @@ const updateTaskField = async (taskId: number, patch: Partial<Omit<Task, 'id' | 
 <template>
   <UDashboardPanel id="tasks">
     <template #header>
-      <UDashboardNavbar
-        title="タスク一覧"
-        icon="i-lucide-list-checks"
-      >
+      <UDashboardNavbar title="タスク一覧" icon="i-lucide-list-checks">
         <template #right>
           <UButton
             color="primary"
@@ -175,12 +195,7 @@ const updateTaskField = async (taskId: number, patch: Partial<Omit<Task, 'id' | 
 
     <template #body>
       <div class="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-default">
-        <UInput
-          v-model="search"
-          placeholder="内容を検索"
-          icon="i-lucide-search"
-          class="min-w-64"
-        />
+        <UInput v-model="search" placeholder="内容を検索" icon="i-lucide-search" class="min-w-64" />
         <USelect
           v-model="statusFilter"
           :items="statusSelectItems"
@@ -231,10 +246,7 @@ const updateTaskField = async (taskId: number, patch: Partial<Omit<Task, 'id' | 
         </template>
 
         <template #content-cell="{ row }">
-          <button
-            class="text-left hover:underline"
-            @click="openTask(row.original)"
-          >
+          <button class="text-left hover:underline" @click="openTask(row.original)">
             {{ row.original.content }}
           </button>
         </template>
@@ -244,7 +256,9 @@ const updateTaskField = async (taskId: number, patch: Partial<Omit<Task, 'id' | 
             :items="memberSelectItems"
             :current="row.original.assigneeMemberId"
             default-icon="i-lucide-user"
-            @select="(c: string | null) => c && updateTaskField(row.original.id, { assigneeMemberId: c })"
+            @select="
+              (c: string | null) => c && updateTaskField(row.original.id, { assigneeMemberId: c })
+            "
           >
             <button class="text-sm hover:underline cursor-pointer">
               {{ memberMap[row.original.assigneeMemberId]?.displayName ?? '—' }}
@@ -298,7 +312,9 @@ const updateTaskField = async (taskId: number, patch: Partial<Omit<Task, 'id' | 
           <TagPicker
             :tags="tags"
             :selected="row.original.tagCodes"
-            @update:selected="(codes: string[]) => updateTaskField(row.original.id, { tagCodes: codes })"
+            @update:selected="
+              (codes: string[]) => updateTaskField(row.original.id, { tagCodes: codes })
+            "
           >
             <button class="flex flex-wrap gap-1 cursor-pointer min-w-12">
               <UBadge
@@ -323,7 +339,9 @@ const updateTaskField = async (taskId: number, patch: Partial<Omit<Task, 'id' | 
         <template #deadline-cell="{ row }">
           <DatePopover
             :model-value="row.original.deadline"
-            @update:model-value="(v: string | null) => updateTaskField(row.original.id, { deadline: v })"
+            @update:model-value="
+              (v: string | null) => updateTaskField(row.original.id, { deadline: v })
+            "
           >
             <button class="text-sm tabular-nums hover:underline cursor-pointer min-w-16 text-left">
               {{ row.original.deadline ?? '—' }}
@@ -343,7 +361,9 @@ const updateTaskField = async (taskId: number, patch: Partial<Omit<Task, 'id' | 
     :member-map="memberMap"
     :tag-map="tagMap"
     :department-map="departmentMap"
-    @change-field="(patch: Partial<Task>) => selectedTask && updateTaskField(selectedTask.id, patch)"
+    @change-field="
+      (patch: Partial<Task>) => selectedTask && updateTaskField(selectedTask.id, patch)
+    "
   />
 
   <TaskCreateSlideover

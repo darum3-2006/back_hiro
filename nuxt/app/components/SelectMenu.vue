@@ -35,15 +35,17 @@ const menuItems = computed<DropdownMenuItem[][]>(() => {
   const noneIsCurrent = props.current === null
   return [
     main,
-    [{
-      label: props.noneLabel ?? 'なし',
-      icon: noneIsCurrent ? 'i-lucide-check' : 'i-lucide-x',
-      class: noneIsCurrent ? 'bg-elevated/80 font-semibold' : '',
-      onSelect: () => {
-        if (noneIsCurrent) return
-        emit('select', null)
+    [
+      {
+        label: props.noneLabel ?? 'なし',
+        icon: noneIsCurrent ? 'i-lucide-check' : 'i-lucide-x',
+        class: noneIsCurrent ? 'bg-elevated/80 font-semibold' : '',
+        onSelect: () => {
+          if (noneIsCurrent) return
+          emit('select', null)
+        }
       }
-    }]
+    ]
   ]
 })
 </script>

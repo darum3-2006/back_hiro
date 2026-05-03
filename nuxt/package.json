@@ -8,6 +8,9 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "typecheck": "nuxt typecheck"
   },
   "dependencies": {
@@ -21,6 +24,8 @@
   "devDependencies": {
     "@nuxt/eslint": "^1.15.2",
     "eslint": "^10.2.1",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.8.3",
     "typescript": "^6.0.3",
     "vue-tsc": "^3.2.7"
   },

@@ -19,7 +19,9 @@ const emit = defineEmits<{
         <UCalendar
           :model-value="isoToCalendarDate(modelValue)"
           locale="ja"
-          @update:model-value="(d: DateValue | null) => emit('update:modelValue', calendarDateToIso(d))"
+          @update:model-value="
+            (d: DateValue | null) => emit('update:modelValue', calendarDateToIso(d))
+          "
         />
         <UButton
           v-if="modelValue"

@@ -8,7 +8,8 @@ import {
 
 export const useUsers = () => useAsyncData('users', fetchUsers, { default: () => [] })
 
-export const useDepartments = () => useAsyncData('departments', fetchDepartments, { default: () => [] })
+export const useDepartments = () =>
+  useAsyncData('departments', fetchDepartments, { default: () => [] })
 
 export const useTaskStatuses = (projectId: Ref<string>) =>
   useAsyncData(

@@ -30,3 +30,18 @@ async function fetchData(id: string) { ... }
 - Vue の `<script setup>` 内のヘルパー・ハンドラ全般
 - TypeScript モジュールの export 関数（`export const fn = () => {}`）
 - `async function` も `const fn = async () => {}` に統一
+
+## ツール
+
+### 整形と Lint
+
+- **Prettier** が整形担当（`.prettierrc.json` 参照）。`semi: false`, `singleQuote: true`, `trailingComma: 'none'`, `printWidth: 100`, `tabWidth: 2`
+- **ESLint** はロジック系・Vue 固有ルールを担当。スタイル系ルールは off（`stylistic: false` + `eslint-config-prettier`）
+
+```bash
+pnpm format         # Prettier で整形
+pnpm format:check   # 整形チェックのみ
+pnpm lint           # ESLint
+pnpm lint:fix       # ESLint 自動修正
+pnpm typecheck      # vue-tsc
+```

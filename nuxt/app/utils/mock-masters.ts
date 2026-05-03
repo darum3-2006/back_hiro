@@ -3,16 +3,51 @@ import type { Department, Tag, TaskPriority, TaskStatus, User } from '~/types/ma
 export const MOCK_TASK_STATUSES: TaskStatus[] = [
   // p1: 改修対応
   { projectId: 'p1', code: 'todo', label: '未着手', color: 'neutral', order: 1, isTerminal: false },
-  { projectId: 'p1', code: 'in_progress', label: '対応中', color: 'info', order: 2, isTerminal: false },
-  { projectId: 'p1', code: 'in_review', label: 'レビュー中', color: 'primary', order: 3, isTerminal: false },
+  {
+    projectId: 'p1',
+    code: 'in_progress',
+    label: '対応中',
+    color: 'info',
+    order: 2,
+    isTerminal: false
+  },
+  {
+    projectId: 'p1',
+    code: 'in_review',
+    label: 'レビュー中',
+    color: 'primary',
+    order: 3,
+    isTerminal: false
+  },
   { projectId: 'p1', code: 'done', label: '完了', color: 'success', order: 4, isTerminal: true },
-  { projectId: 'p1', code: 'on_hold', label: '保留', color: 'warning', order: 5, isTerminal: false },
+  {
+    projectId: 'p1',
+    code: 'on_hold',
+    label: '保留',
+    color: 'warning',
+    order: 5,
+    isTerminal: false
+  },
   // p2: 新規開発
   { projectId: 'p2', code: 'todo', label: '未着手', color: 'neutral', order: 1, isTerminal: false },
   { projectId: 'p2', code: 'design', label: '設計中', color: 'info', order: 2, isTerminal: false },
   { projectId: 'p2', code: 'dev', label: '実装中', color: 'primary', order: 3, isTerminal: false },
-  { projectId: 'p2', code: 'review', label: 'レビュー中', color: 'warning', order: 4, isTerminal: false },
-  { projectId: 'p2', code: 'release_ready', label: 'リリース待ち', color: 'info', order: 5, isTerminal: false },
+  {
+    projectId: 'p2',
+    code: 'review',
+    label: 'レビュー中',
+    color: 'warning',
+    order: 4,
+    isTerminal: false
+  },
+  {
+    projectId: 'p2',
+    code: 'release_ready',
+    label: 'リリース待ち',
+    color: 'info',
+    order: 5,
+    isTerminal: false
+  },
   { projectId: 'p2', code: 'done', label: '完了', color: 'success', order: 6, isTerminal: true },
   // p3: リファクタリング
   { projectId: 'p3', code: 'todo', label: '未着手', color: 'neutral', order: 1, isTerminal: false },
