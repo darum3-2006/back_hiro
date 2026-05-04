@@ -126,7 +126,16 @@ const columns: TableColumn<Tag>[] = [
       <UButton color="primary" icon="i-lucide-plus" label="新規タグ" @click="openCreate" />
     </div>
 
-    <UTable :data="tags" :columns="columns" :ui="{ td: 'py-2' }">
+    <EmptyState
+      v-if="tags.length === 0"
+      icon="i-lucide-tag"
+      title="タグがまだありません"
+      description="タスクを分類するタグ（緊急対応・改修要望など）を追加しましょう"
+    >
+      <UButton color="primary" icon="i-lucide-plus" label="新規タグ" @click="openCreate" />
+    </EmptyState>
+
+    <UTable v-else :data="tags" :columns="columns" :ui="{ td: 'py-2' }">
       <template #name-cell="{ row }">
         <UBadge :color="row.original.color" variant="soft" :label="row.original.name" />
       </template>

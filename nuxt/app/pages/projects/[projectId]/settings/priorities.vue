@@ -144,7 +144,17 @@ const buildActions = (item: TaskPriority): DropdownMenuItem[][] => [
       <UButton color="primary" icon="i-lucide-plus" label="新規優先度" @click="openCreate" />
     </div>
 
+    <EmptyState
+      v-if="orderedPriorities.length === 0"
+      icon="i-lucide-flag"
+      title="優先度がまだありません"
+      description="タスクの優先度（高・中・低など）を追加しましょう"
+    >
+      <UButton color="primary" icon="i-lucide-plus" label="新規優先度" @click="openCreate" />
+    </EmptyState>
+
     <VueDraggable
+      v-else
       v-model="orderedPriorities"
       :animation="150"
       handle=".drag-handle"

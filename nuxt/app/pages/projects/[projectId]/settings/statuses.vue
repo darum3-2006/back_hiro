@@ -149,7 +149,22 @@ const buildActions = (item: TaskStatus): DropdownMenuItem[][] => [
       <UButton color="primary" icon="i-lucide-plus" label="新規ステータス" @click="openCreate" />
     </div>
 
+    <EmptyState
+      v-if="orderedStatuses.length === 0"
+      icon="i-lucide-circle-dashed"
+      title="ステータスがまだありません"
+      description="タスクの状態（未着手・対応中・完了など）を表すステータスを追加しましょう"
+    >
+      <UButton
+        color="primary"
+        icon="i-lucide-plus"
+        label="新規ステータス"
+        @click="openCreate"
+      />
+    </EmptyState>
+
     <VueDraggable
+      v-else
       v-model="orderedStatuses"
       :animation="150"
       handle=".drag-handle"

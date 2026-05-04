@@ -129,7 +129,21 @@ const columns: TableColumn<Member>[] = [
       />
     </div>
 
-    <UTable :data="members" :columns="columns" :ui="{ td: 'py-2' }">
+    <EmptyState
+      v-if="members.length === 0"
+      icon="i-lucide-users"
+      title="メンバーがまだいません"
+      description="メンバーを追加するとタスクを担当者に割り当てられます"
+    >
+      <UButton
+        color="primary"
+        icon="i-lucide-plus"
+        label="メンバーを追加"
+        @click="openCreate"
+      />
+    </EmptyState>
+
+    <UTable v-else :data="members" :columns="columns" :ui="{ td: 'py-2' }">
       <template #displayName-cell="{ row }">
         <span class="font-medium">{{ row.original.displayName }}</span>
       </template>

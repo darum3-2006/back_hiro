@@ -214,8 +214,28 @@ const updateTaskField = async (
     </template>
 
     <template #body>
-      <div class="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-default">
-        <UInput v-model="search" placeholder="内容を検索" icon="i-lucide-search" class="min-w-64" />
+      <EmptyState
+        v-if="tasks.length === 0"
+        icon="i-lucide-list-checks"
+        title="タスクがまだありません"
+        description="最初のタスクを追加して進捗を記録しましょう"
+      >
+        <UButton
+          color="primary"
+          icon="i-lucide-plus"
+          label="新規タスク"
+          @click="createSlideoverOpen = true"
+        />
+      </EmptyState>
+
+      <template v-else>
+        <div class="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-default">
+          <UInput
+            v-model="search"
+            placeholder="内容を検索"
+            icon="i-lucide-search"
+            class="min-w-64"
+          />
         <USelect
           v-model="statusFilter"
           :items="statusSelectItems"
@@ -250,7 +270,24 @@ const updateTaskField = async (
         </span>
       </div>
 
+      <EmptyState
+        v-if="filteredTasks.length === 0"
+        icon="i-lucide-search-x"
+        title="条件に合うタスクがありません"
+        description="フィルタを変更してみてください"
+      >
+        <UButton
+          v-if="hasActiveFilter"
+          color="neutral"
+          variant="ghost"
+          icon="i-lucide-x"
+          label="フィルタをクリア"
+          @click="resetFilters"
+        />
+      </EmptyState>
+
       <UTable
+        v-else
         v-model:sorting="sorting"
         :data="filteredTasks"
         :columns="columns"
@@ -369,6 +406,7 @@ const updateTaskField = async (
           </DatePopover>
         </template>
       </UTable>
+      </template>
     </template>
   </UDashboardPanel>
 

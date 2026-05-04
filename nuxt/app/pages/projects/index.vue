@@ -78,7 +78,21 @@ const columns: TableColumn<Project>[] = [
       </UDashboardNavbar>
     </template>
     <template #body>
-      <UTable :data="filteredProjects" :columns="columns" :ui="{ td: 'py-2' }">
+      <EmptyState
+        v-if="filteredProjects.length === 0"
+        icon="i-lucide-folder-kanban"
+        title="プロジェクトがまだありません"
+        description="新規プロジェクトを作成して、タスクの管理を始めましょう"
+      >
+        <UButton
+          color="primary"
+          icon="i-lucide-plus"
+          label="新規プロジェクト"
+          @click="projectCreateModalOpen = true"
+        />
+      </EmptyState>
+
+      <UTable v-else :data="filteredProjects" :columns="columns" :ui="{ td: 'py-2' }">
         <template #key-cell="{ row }">
           <code class="text-xs font-mono text-muted">{{ row.original.key }}</code>
         </template>
