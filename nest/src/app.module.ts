@@ -4,6 +4,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { buildDatabaseOptions } from './config/database.config';
+import { TenantsModule } from './tenants/tenants.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -11,6 +13,8 @@ import { buildDatabaseOptions } from './config/database.config';
     TypeOrmModule.forRootAsync({
       useFactory: () => buildDatabaseOptions(process.env),
     }),
+    TenantsModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

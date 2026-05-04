@@ -31,6 +31,23 @@ async function fetchData(id: string) { ... }
 - TypeScript モジュールの export 関数（`export const fn = () => {}`）
 - `async function` も `const fn = async () => {}` に統一
 
+## TypeORM エンティティ
+
+### コメント必須
+
+- `@Entity({ comment: 'テーブルの役割' })`
+- `@Column({ comment: '列の意味' })`
+- **例外:** PK `id` 列はスキップ可
+- BaseEntity の created_at / updated_at / deleted_at にもコメント
+- 日本語 OK（DB の SQL コメントとしてそのまま保存される）
+
+### 日時の扱い
+
+- **Entity の date 列は `Date` 型のまま**（TypeORM 標準）
+- 加算・比較・整形が必要なときに **dayjs** を使う（バックエンド側の utility / service 内）
+- API レスポンスは Date → ISO 文字列が JSON.stringify で自動変換されるので、追加処理不要
+- フロントは API から ISO 文字列で受け取り、`@internationalized/date` ／ `dayjs` で扱う
+
 ## ツール
 
 ### 整形と Lint
