@@ -30,9 +30,9 @@ const buildActions = (project: Project): DropdownMenuItem[][] => {
         {
           label: '復元',
           icon: 'i-lucide-archive-restore',
-          onSelect: () => unarchiveProject(project.id)
-        }
-      ]
+          onSelect: () => unarchiveProject(project.id),
+        },
+      ],
     ];
   }
   return [
@@ -40,16 +40,16 @@ const buildActions = (project: Project): DropdownMenuItem[][] => {
       {
         label: '設定',
         icon: 'i-lucide-settings',
-        to: `/projects/${project.id}/settings`
-      }
+        to: `/projects/${project.id}/settings`,
+      },
     ],
     [
       {
         label: 'アーカイブ',
         icon: 'i-lucide-archive',
-        onSelect: () => archiveProject(project.id)
-      }
-    ]
+        onSelect: () => archiveProject(project.id),
+      },
+    ],
   ];
 };
 
@@ -58,7 +58,7 @@ const columns: TableColumn<Project>[] = [
   { accessorKey: 'name', header: '名前' },
   { accessorKey: 'description', header: '説明' },
   { accessorKey: 'archivedAt', header: 'ステータス' },
-  { id: 'actions', header: '' }
+  { id: 'actions', header: '' },
 ];
 </script>
 

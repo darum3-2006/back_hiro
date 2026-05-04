@@ -12,7 +12,7 @@ const { data: users } = await useUsers();
 const userMap = computed(() => Object.fromEntries(users.value.map((u) => [u.id, u])));
 
 const existingUserIds = computed(() =>
-  members.value.filter((m) => m.userId !== null).map((m) => m.userId!)
+  members.value.filter((m) => m.userId !== null).map((m) => m.userId!),
 );
 
 const toast = useToast();
@@ -38,7 +38,7 @@ const onSaved = async (member: Member) => {
       title: 'メンバーを追加しました',
       description: member.displayName,
       color: 'success',
-      icon: 'i-lucide-check'
+      icon: 'i-lucide-check',
     });
   }
 };
@@ -85,7 +85,7 @@ const performDelete = async () => {
       title: 'メンバーを削除しました',
       description: name,
       color: 'success',
-      icon: 'i-lucide-check'
+      icon: 'i-lucide-check',
     });
   } finally {
     deleting.value = false;
@@ -97,23 +97,23 @@ const buildActions = (member: Member): DropdownMenuItem[][] => [
     {
       label: '編集',
       icon: 'i-lucide-pencil',
-      onSelect: () => openEdit(member)
-    }
+      onSelect: () => openEdit(member),
+    },
   ],
   [
     {
       label: '削除',
       icon: 'i-lucide-trash-2',
-      onSelect: () => openDelete(member)
-    }
-  ]
+      onSelect: () => openDelete(member),
+    },
+  ],
 ];
 
 const columns: TableColumn<Member>[] = [
   { accessorKey: 'displayName', header: '名前' },
   { accessorKey: 'userId', header: 'User紐付け' },
   { accessorKey: 'role', header: '権限' },
-  { id: 'actions', header: '' }
+  { id: 'actions', header: '' },
 ];
 </script>
 

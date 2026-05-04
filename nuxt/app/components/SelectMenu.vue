@@ -28,7 +28,7 @@ const menuItems = computed<DropdownMenuItem[][]>(() => {
       onSelect: () => {
         if (isCurrent) return;
         emit('select', item.value);
-      }
+      },
     };
   });
   if (!props.allowNone) return [main];
@@ -43,9 +43,9 @@ const menuItems = computed<DropdownMenuItem[][]>(() => {
         onSelect: () => {
           if (noneIsCurrent) return;
           emit('select', null);
-        }
-      }
-    ]
+        },
+      },
+    ],
   ];
 });
 </script>

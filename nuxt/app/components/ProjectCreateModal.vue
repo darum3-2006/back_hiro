@@ -22,7 +22,7 @@ watch(
     if (isOpen) {
       draft.value = { name: '', key: '', description: '' };
     }
-  }
+  },
 );
 
 const normalizedKey = computed(() => draft.value.key.trim().toUpperCase());
@@ -30,11 +30,11 @@ const normalizedKey = computed(() => draft.value.key.trim().toUpperCase());
 const existingKeys = computed(() => new Set(projects.value.map((p) => p.key.toUpperCase())));
 
 const keyConflict = computed(
-  () => Boolean(normalizedKey.value) && existingKeys.value.has(normalizedKey.value)
+  () => Boolean(normalizedKey.value) && existingKeys.value.has(normalizedKey.value),
 );
 
 const canSubmit = computed(() =>
-  Boolean(draft.value.name.trim() && normalizedKey.value && !keyConflict.value)
+  Boolean(draft.value.name.trim() && normalizedKey.value && !keyConflict.value),
 );
 
 const submit = async () => {
@@ -44,7 +44,7 @@ const submit = async () => {
     const project = await createProject({
       name: draft.value.name.trim(),
       key: normalizedKey.value,
-      description: draft.value.description.trim() || null
+      description: draft.value.description.trim() || null,
     });
     emit('created', project);
     emit('update:open', false);

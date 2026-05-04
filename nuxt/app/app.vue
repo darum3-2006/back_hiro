@@ -4,7 +4,7 @@ import type { Project } from '~/types/project';
 useHead({
   htmlAttrs: { lang: 'ja' },
   meta: [{ name: 'viewport', content: 'width=device-width, initial-scale=1' }],
-  link: [{ rel: 'icon', href: '/favicon.ico' }]
+  link: [{ rel: 'icon', href: '/favicon.ico' }],
 });
 
 useSeoMeta({ title: 'プロジェクト管理' });
@@ -40,7 +40,7 @@ const projectMenuItems = computed(() => [
     icon: p.id === currentProjectId.value ? 'i-lucide-check' : 'i-lucide-folder-kanban',
     onSelect: () => {
       navigateTo(`/projects/${p.id}/tasks`);
-    }
+    },
   })),
   [
     {
@@ -48,9 +48,9 @@ const projectMenuItems = computed(() => [
       icon: 'i-lucide-plus',
       onSelect: () => {
         projectCreateModalOpen.value = true;
-      }
-    }
-  ]
+      },
+    },
+  ],
 ]);
 
 const navItems = computed(() => [
@@ -58,10 +58,10 @@ const navItems = computed(() => [
     {
       label: 'タスク一覧',
       icon: 'i-lucide-list-checks',
-      to: currentProjectId.value ? `/projects/${currentProjectId.value}/tasks` : '/'
-    }
+      to: currentProjectId.value ? `/projects/${currentProjectId.value}/tasks` : '/',
+    },
   ],
-  [{ label: 'プロジェクト', icon: 'i-lucide-folders', to: '/projects' }]
+  [{ label: 'プロジェクト', icon: 'i-lucide-folders', to: '/projects' }],
 ]);
 
 const onProjectCreated = async (project: Project) => {

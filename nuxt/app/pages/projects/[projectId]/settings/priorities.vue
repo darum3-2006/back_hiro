@@ -6,7 +6,7 @@ import {
   createTaskPriority,
   deleteTaskPriority,
   reorderTaskPriorities,
-  updateTaskPriority
+  updateTaskPriority,
 } from '~/api/masters';
 import type { TaskPriority } from '~/types/master';
 import type { MasterFormPayload } from '~/components/MasterFormModal.vue';
@@ -23,7 +23,7 @@ watch(
   (v) => {
     orderedPriorities.value = [...v];
   },
-  { immediate: true }
+  { immediate: true },
 );
 
 const toast = useToast();
@@ -36,9 +36,9 @@ const modalInitial = computed<MasterFormPayload | null>(() =>
     ? {
         name: editingItem.value.label,
         color: editingItem.value.color,
-        isTerminal: false
+        isTerminal: false,
       }
-    : null
+    : null,
 );
 
 const openCreate = () => {
@@ -55,18 +55,18 @@ const onSubmit = async (data: MasterFormPayload) => {
   if (editingItem.value) {
     await updateTaskPriority(projectId.value, editingItem.value.code, {
       label: data.name,
-      color: data.color
+      color: data.color,
     });
   } else {
     await createTaskPriority(projectId.value, {
       label: data.name,
-      color: data.color
+      color: data.color,
     });
     toast.add({
       title: '優先度を追加しました',
       description: data.name,
       color: 'success',
-      icon: 'i-lucide-check'
+      icon: 'i-lucide-check',
     });
   }
   await refreshPriorities();
@@ -97,7 +97,7 @@ const openDelete = async (item: TaskPriority) => {
 };
 
 const canDelete = computed(
-  () => deleteReferences.value !== null && deleteReferences.value.tasks === 0
+  () => deleteReferences.value !== null && deleteReferences.value.tasks === 0,
 );
 
 const performDelete = async () => {
@@ -112,7 +112,7 @@ const performDelete = async () => {
       title: '優先度を削除しました',
       description: name,
       color: 'success',
-      icon: 'i-lucide-check'
+      icon: 'i-lucide-check',
     });
   } finally {
     deleting.value = false;
@@ -124,16 +124,16 @@ const buildActions = (item: TaskPriority): DropdownMenuItem[][] => [
     {
       label: '編集',
       icon: 'i-lucide-pencil',
-      onSelect: () => openEdit(item)
-    }
+      onSelect: () => openEdit(item),
+    },
   ],
   [
     {
       label: '削除',
       icon: 'i-lucide-trash-2',
-      onSelect: () => openDelete(item)
-    }
-  ]
+      onSelect: () => openDelete(item),
+    },
+  ],
 ];
 </script>
 

@@ -3,7 +3,7 @@ export default defineNuxtConfig({
   modules: ['@nuxt/eslint', '@nuxt/ui'],
 
   devtools: {
-    enabled: true
+    enabled: true,
   },
 
   css: ['~/assets/css/main.css'],
@@ -12,11 +12,11 @@ export default defineNuxtConfig({
 
   eslint: {
     config: {
-      stylistic: false
-    }
+      stylistic: false,
+    },
   },
   devServer: {
     host: '0.0.0.0',
-    port: 3100
-  }
+    port: 3100,
+  },
 });

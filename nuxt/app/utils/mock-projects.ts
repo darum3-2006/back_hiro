@@ -6,20 +6,20 @@ export const MOCK_PROJECTS: Project[] = [
     key: 'KAISHU',
     name: '改修対応',
     description: 'システム改修・バグ修正を扱う基本プロジェクト',
-    archivedAt: null
+    archivedAt: null,
   },
   {
     id: 'p2',
     key: 'NEW',
     name: '新規開発',
     description: '新機能の企画から実装まで',
-    archivedAt: null
+    archivedAt: null,
   },
   {
     id: 'p3',
     key: 'REF',
     name: 'リファクタリング',
     description: 'コード整理・技術的負債解消',
-    archivedAt: null
-  }
+    archivedAt: null,
+  },
 ];

@@ -33,12 +33,12 @@ watch(
       draft.value = {
         displayName: props.member.displayName,
         userId: props.member.userId,
-        role: props.member.role
+        role: props.member.role,
       };
     } else {
       draft.value = { displayName: '', userId: null, role: 'member' };
     }
-  }
+  },
 );
 
 const canSubmit = computed(() => Boolean(draft.value.displayName.trim()));
@@ -50,9 +50,9 @@ const userSelectItems = computed(() => {
   const allowedUserIds = new Set(
     props.users
       .filter(
-        (u) => !props.existingUserIds.includes(u.id) || u.id === (props.member?.userId ?? null)
+        (u) => !props.existingUserIds.includes(u.id) || u.id === (props.member?.userId ?? null),
       )
-      .map((u) => u.id)
+      .map((u) => u.id),
   );
   return props.users
     .filter((u) => allowedUserIds.has(u.id))
@@ -61,7 +61,7 @@ const userSelectItems = computed(() => {
 
 const roleSelectItems = [
   { value: 'admin', label: 'Admin' },
-  { value: 'member', label: 'Member' }
+  { value: 'member', label: 'Member' },
 ];
 
 const submit = async () => {
@@ -71,7 +71,7 @@ const submit = async () => {
     const payload = {
       displayName: draft.value.displayName.trim(),
       userId: draft.value.userId,
-      role: draft.value.role
+      role: draft.value.role,
     };
     let result: Member;
     if (props.member) {

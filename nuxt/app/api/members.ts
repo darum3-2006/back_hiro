@@ -11,7 +11,7 @@ export const fetchMembers = async (projectId: string): Promise<Member[]> => {
 /** POST /projects/{projectId}/members */
 export const createMember = async (
   projectId: string,
-  input: { displayName: string; userId: string | null; role: MemberRole }
+  input: { displayName: string; userId: string | null; role: MemberRole },
 ): Promise<Member> => {
   const nextNum =
     MOCK_MEMBERS.length === 0
@@ -22,7 +22,7 @@ export const createMember = async (
     projectId,
     displayName: input.displayName,
     userId: input.userId,
-    role: input.role
+    role: input.role,
   };
   MOCK_MEMBERS.push(member);
   return member;
@@ -32,7 +32,7 @@ export const createMember = async (
 export const updateMember = async (
   projectId: string,
   memberId: string,
-  patch: Partial<Omit<Member, 'id' | 'projectId'>>
+  patch: Partial<Omit<Member, 'id' | 'projectId'>>,
 ): Promise<Member> => {
   const idx = MOCK_MEMBERS.findIndex((m) => m.projectId === projectId && m.id === memberId);
   if (idx < 0) throw new Error(`Member ${memberId} not found`);
@@ -50,16 +50,16 @@ export const deleteMember = async (projectId: string, memberId: string): Promise
 /** GET /projects/{projectId}/members/{memberId}/references */
 export const countMemberReferences = async (
   projectId: string,
-  memberId: string
+  memberId: string,
 ): Promise<{ tasksAssignee: number; tasksRequester: number; comments: number }> => {
   const tasksAssignee = MOCK_TASKS.filter(
-    (t) => t.projectId === projectId && t.assigneeMemberId === memberId
+    (t) => t.projectId === projectId && t.assigneeMemberId === memberId,
   ).length;
   const tasksRequester = MOCK_TASKS.filter(
-    (t) => t.projectId === projectId && t.requesterMemberId === memberId
+    (t) => t.projectId === projectId && t.requesterMemberId === memberId,
   ).length;
   const comments = MOCK_COMMENTS.filter(
-    (c) => c.projectId === projectId && c.authorMemberId === memberId
+    (c) => c.projectId === projectId && c.authorMemberId === memberId,
   ).length;
   return { tasksAssignee, tasksRequester, comments };
 };

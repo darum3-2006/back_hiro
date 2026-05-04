@@ -166,28 +166,28 @@ watch(
     editingField.value = null;
     editingLinkIndex.value = null;
     cancelCommentEdit();
-  }
+  },
 );
 
 // ===== Master select items =====
 const statusSelectItems = computed(() =>
   Object.values(props.statusMap)
     .sort((a, b) => a.order - b.order)
-    .map((s) => ({ value: s.code, label: s.label }))
+    .map((s) => ({ value: s.code, label: s.label })),
 );
 
 const prioritySelectItems = computed(() =>
   Object.values(props.priorityMap)
     .sort((a, b) => a.order - b.order)
-    .map((p) => ({ value: p.code, label: p.label }))
+    .map((p) => ({ value: p.code, label: p.label })),
 );
 
 const memberSelectItems = computed(() =>
-  Object.values(props.memberMap).map((m) => ({ value: m.id, label: m.displayName }))
+  Object.values(props.memberMap).map((m) => ({ value: m.id, label: m.displayName })),
 );
 
 const departmentSelectItems = computed(() =>
-  Object.values(props.departmentMap).map((d) => ({ value: d.code, label: d.name }))
+  Object.values(props.departmentMap).map((d) => ({ value: d.code, label: d.name })),
 );
 
 const tagsList = computed(() => Object.values(props.tagMap));

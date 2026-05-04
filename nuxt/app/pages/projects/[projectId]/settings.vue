@@ -12,29 +12,29 @@ const tabs = computed(() => [
       label: 'General',
       icon: 'i-lucide-settings',
       to: `/projects/${projectId.value}/settings`,
-      exact: true
+      exact: true,
     },
     {
       label: 'メンバー',
       icon: 'i-lucide-users',
-      to: `/projects/${projectId.value}/settings/members`
+      to: `/projects/${projectId.value}/settings/members`,
     },
     {
       label: 'ステータス',
       icon: 'i-lucide-circle-dashed',
-      to: `/projects/${projectId.value}/settings/statuses`
+      to: `/projects/${projectId.value}/settings/statuses`,
     },
     {
       label: '優先度',
       icon: 'i-lucide-flag',
-      to: `/projects/${projectId.value}/settings/priorities`
+      to: `/projects/${projectId.value}/settings/priorities`,
     },
     {
       label: 'タグ',
       icon: 'i-lucide-tag',
-      to: `/projects/${projectId.value}/settings/tags`
-    }
-  ]
+      to: `/projects/${projectId.value}/settings/tags`,
+    },
+  ],
 ]);
 </script>
 

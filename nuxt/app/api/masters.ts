@@ -4,7 +4,7 @@ import {
   MOCK_TAGS,
   MOCK_TASK_PRIORITIES,
   MOCK_TASK_STATUSES,
-  MOCK_USERS
+  MOCK_USERS,
 } from '~/utils/mock-masters';
 import { MOCK_TASKS } from '~/utils/mock-tasks';
 
@@ -30,14 +30,14 @@ export const fetchDepartments = async (): Promise<Department[]> => {
 /** GET /projects/{projectId}/task-statuses */
 export const fetchTaskStatuses = async (projectId: string): Promise<TaskStatus[]> => {
   return MOCK_TASK_STATUSES.filter((s) => s.projectId === projectId).sort(
-    (a, b) => a.order - b.order
+    (a, b) => a.order - b.order,
   );
 };
 
 /** POST /projects/{projectId}/task-statuses */
 export const createTaskStatus = async (
   projectId: string,
-  input: { label: string; color: MasterColor; isTerminal: boolean }
+  input: { label: string; color: MasterColor; isTerminal: boolean },
 ): Promise<TaskStatus> => {
   const projectStatuses = MOCK_TASK_STATUSES.filter((s) => s.projectId === projectId);
   const maxOrder =
@@ -48,7 +48,7 @@ export const createTaskStatus = async (
     label: input.label,
     color: input.color,
     order: maxOrder + 1,
-    isTerminal: input.isTerminal
+    isTerminal: input.isTerminal,
   };
   MOCK_TASK_STATUSES.push(status);
   return status;
@@ -58,7 +58,7 @@ export const createTaskStatus = async (
 export const updateTaskStatus = async (
   projectId: string,
   code: string,
-  patch: Partial<Omit<TaskStatus, 'projectId' | 'code'>>
+  patch: Partial<Omit<TaskStatus, 'projectId' | 'code'>>,
 ): Promise<TaskStatus> => {
   const idx = MOCK_TASK_STATUSES.findIndex((s) => s.projectId === projectId && s.code === code);
   if (idx < 0) throw new Error(`TaskStatus ${code} not found`);
@@ -76,7 +76,7 @@ export const deleteTaskStatus = async (projectId: string, code: string): Promise
 /** GET /projects/{projectId}/task-statuses/{code}/references */
 export const countTaskStatusReferences = async (
   projectId: string,
-  code: string
+  code: string,
 ): Promise<{ tasks: number }> => {
   const tasks = MOCK_TASKS.filter((t) => t.projectId === projectId && t.statusCode === code).length;
   return { tasks };
@@ -86,7 +86,7 @@ const swapMasterOrder = <T extends { code: string; order: number; projectId: str
   list: T[],
   projectId: string,
   code: string,
-  direction: 'up' | 'down'
+  direction: 'up' | 'down',
 ): void => {
   const sorted = list.filter((s) => s.projectId === projectId).sort((a, b) => a.order - b.order);
   const idx = sorted.findIndex((s) => s.code === code);
@@ -102,7 +102,7 @@ const swapMasterOrder = <T extends { code: string; order: number; projectId: str
 export const moveTaskStatus = async (
   projectId: string,
   code: string,
-  direction: 'up' | 'down'
+  direction: 'up' | 'down',
 ): Promise<void> => {
   swapMasterOrder(MOCK_TASK_STATUSES, projectId, code, direction);
 };
@@ -110,7 +110,7 @@ export const moveTaskStatus = async (
 /** PUT /projects/{projectId}/task-statuses/order */
 export const reorderTaskStatuses = async (
   projectId: string,
-  orderedCodes: string[]
+  orderedCodes: string[],
 ): Promise<void> => {
   const list = MOCK_TASK_STATUSES.filter((s) => s.projectId === projectId);
   for (const status of list) {
@@ -124,14 +124,14 @@ export const reorderTaskStatuses = async (
 /** GET /projects/{projectId}/task-priorities */
 export const fetchTaskPriorities = async (projectId: string): Promise<TaskPriority[]> => {
   return MOCK_TASK_PRIORITIES.filter((p) => p.projectId === projectId).sort(
-    (a, b) => a.order - b.order
+    (a, b) => a.order - b.order,
   );
 };
 
 /** POST /projects/{projectId}/task-priorities */
 export const createTaskPriority = async (
   projectId: string,
-  input: { label: string; color: MasterColor }
+  input: { label: string; color: MasterColor },
 ): Promise<TaskPriority> => {
   const projectPriorities = MOCK_TASK_PRIORITIES.filter((p) => p.projectId === projectId);
   const maxOrder =
@@ -141,7 +141,7 @@ export const createTaskPriority = async (
     code: randomCode('p'),
     label: input.label,
     color: input.color,
-    order: maxOrder + 1
+    order: maxOrder + 1,
   };
   MOCK_TASK_PRIORITIES.push(priority);
   return priority;
@@ -151,7 +151,7 @@ export const createTaskPriority = async (
 export const updateTaskPriority = async (
   projectId: string,
   code: string,
-  patch: Partial<Omit<TaskPriority, 'projectId' | 'code'>>
+  patch: Partial<Omit<TaskPriority, 'projectId' | 'code'>>,
 ): Promise<TaskPriority> => {
   const idx = MOCK_TASK_PRIORITIES.findIndex((p) => p.projectId === projectId && p.code === code);
   if (idx < 0) throw new Error(`TaskPriority ${code} not found`);
@@ -169,10 +169,10 @@ export const deleteTaskPriority = async (projectId: string, code: string): Promi
 /** GET /projects/{projectId}/task-priorities/{code}/references */
 export const countTaskPriorityReferences = async (
   projectId: string,
-  code: string
+  code: string,
 ): Promise<{ tasks: number }> => {
   const tasks = MOCK_TASKS.filter(
-    (t) => t.projectId === projectId && t.priorityCode === code
+    (t) => t.projectId === projectId && t.priorityCode === code,
   ).length;
   return { tasks };
 };
@@ -181,7 +181,7 @@ export const countTaskPriorityReferences = async (
 export const moveTaskPriority = async (
   projectId: string,
   code: string,
-  direction: 'up' | 'down'
+  direction: 'up' | 'down',
 ): Promise<void> => {
   swapMasterOrder(MOCK_TASK_PRIORITIES, projectId, code, direction);
 };
@@ -189,7 +189,7 @@ export const moveTaskPriority = async (
 /** PUT /projects/{projectId}/task-priorities/order */
 export const reorderTaskPriorities = async (
   projectId: string,
-  orderedCodes: string[]
+  orderedCodes: string[],
 ): Promise<void> => {
   const list = MOCK_TASK_PRIORITIES.filter((p) => p.projectId === projectId);
   for (const priority of list) {
@@ -208,13 +208,13 @@ export const fetchTags = async (projectId: string): Promise<Tag[]> => {
 /** POST /projects/{projectId}/tags */
 export const createTag = async (
   projectId: string,
-  input: { name: string; color: MasterColor }
+  input: { name: string; color: MasterColor },
 ): Promise<Tag> => {
   const tag: Tag = {
     projectId,
     code: randomCode('t'),
     name: input.name,
-    color: input.color
+    color: input.color,
   };
   MOCK_TAGS.push(tag);
   return tag;
@@ -224,7 +224,7 @@ export const createTag = async (
 export const updateTag = async (
   projectId: string,
   code: string,
-  patch: Partial<Omit<Tag, 'projectId' | 'code'>>
+  patch: Partial<Omit<Tag, 'projectId' | 'code'>>,
 ): Promise<Tag> => {
   const idx = MOCK_TAGS.findIndex((t) => t.projectId === projectId && t.code === code);
   if (idx < 0) throw new Error(`Tag ${code} not found`);
@@ -242,10 +242,10 @@ export const deleteTag = async (projectId: string, code: string): Promise<void> 
 /** GET /projects/{projectId}/tags/{code}/references */
 export const countTagReferences = async (
   projectId: string,
-  code: string
+  code: string,
 ): Promise<{ tasks: number }> => {
   const tasks = MOCK_TASKS.filter(
-    (t) => t.projectId === projectId && t.tagCodes.includes(code)
+    (t) => t.projectId === projectId && t.tagCodes.includes(code),
   ).length;
   return { tasks };
 };

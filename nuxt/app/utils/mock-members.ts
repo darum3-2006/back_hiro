@@ -37,5 +37,5 @@ export const MOCK_MEMBERS: Member[] = [
   { id: 'm29', projectId: 'p3', displayName: '山本翔太', userId: 'u7', role: 'member' },
   { id: 'm30', projectId: 'p3', displayName: '中村美穂', userId: 'u8', role: 'member' },
   { id: 'm31', projectId: 'p3', displayName: '小林涼', userId: 'u9', role: 'member' },
-  { id: 'm32', projectId: 'p3', displayName: '加藤千尋', userId: 'u10', role: 'member' }
+  { id: 'm32', projectId: 'p3', displayName: '加藤千尋', userId: 'u10', role: 'member' },
 ];

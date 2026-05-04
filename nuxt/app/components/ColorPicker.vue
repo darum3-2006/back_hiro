@@ -15,7 +15,7 @@ const colors: { value: MasterColor; label: string }[] = [
   { value: 'info', label: 'ブルー' },
   { value: 'success', label: 'グリーン' },
   { value: 'warning', label: 'イエロー' },
-  { value: 'error', label: 'レッド' }
+  { value: 'error', label: 'レッド' },
 ];
 </script>
 

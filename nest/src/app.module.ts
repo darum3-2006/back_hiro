@@ -9,10 +9,10 @@ import { buildDatabaseOptions } from './config/database.config';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forRootAsync({
-      useFactory: () => buildDatabaseOptions(process.env)
-    })
+      useFactory: () => buildDatabaseOptions(process.env),
+    }),
   ],
   controllers: [AppController],
-  providers: [AppService]
+  providers: [AppService],
 })
 export class AppModule {}

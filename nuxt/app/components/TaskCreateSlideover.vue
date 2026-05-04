@@ -33,7 +33,7 @@ const makeInitialDraft = (): Draft => ({
   statusCode: props.statuses[0]?.code ?? '',
   deadline: null,
   plannedCompletionDate: null,
-  tagCodes: []
+  tagCodes: [],
 });
 
 const draft = ref<Draft>(makeInitialDraft());
@@ -53,11 +53,11 @@ watch(
     if (isOpen) {
       draft.value = makeInitialDraft();
     }
-  }
+  },
 );
 
 const canSubmit = computed(() =>
-  Boolean(draft.value.content.trim() && draft.value.assigneeMemberId && draft.value.statusCode)
+  Boolean(draft.value.content.trim() && draft.value.assigneeMemberId && draft.value.statusCode),
 );
 
 const submit = async () => {
@@ -67,7 +67,7 @@ const submit = async () => {
     const task = await createTask(props.projectId, {
       ...draft.value,
       content: draft.value.content.trim(),
-      description: draft.value.description.trim()
+      description: draft.value.description.trim(),
     });
     emit('created', task);
     emit('update:open', false);
@@ -84,21 +84,21 @@ const departmentMap = computed(() => Object.fromEntries(props.departments.map((d
 const statusSelectItems = computed(() =>
   [...props.statuses]
     .sort((a, b) => a.order - b.order)
-    .map((s) => ({ value: s.code, label: s.label }))
+    .map((s) => ({ value: s.code, label: s.label })),
 );
 
 const prioritySelectItems = computed(() =>
   [...props.priorities]
     .sort((a, b) => a.order - b.order)
-    .map((p) => ({ value: p.code, label: p.label }))
+    .map((p) => ({ value: p.code, label: p.label })),
 );
 
 const memberSelectItems = computed(() =>
-  props.members.map((m) => ({ value: m.id, label: m.displayName }))
+  props.members.map((m) => ({ value: m.id, label: m.displayName })),
 );
 
 const departmentSelectItems = computed(() =>
-  props.departments.map((d) => ({ value: d.code, label: d.name }))
+  props.departments.map((d) => ({ value: d.code, label: d.name })),
 );
 </script>
 

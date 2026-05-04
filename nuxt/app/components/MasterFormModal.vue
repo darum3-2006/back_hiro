@@ -27,14 +27,14 @@ watch(
     draft.value = props.initial
       ? { ...props.initial }
       : { name: '', color: 'neutral', isTerminal: false };
-  }
+  },
 );
 
 const titleNoun = computed(
-  () => ({ status: 'ステータス', priority: '優先度', tag: 'タグ' })[props.type]
+  () => ({ status: 'ステータス', priority: '優先度', tag: 'タグ' })[props.type],
 );
 const labelText = computed(
-  () => ({ status: 'ラベル', priority: 'ラベル', tag: '名前' })[props.type]
+  () => ({ status: 'ラベル', priority: 'ラベル', tag: '名前' })[props.type],
 );
 const showIsTerminal = computed(() => props.type === 'status');
 const isEdit = computed(() => Boolean(props.initial));
@@ -45,7 +45,7 @@ const submit = () => {
   emit('submit', {
     name: draft.value.name.trim(),
     color: draft.value.color,
-    isTerminal: draft.value.isTerminal
+    isTerminal: draft.value.isTerminal,
   });
   emit('update:open', false);
 };

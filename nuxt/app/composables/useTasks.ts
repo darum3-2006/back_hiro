@@ -4,5 +4,5 @@ export const useTasks = (projectId: Ref<string>) =>
   useAsyncData(
     () => `tasks:${projectId.value}`,
     () => fetchTasks(projectId.value),
-    { default: () => [], watch: [projectId] }
+    { default: () => [], watch: [projectId] },
   );

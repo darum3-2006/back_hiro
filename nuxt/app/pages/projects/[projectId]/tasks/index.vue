@@ -21,7 +21,7 @@ const { data: members } = await useMembers(currentProjectId);
 const { data: departments } = await useDepartments();
 
 const currentMemberId = computed<string | null>(
-  () => members.value.find((m) => m.userId === currentUserId.value)?.id ?? null
+  () => members.value.find((m) => m.userId === currentUserId.value)?.id ?? null,
 );
 
 const statusMap = computed(() => Object.fromEntries(statuses.value.map((s) => [s.code, s])));
@@ -34,7 +34,7 @@ const departmentMap = computed(() => Object.fromEntries(departments.value.map((d
 const updateQuery = (changes: Record<string, string | undefined>) => {
   const merged = { ...route.query, ...changes };
   const cleaned = Object.fromEntries(
-    Object.entries(merged).filter(([, v]) => v !== undefined && v !== '')
+    Object.entries(merged).filter(([, v]) => v !== undefined && v !== ''),
   );
   router.replace({ query: cleaned });
 };
@@ -43,36 +43,36 @@ const queryString = (key: string): string => (route.query[key] as string | undef
 
 const search = computed<string>({
   get: () => queryString('search'),
-  set: (v) => updateQuery({ search: v || undefined })
+  set: (v) => updateQuery({ search: v || undefined }),
 });
 
 const statusFilter = computed<string>({
   get: () => queryString('status'),
-  set: (v) => updateQuery({ status: v || undefined })
+  set: (v) => updateQuery({ status: v || undefined }),
 });
 
 const priorityFilter = computed<string>({
   get: () => queryString('priority'),
-  set: (v) => updateQuery({ priority: v || undefined })
+  set: (v) => updateQuery({ priority: v || undefined }),
 });
 
 const assigneeFilter = computed<string>({
   get: () => queryString('assignee'),
-  set: (v) => updateQuery({ assignee: v || undefined })
+  set: (v) => updateQuery({ assignee: v || undefined }),
 });
 
 const statusSelectItems = computed(() =>
-  statuses.value.map((s) => ({ label: s.label, value: s.code }))
+  statuses.value.map((s) => ({ label: s.label, value: s.code })),
 );
 const prioritySelectItems = computed(() =>
-  priorities.value.map((p) => ({ label: p.label, value: p.code }))
+  priorities.value.map((p) => ({ label: p.label, value: p.code })),
 );
 const memberSelectItems = computed(() =>
-  members.value.map((m) => ({ label: m.displayName, value: m.id }))
+  members.value.map((m) => ({ label: m.displayName, value: m.id })),
 );
 
 const hasActiveFilter = computed(() =>
-  Boolean(search.value || statusFilter.value || priorityFilter.value || assigneeFilter.value)
+  Boolean(search.value || statusFilter.value || priorityFilter.value || assigneeFilter.value),
 );
 
 const resetFilters = () => {
@@ -80,7 +80,7 @@ const resetFilters = () => {
     search: undefined,
     status: undefined,
     priority: undefined,
-    assignee: undefined
+    assignee: undefined,
   });
 };
 
@@ -95,7 +95,7 @@ const selectedTaskId = computed<number | null>(() => {
 const selectedTask = computed<Task | null>(() =>
   selectedTaskId.value !== null
     ? (tasks.value.find((t) => t.id === selectedTaskId.value) ?? null)
-    : null
+    : null,
 );
 
 const slideoverOpen = computed(() => selectedTaskId.value !== null);
@@ -121,7 +121,7 @@ const onTaskCreated = async (task: Task) => {
     title: 'タスクを作成しました',
     description: `#${task.id} ${task.content}`,
     color: 'success',
-    icon: 'i-lucide-check'
+    icon: 'i-lucide-check',
   });
   setSelectedTaskId(task.id);
 };
@@ -148,12 +148,12 @@ const sorting = computed<{ id: string; desc: boolean }[]>({
     } else {
       updateQuery({ sort: v[0]!.id, sortDir: v[0]!.desc ? 'desc' : 'asc' });
     }
-  }
+  },
 });
 
 const sortHeader = (label: string) => {
   return ({
-    column
+    column,
   }: {
     column: { getIsSorted: () => false | 'asc' | 'desc'; toggleSorting: (desc: boolean) => void };
   }) => {
@@ -169,7 +169,7 @@ const sortHeader = (label: string) => {
           : sorted === 'desc'
             ? 'i-lucide-arrow-down'
             : 'i-lucide-arrow-up-down',
-      onClick: () => column.toggleSorting(sorted === 'asc')
+      onClick: () => column.toggleSorting(sorted === 'asc'),
     });
   };
 };
@@ -184,7 +184,7 @@ const columns: TableColumn<Task>[] = [
       const na = memberMap.value[a.original.assigneeMemberId]?.displayName ?? '';
       const nb = memberMap.value[b.original.assigneeMemberId]?.displayName ?? '';
       return na.localeCompare(nb, 'ja');
-    }
+    },
   },
   {
     accessorKey: 'statusCode',
@@ -193,7 +193,7 @@ const columns: TableColumn<Task>[] = [
       const oa = statusMap.value[a.original.statusCode]?.order ?? 999;
       const ob = statusMap.value[b.original.statusCode]?.order ?? 999;
       return oa - ob;
-    }
+    },
   },
   {
     accessorKey: 'priorityCode',
@@ -206,7 +206,7 @@ const columns: TableColumn<Task>[] = [
         ? (priorityMap.value[b.original.priorityCode]?.order ?? 999)
         : 999;
       return oa - ob;
-    }
+    },
   },
   { accessorKey: 'tagCodes', header: 'タグ', enableSorting: false },
   {
@@ -216,13 +216,13 @@ const columns: TableColumn<Task>[] = [
       const da = a.original.deadline ?? '9999-12-31';
       const db = b.original.deadline ?? '9999-12-31';
       return da.localeCompare(db);
-    }
-  }
+    },
+  },
 ];
 
 const updateTaskField = async (
   taskId: number,
-  patch: Partial<Omit<Task, 'id' | 'projectId' | 'createdAt'>>
+  patch: Partial<Omit<Task, 'id' | 'projectId' | 'createdAt'>>,
 ) => {
   await updateTask(currentProjectId.value, taskId, patch);
   await refreshTasks();

@@ -11,5 +11,5 @@ export const buildDatabaseOptions = (env: NodeJS.ProcessEnv): TypeOrmModuleOptio
   autoLoadEntities: true,
   namingStrategy: new SnakeNamingStrategy(),
   synchronize: false,
-  logging: env.NODE_ENV !== 'production' ? ['error', 'warn'] : ['error']
+  logging: env.NODE_ENV !== 'production' ? ['error', 'warn'] : ['error'],
 });

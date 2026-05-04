@@ -25,7 +25,7 @@ export const createProject = async (input: {
     key: upperKey,
     name: input.name,
     description: input.description,
-    archivedAt: null
+    archivedAt: null,
   };
   MOCK_PROJECTS.push(project);
   return project;
@@ -34,7 +34,7 @@ export const createProject = async (input: {
 /** PATCH /tenants/me/projects/{id} */
 export const updateProject = async (
   id: string,
-  patch: Partial<Omit<Project, 'id'>>
+  patch: Partial<Omit<Project, 'id'>>,
 ): Promise<Project> => {
   const idx = MOCK_PROJECTS.findIndex((p) => p.id === id);
   if (idx < 0) throw new Error(`Project ${id} not found`);

@@ -5,5 +5,5 @@ export const useTaskComments = (projectId: Ref<string>, taskId: Ref<number | nul
     () => `task-comments:${projectId.value}:${taskId.value ?? 'none'}`,
     () =>
       taskId.value !== null ? fetchComments(projectId.value, taskId.value) : Promise.resolve([]),
-    { default: () => [], watch: [projectId, taskId] }
+    { default: () => [], watch: [projectId, taskId] },
   );

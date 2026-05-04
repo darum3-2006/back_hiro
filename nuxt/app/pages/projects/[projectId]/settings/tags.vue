@@ -19,9 +19,9 @@ const modalInitial = computed<MasterFormPayload | null>(() =>
     ? {
         name: editingItem.value.name,
         color: editingItem.value.color,
-        isTerminal: false
+        isTerminal: false,
       }
-    : null
+    : null,
 );
 
 const openCreate = () => {
@@ -38,18 +38,18 @@ const onSubmit = async (data: MasterFormPayload) => {
   if (editingItem.value) {
     await updateTag(projectId.value, editingItem.value.code, {
       name: data.name,
-      color: data.color
+      color: data.color,
     });
   } else {
     await createTag(projectId.value, {
       name: data.name,
-      color: data.color
+      color: data.color,
     });
     toast.add({
       title: 'タグを追加しました',
       description: data.name,
       color: 'success',
-      icon: 'i-lucide-check'
+      icon: 'i-lucide-check',
     });
   }
   await refreshTags();
@@ -74,7 +74,7 @@ const openDelete = async (item: Tag) => {
 };
 
 const canDelete = computed(
-  () => deleteReferences.value !== null && deleteReferences.value.tasks === 0
+  () => deleteReferences.value !== null && deleteReferences.value.tasks === 0,
 );
 
 const performDelete = async () => {
@@ -89,7 +89,7 @@ const performDelete = async () => {
       title: 'タグを削除しました',
       description: name,
       color: 'success',
-      icon: 'i-lucide-check'
+      icon: 'i-lucide-check',
     });
   } finally {
     deleting.value = false;
@@ -101,21 +101,21 @@ const buildActions = (item: Tag): DropdownMenuItem[][] => [
     {
       label: '編集',
       icon: 'i-lucide-pencil',
-      onSelect: () => openEdit(item)
-    }
+      onSelect: () => openEdit(item),
+    },
   ],
   [
     {
       label: '削除',
       icon: 'i-lucide-trash-2',
-      onSelect: () => openDelete(item)
-    }
-  ]
+      onSelect: () => openDelete(item),
+    },
+  ],
 ];
 
 const columns: TableColumn<Tag>[] = [
   { accessorKey: 'name', header: '名前' },
-  { id: 'actions', header: '' }
+  { id: 'actions', header: '' },
 ];
 </script>
 

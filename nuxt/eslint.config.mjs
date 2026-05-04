@@ -5,6 +5,6 @@ import prettier from 'eslint-config-prettier';
 export default withNuxt({
   rules: {
     // Vue 3 はマルチルートテンプレート対応
-    'vue/no-multiple-template-root': 'off'
-  }
+    'vue/no-multiple-template-root': 'off',
+  },
 }).append(prettier);

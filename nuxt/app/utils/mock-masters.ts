@@ -9,7 +9,7 @@ export const MOCK_TASK_STATUSES: TaskStatus[] = [
     label: '対応中',
     color: 'info',
     order: 2,
-    isTerminal: false
+    isTerminal: false,
   },
   {
     projectId: 'p1',
@@ -17,7 +17,7 @@ export const MOCK_TASK_STATUSES: TaskStatus[] = [
     label: 'レビュー中',
     color: 'primary',
     order: 3,
-    isTerminal: false
+    isTerminal: false,
   },
   { projectId: 'p1', code: 'done', label: '完了', color: 'success', order: 4, isTerminal: true },
   {
@@ -26,7 +26,7 @@ export const MOCK_TASK_STATUSES: TaskStatus[] = [
     label: '保留',
     color: 'warning',
     order: 5,
-    isTerminal: false
+    isTerminal: false,
   },
   // p2: 新規開発
   { projectId: 'p2', code: 'todo', label: '未着手', color: 'neutral', order: 1, isTerminal: false },
@@ -38,7 +38,7 @@ export const MOCK_TASK_STATUSES: TaskStatus[] = [
     label: 'レビュー中',
     color: 'warning',
     order: 4,
-    isTerminal: false
+    isTerminal: false,
   },
   {
     projectId: 'p2',
@@ -46,13 +46,13 @@ export const MOCK_TASK_STATUSES: TaskStatus[] = [
     label: 'リリース待ち',
     color: 'info',
     order: 5,
-    isTerminal: false
+    isTerminal: false,
   },
   { projectId: 'p2', code: 'done', label: '完了', color: 'success', order: 6, isTerminal: true },
   // p3: リファクタリング
   { projectId: 'p3', code: 'todo', label: '未着手', color: 'neutral', order: 1, isTerminal: false },
   { projectId: 'p3', code: 'doing', label: '対応中', color: 'info', order: 2, isTerminal: false },
-  { projectId: 'p3', code: 'done', label: '完了', color: 'success', order: 3, isTerminal: true }
+  { projectId: 'p3', code: 'done', label: '完了', color: 'success', order: 3, isTerminal: true },
 ];
 
 export const MOCK_TASK_PRIORITIES: TaskPriority[] = [
@@ -67,7 +67,7 @@ export const MOCK_TASK_PRIORITIES: TaskPriority[] = [
   { projectId: 'p2', code: 'p3', label: 'P3', color: 'neutral', order: 4 },
   // p3
   { projectId: 'p3', code: 'high', label: '高', color: 'error', order: 1 },
-  { projectId: 'p3', code: 'low', label: '低', color: 'neutral', order: 2 }
+  { projectId: 'p3', code: 'low', label: '低', color: 'neutral', order: 2 },
 ];
 
 export const MOCK_TAGS: Tag[] = [
@@ -85,7 +85,7 @@ export const MOCK_TAGS: Tag[] = [
   // p3
   { projectId: 'p3', code: 'cleanup', name: 'コード整理', color: 'neutral' },
   { projectId: 'p3', code: 'tests', name: 'テスト追加', color: 'success' },
-  { projectId: 'p3', code: 'deps', name: '依存更新', color: 'info' }
+  { projectId: 'p3', code: 'deps', name: '依存更新', color: 'info' },
 ];
 
 export const MOCK_DEPARTMENTS: Department[] = [
@@ -95,7 +95,7 @@ export const MOCK_DEPARTMENTS: Department[] = [
   { code: 'accounting', name: '経理部' },
   { code: 'marketing', name: 'マーケティング' },
   { code: 'sales', name: '営業部' },
-  { code: 'system', name: 'システム部' }
+  { code: 'system', name: 'システム部' },
 ];
 
 export const MOCK_USERS: User[] = [
@@ -108,5 +108,5 @@ export const MOCK_USERS: User[] = [
   { id: 'u7', name: '山本翔太', email: 'yamamoto@example.com' },
   { id: 'u8', name: '中村美穂', email: 'nakamura@example.com' },
   { id: 'u9', name: '小林涼', email: 'kobayashi@example.com' },
-  { id: 'u10', name: '加藤千尋', email: 'kato@example.com' }
+  { id: 'u10', name: '加藤千尋', email: 'kato@example.com' },
 ];

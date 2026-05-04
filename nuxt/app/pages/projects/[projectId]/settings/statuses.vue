@@ -6,7 +6,7 @@ import {
   createTaskStatus,
   deleteTaskStatus,
   reorderTaskStatuses,
-  updateTaskStatus
+  updateTaskStatus,
 } from '~/api/masters';
 import type { TaskStatus } from '~/types/master';
 import type { MasterFormPayload } from '~/components/MasterFormModal.vue';
@@ -23,7 +23,7 @@ watch(
   (v) => {
     orderedStatuses.value = [...v];
   },
-  { immediate: true }
+  { immediate: true },
 );
 
 const toast = useToast();
@@ -37,9 +37,9 @@ const modalInitial = computed<MasterFormPayload | null>(() =>
     ? {
         name: editingItem.value.label,
         color: editingItem.value.color,
-        isTerminal: editingItem.value.isTerminal
+        isTerminal: editingItem.value.isTerminal,
       }
-    : null
+    : null,
 );
 
 const openCreate = () => {
@@ -57,19 +57,19 @@ const onSubmit = async (data: MasterFormPayload) => {
     await updateTaskStatus(projectId.value, editingItem.value.code, {
       label: data.name,
       color: data.color,
-      isTerminal: data.isTerminal
+      isTerminal: data.isTerminal,
     });
   } else {
     await createTaskStatus(projectId.value, {
       label: data.name,
       color: data.color,
-      isTerminal: data.isTerminal
+      isTerminal: data.isTerminal,
     });
     toast.add({
       title: 'ステータスを追加しました',
       description: data.name,
       color: 'success',
-      icon: 'i-lucide-check'
+      icon: 'i-lucide-check',
     });
   }
   await refreshStatuses();
@@ -102,7 +102,7 @@ const openDelete = async (item: TaskStatus) => {
 };
 
 const canDelete = computed(
-  () => deleteReferences.value !== null && deleteReferences.value.tasks === 0
+  () => deleteReferences.value !== null && deleteReferences.value.tasks === 0,
 );
 
 const performDelete = async () => {
@@ -117,7 +117,7 @@ const performDelete = async () => {
       title: 'ステータスを削除しました',
       description: name,
       color: 'success',
-      icon: 'i-lucide-check'
+      icon: 'i-lucide-check',
     });
   } finally {
     deleting.value = false;
@@ -129,16 +129,16 @@ const buildActions = (item: TaskStatus): DropdownMenuItem[][] => [
     {
       label: '編集',
       icon: 'i-lucide-pencil',
-      onSelect: () => openEdit(item)
-    }
+      onSelect: () => openEdit(item),
+    },
   ],
   [
     {
       label: '削除',
       icon: 'i-lucide-trash-2',
-      onSelect: () => openDelete(item)
-    }
-  ]
+      onSelect: () => openDelete(item),
+    },
+  ],
 ];
 </script>
 
