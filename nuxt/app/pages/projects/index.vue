@@ -98,9 +98,11 @@ const columns: TableColumn<Project>[] = [
           <UBadge v-else color="success" variant="soft" label="アクティブ" />
         </template>
         <template #actions-cell="{ row }">
-          <UDropdownMenu :items="buildActions(row.original)">
-            <UButton icon="i-lucide-more-horizontal" color="neutral" variant="ghost" size="sm" />
-          </UDropdownMenu>
+          <div class="flex justify-end">
+            <UDropdownMenu :items="buildActions(row.original)">
+              <UButton icon="i-lucide-more-horizontal" color="neutral" variant="ghost" size="sm" />
+            </UDropdownMenu>
+          </div>
         </template>
       </UTable>
     </template>

@@ -1,8 +1,10 @@
+export type MasterColor = 'neutral' | 'primary' | 'info' | 'success' | 'warning' | 'error'
+
 export interface TaskStatus {
   projectId: string
   code: string
   label: string
-  color: 'neutral' | 'primary' | 'info' | 'success' | 'warning' | 'error'
+  color: MasterColor
   order: number
   isTerminal: boolean
 }
@@ -11,7 +13,7 @@ export interface TaskPriority {
   projectId: string
   code: string
   label: string
-  color: 'neutral' | 'primary' | 'info' | 'success' | 'warning' | 'error'
+  color: MasterColor
   order: number
 }
 
@@ -19,7 +21,7 @@ export interface Tag {
   projectId: string
   code: string
   name: string
-  color: 'neutral' | 'primary' | 'info' | 'success' | 'warning' | 'error'
+  color: MasterColor
 }
 
 export interface Department {

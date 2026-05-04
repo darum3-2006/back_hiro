@@ -19,7 +19,8 @@
     "@internationalized/date": "^3.12.1",
     "@nuxt/ui": "^4.7.0",
     "nuxt": "^4.4.2",
-    "tailwindcss": "^4.2.4"
+    "tailwindcss": "^4.2.4",
+    "vue-draggable-plus": "^0.6.1"
   },
   "devDependencies": {
     "@nuxt/eslint": "^1.15.2",
