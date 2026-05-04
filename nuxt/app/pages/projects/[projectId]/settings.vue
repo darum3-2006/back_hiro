@@ -1,10 +1,10 @@
 <script setup lang="ts">
-const route = useRoute()
+const route = useRoute();
 
-const projectId = computed(() => route.params.projectId as string)
+const projectId = computed(() => route.params.projectId as string);
 
-const { data: projects } = await useProjects()
-const project = computed(() => projects.value.find((p) => p.id === projectId.value))
+const { data: projects } = await useProjects();
+const project = computed(() => projects.value.find((p) => p.id === projectId.value));
 
 const tabs = computed(() => [
   [
@@ -35,7 +35,7 @@ const tabs = computed(() => [
       to: `/projects/${projectId.value}/settings/tags`
     }
   ]
-])
+]);
 </script>
 
 <template>

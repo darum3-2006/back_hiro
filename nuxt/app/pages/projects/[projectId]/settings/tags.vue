@@ -1,18 +1,18 @@
 <script setup lang="ts">
-import type { TableColumn, DropdownMenuItem } from '@nuxt/ui'
-import { countTagReferences, createTag, deleteTag, updateTag } from '~/api/masters'
-import type { Tag } from '~/types/master'
-import type { MasterFormPayload } from '~/components/MasterFormModal.vue'
+import type { TableColumn, DropdownMenuItem } from '@nuxt/ui';
+import { countTagReferences, createTag, deleteTag, updateTag } from '~/api/masters';
+import type { Tag } from '~/types/master';
+import type { MasterFormPayload } from '~/components/MasterFormModal.vue';
 
-const route = useRoute()
-const projectId = computed(() => route.params.projectId as string)
+const route = useRoute();
+const projectId = computed(() => route.params.projectId as string);
 
-const { data: tags, refresh: refreshTags } = await useTags(projectId)
+const { data: tags, refresh: refreshTags } = await useTags(projectId);
 
-const toast = useToast()
+const toast = useToast();
 
-const formModalOpen = ref(false)
-const editingItem = ref<Tag | null>(null)
+const formModalOpen = ref(false);
+const editingItem = ref<Tag | null>(null);
 
 const modalInitial = computed<MasterFormPayload | null>(() =>
   editingItem.value
@@ -22,79 +22,79 @@ const modalInitial = computed<MasterFormPayload | null>(() =>
         isTerminal: false
       }
     : null
-)
+);
 
 const openCreate = () => {
-  editingItem.value = null
-  formModalOpen.value = true
-}
+  editingItem.value = null;
+  formModalOpen.value = true;
+};
 
 const openEdit = (item: Tag) => {
-  editingItem.value = item
-  formModalOpen.value = true
-}
+  editingItem.value = item;
+  formModalOpen.value = true;
+};
 
 const onSubmit = async (data: MasterFormPayload) => {
   if (editingItem.value) {
     await updateTag(projectId.value, editingItem.value.code, {
       name: data.name,
       color: data.color
-    })
+    });
   } else {
     await createTag(projectId.value, {
       name: data.name,
       color: data.color
-    })
+    });
     toast.add({
       title: 'タグを追加しました',
       description: data.name,
       color: 'success',
       icon: 'i-lucide-check'
-    })
+    });
   }
-  await refreshTags()
-}
+  await refreshTags();
+};
 
-const deleteModalOpen = ref(false)
-const deleteTarget = ref<Tag | null>(null)
-const deleteReferences = ref<{ tasks: number } | null>(null)
-const deleting = ref(false)
-const loadingReferences = ref(false)
+const deleteModalOpen = ref(false);
+const deleteTarget = ref<Tag | null>(null);
+const deleteReferences = ref<{ tasks: number } | null>(null);
+const deleting = ref(false);
+const loadingReferences = ref(false);
 
 const openDelete = async (item: Tag) => {
-  deleteTarget.value = item
-  deleteReferences.value = null
-  deleteModalOpen.value = true
-  loadingReferences.value = true
+  deleteTarget.value = item;
+  deleteReferences.value = null;
+  deleteModalOpen.value = true;
+  loadingReferences.value = true;
   try {
-    deleteReferences.value = await countTagReferences(projectId.value, item.code)
+    deleteReferences.value = await countTagReferences(projectId.value, item.code);
   } finally {
-    loadingReferences.value = false
+    loadingReferences.value = false;
   }
-}
+};
 
 const canDelete = computed(
   () => deleteReferences.value !== null && deleteReferences.value.tasks === 0
-)
+);
 
 const performDelete = async () => {
-  if (!deleteTarget.value || !canDelete.value) return
-  deleting.value = true
-  const name = deleteTarget.value.name
+  if (!deleteTarget.value || !canDelete.value) return;
+  deleting.value = true;
+  const name = deleteTarget.value.name;
   try {
-    await deleteTag(projectId.value, deleteTarget.value.code)
-    await refreshTags()
-    deleteModalOpen.value = false
+    await deleteTag(projectId.value, deleteTarget.value.code);
+    await refreshTags();
+    deleteModalOpen.value = false;
     toast.add({
       title: 'タグを削除しました',
       description: name,
       color: 'success',
       icon: 'i-lucide-check'
-    })
+    });
   } finally {
-    deleting.value = false
+    deleting.value = false;
   }
-}
+};
 
 const buildActions = (item: Tag): DropdownMenuItem[][] => [
   [
@@ -111,12 +111,12 @@ const buildActions = (item: Tag): DropdownMenuItem[][] => [
       onSelect: () => openDelete(item)
     }
   ]
-]
+];
 
 const columns: TableColumn<Tag>[] = [
   { accessorKey: 'name', header: '名前' },
   { id: 'actions', header: '' }
-]
+];
 </script>
 
 <template>

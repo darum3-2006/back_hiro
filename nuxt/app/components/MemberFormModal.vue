@@ -1,49 +1,49 @@
 <script setup lang="ts">
-import { createMember, updateMember } from '~/api/members'
-import type { Member, MemberRole } from '~/types/member'
-import type { User } from '~/types/master'
+import { createMember, updateMember } from '~/api/members';
+import type { Member, MemberRole } from '~/types/member';
+import type { User } from '~/types/master';
 
 const props = defineProps<{
-  open: boolean
-  projectId: string
-  member: Member | null
-  users: User[]
-  existingUserIds: string[]
-}>()
+  open: boolean;
+  projectId: string;
+  member: Member | null;
+  users: User[];
+  existingUserIds: string[];
+}>();
 
 const emit = defineEmits<{
-  'update:open': [boolean]
-  saved: [Member]
-}>()
+  'update:open': [boolean];
+  saved: [Member];
+}>();
 
 interface Draft {
-  displayName: string
-  userId: string | null
-  role: MemberRole
+  displayName: string;
+  userId: string | null;
+  role: MemberRole;
 }
 
-const draft = ref<Draft>({ displayName: '', userId: null, role: 'member' })
-const submitting = ref(false)
+const draft = ref<Draft>({ displayName: '', userId: null, role: 'member' });
+const submitting = ref(false);
 
 watch(
   () => props.open,
   (isOpen) => {
-    if (!isOpen) return
+    if (!isOpen) return;
     if (props.member) {
       draft.value = {
         displayName: props.member.displayName,
         userId: props.member.userId,
         role: props.member.role
-      }
+      };
     } else {
-      draft.value = { displayName: '', userId: null, role: 'member' }
+      draft.value = { displayName: '', userId: null, role: 'member' };
     }
   }
-)
+);
 
-const canSubmit = computed(() => Boolean(draft.value.displayName.trim()))
+const canSubmit = computed(() => Boolean(draft.value.displayName.trim()));
 
-const isEdit = computed(() => Boolean(props.member))
+const isEdit = computed(() => Boolean(props.member));
 
 const userSelectItems = computed(() => {
   // 編集時は自分が紐付けてる User も候補に残す
@@ -53,38 +53,38 @@ const userSelectItems = computed(() => {
         (u) => !props.existingUserIds.includes(u.id) || u.id === (props.member?.userId ?? null)
       )
       .map((u) => u.id)
-  )
+  );
   return props.users
     .filter((u) => allowedUserIds.has(u.id))
-    .map((u) => ({ value: u.id, label: `${u.name} (${u.email})` }))
-})
+    .map((u) => ({ value: u.id, label: `${u.name} (${u.email})` }));
+});
 
 const roleSelectItems = [
   { value: 'admin', label: 'Admin' },
   { value: 'member', label: 'Member' }
-]
+];
 
 const submit = async () => {
-  if (!canSubmit.value) return
-  submitting.value = true
+  if (!canSubmit.value) return;
+  submitting.value = true;
   try {
     const payload = {
       displayName: draft.value.displayName.trim(),
       userId: draft.value.userId,
       role: draft.value.role
-    }
-    let result: Member
+    };
+    let result: Member;
     if (props.member) {
-      result = await updateMember(props.projectId, props.member.id, payload)
+      result = await updateMember(props.projectId, props.member.id, payload);
     } else {
-      result = await createMember(props.projectId, payload)
+      result = await createMember(props.projectId, payload);
     }
-    emit('saved', result)
-    emit('update:open', false)
+    emit('saved', result);
+    emit('update:open', false);
   } finally {
-    submitting.value = false
+    submitting.value = false;
   }
-}
+};
 </script>
 
 <template>
@@ -103,7 +103,10 @@ const submit = async () => {
             class="w-full"
           />
         </UFormField>
-        <UFormField label="User 紐付け" hint="認証ユーザーと紐付けると、そのユーザーが操作できるようになります">
+        <UFormField
+          label="User 紐付け"
+          hint="認証ユーザーと紐付けると、そのユーザーが操作できるようになります"
+        >
           <SelectMenu
             :items="userSelectItems"
             :current="draft.userId"

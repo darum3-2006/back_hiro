@@ -1,196 +1,196 @@
 <script setup lang="ts">
-import { createComment, updateComment } from '~/api/comments'
-import type { Member } from '~/types/member'
-import type { Department, Tag, TaskPriority, TaskStatus } from '~/types/master'
-import type { Task, TaskLink } from '~/types/task'
+import { createComment, updateComment } from '~/api/comments';
+import type { Member } from '~/types/member';
+import type { Department, Tag, TaskPriority, TaskStatus } from '~/types/master';
+import type { Task, TaskLink } from '~/types/task';
 
 const props = defineProps<{
-  task: Task | null
-  open: boolean
-  currentMemberId: string | null
-  statusMap: Record<string, TaskStatus>
-  priorityMap: Record<string, TaskPriority>
-  memberMap: Record<string, Member>
-  tagMap: Record<string, Tag>
-  departmentMap: Record<string, Department>
-}>()
+  task: Task | null;
+  open: boolean;
+  currentMemberId: string | null;
+  statusMap: Record<string, TaskStatus>;
+  priorityMap: Record<string, TaskPriority>;
+  memberMap: Record<string, Member>;
+  tagMap: Record<string, Tag>;
+  departmentMap: Record<string, Department>;
+}>();
 
 const emit = defineEmits<{
-  'update:open': [boolean]
-  'change-field': [Partial<Omit<Task, 'id' | 'projectId' | 'createdAt'>>]
-}>()
+  'update:open': [boolean];
+  'change-field': [Partial<Omit<Task, 'id' | 'projectId' | 'createdAt'>>];
+}>();
 
-const projectIdRef = computed(() => props.task?.projectId ?? '')
-const taskIdRef = computed<number | null>(() => props.task?.id ?? null)
+const projectIdRef = computed(() => props.task?.projectId ?? '');
+const taskIdRef = computed<number | null>(() => props.task?.id ?? null);
 
-const { data: comments, refresh: refreshComments } = await useTaskComments(projectIdRef, taskIdRef)
+const { data: comments, refresh: refreshComments } = await useTaskComments(projectIdRef, taskIdRef);
 
 // ===== Comments =====
-const commentBody = ref('')
-const posting = ref(false)
+const commentBody = ref('');
+const posting = ref(false);
 
 const postComment = async () => {
-  const task = props.task
-  const memberId = props.currentMemberId
-  const body = commentBody.value.trim()
-  if (!task || !memberId || !body) return
-  posting.value = true
+  const task = props.task;
+  const memberId = props.currentMemberId;
+  const body = commentBody.value.trim();
+  if (!task || !memberId || !body) return;
+  posting.value = true;
   try {
-    await createComment(task.projectId, task.id, { authorMemberId: memberId, body })
-    commentBody.value = ''
-    await refreshComments()
+    await createComment(task.projectId, task.id, { authorMemberId: memberId, body });
+    commentBody.value = '';
+    await refreshComments();
   } finally {
-    posting.value = false
+    posting.value = false;
   }
-}
+};
 
-const editingCommentId = ref<number | null>(null)
-const commentEditBuffer = ref('')
-const savingEdit = ref(false)
+const editingCommentId = ref<number | null>(null);
+const commentEditBuffer = ref('');
+const savingEdit = ref(false);
 
 const startEditComment = (commentId: number, body: string) => {
-  editingCommentId.value = commentId
-  commentEditBuffer.value = body
-}
+  editingCommentId.value = commentId;
+  commentEditBuffer.value = body;
+};
 
 const cancelCommentEdit = () => {
-  editingCommentId.value = null
-  commentEditBuffer.value = ''
-}
+  editingCommentId.value = null;
+  commentEditBuffer.value = '';
+};
 
 const saveCommentEdit = async () => {
-  const task = props.task
-  const id = editingCommentId.value
-  const body = commentEditBuffer.value.trim()
-  if (!task || id === null || !body) return
-  savingEdit.value = true
+  const task = props.task;
+  const id = editingCommentId.value;
+  const body = commentEditBuffer.value.trim();
+  if (!task || id === null || !body) return;
+  savingEdit.value = true;
   try {
-    await updateComment(task.projectId, task.id, id, { body })
-    editingCommentId.value = null
-    commentEditBuffer.value = ''
-    await refreshComments()
+    await updateComment(task.projectId, task.id, id, { body });
+    editingCommentId.value = null;
+    commentEditBuffer.value = '';
+    await refreshComments();
   } finally {
-    savingEdit.value = false
+    savingEdit.value = false;
   }
-}
+};
 
 // ===== Formatters =====
-const fmtDate = (d: string | null): string => d ?? '—'
-const fmtDateTime = (d: string): string => d.replace('T', ' ')
+const fmtDate = (d: string | null): string => d ?? '—';
+const fmtDateTime = (d: string): string => d.replace('T', ' ');
 
 // ===== Text inline edit =====
-type EditableField = 'content' | 'description'
-const editingField = ref<EditableField | null>(null)
-const editBuffer = ref('')
-const cancelling = ref(false)
+type EditableField = 'content' | 'description';
+const editingField = ref<EditableField | null>(null);
+const editBuffer = ref('');
+const cancelling = ref(false);
 
 const startEdit = (field: EditableField, current: string | null) => {
-  editingField.value = field
-  editBuffer.value = current ?? ''
-  cancelling.value = false
-}
+  editingField.value = field;
+  editBuffer.value = current ?? '';
+  cancelling.value = false;
+};
 
 const commitEdit = () => {
   if (cancelling.value) {
-    cancelling.value = false
-    editingField.value = null
-    return
+    cancelling.value = false;
+    editingField.value = null;
+    return;
   }
   if (!editingField.value || !props.task) {
-    editingField.value = null
-    return
+    editingField.value = null;
+    return;
   }
-  const field = editingField.value
-  const value = editBuffer.value
+  const field = editingField.value;
+  const value = editBuffer.value;
   if (field === 'content') {
-    const trimmed = value.trim()
+    const trimmed = value.trim();
     if (trimmed && trimmed !== props.task.content) {
-      emit('change-field', { content: trimmed })
+      emit('change-field', { content: trimmed });
     }
   } else if (field === 'description') {
     if (value !== props.task.description) {
-      emit('change-field', { description: value })
+      emit('change-field', { description: value });
     }
   }
-  editingField.value = null
-}
+  editingField.value = null;
+};
 
 const cancelEdit = () => {
-  cancelling.value = true
-  editingField.value = null
-}
+  cancelling.value = true;
+  editingField.value = null;
+};
 
 // ===== Links inline edit =====
-const editingLinkIndex = ref<number | null>(null)
-const linkEditBuffer = ref<TaskLink>({ label: '', url: '' })
+const editingLinkIndex = ref<number | null>(null);
+const linkEditBuffer = ref<TaskLink>({ label: '', url: '' });
 
 const startAddLink = () => {
-  editingLinkIndex.value = -1
-  linkEditBuffer.value = { label: '', url: '' }
-}
+  editingLinkIndex.value = -1;
+  linkEditBuffer.value = { label: '', url: '' };
+};
 
 const startEditLink = (index: number, link: TaskLink) => {
-  editingLinkIndex.value = index
-  linkEditBuffer.value = { ...link }
-}
+  editingLinkIndex.value = index;
+  linkEditBuffer.value = { ...link };
+};
 
 const cancelLinkEdit = () => {
-  editingLinkIndex.value = null
-}
+  editingLinkIndex.value = null;
+};
 
 const saveLink = () => {
-  if (!props.task) return
-  const buffer = linkEditBuffer.value
-  const label = buffer.label.trim()
-  const url = buffer.url.trim()
-  if (!label || !url) return
-  const next = [...props.task.links]
+  if (!props.task) return;
+  const buffer = linkEditBuffer.value;
+  const label = buffer.label.trim();
+  const url = buffer.url.trim();
+  if (!label || !url) return;
+  const next = [...props.task.links];
   if (editingLinkIndex.value === -1) {
-    next.push({ label, url })
+    next.push({ label, url });
   } else if (editingLinkIndex.value !== null) {
-    next[editingLinkIndex.value] = { label, url }
+    next[editingLinkIndex.value] = { label, url };
   }
-  emit('change-field', { links: next })
-  editingLinkIndex.value = null
-}
+  emit('change-field', { links: next });
+  editingLinkIndex.value = null;
+};
 
 const deleteLink = (index: number) => {
-  if (!props.task) return
-  const next = props.task.links.filter((_, i) => i !== index)
-  emit('change-field', { links: next })
-}
+  if (!props.task) return;
+  const next = props.task.links.filter((_, i) => i !== index);
+  emit('change-field', { links: next });
+};
 
 watch(
   () => props.task?.id,
   () => {
-    editingField.value = null
-    editingLinkIndex.value = null
-    cancelCommentEdit()
+    editingField.value = null;
+    editingLinkIndex.value = null;
+    cancelCommentEdit();
   }
-)
+);
 
 // ===== Master select items =====
 const statusSelectItems = computed(() =>
   Object.values(props.statusMap)
     .sort((a, b) => a.order - b.order)
     .map((s) => ({ value: s.code, label: s.label }))
-)
+);
 
 const prioritySelectItems = computed(() =>
   Object.values(props.priorityMap)
     .sort((a, b) => a.order - b.order)
     .map((p) => ({ value: p.code, label: p.label }))
-)
+);
 
 const memberSelectItems = computed(() =>
   Object.values(props.memberMap).map((m) => ({ value: m.id, label: m.displayName }))
-)
+);
 
 const departmentSelectItems = computed(() =>
   Object.values(props.departmentMap).map((d) => ({ value: d.code, label: d.name }))
-)
+);
 
-const tagsList = computed(() => Object.values(props.tagMap))
+const tagsList = computed(() => Object.values(props.tagMap));
 </script>
 
 <template>

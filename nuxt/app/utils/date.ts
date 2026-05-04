@@ -1,14 +1,14 @@
-import { parseDate, type DateValue } from '@internationalized/date'
+import { parseDate, type DateValue } from '@internationalized/date';
 
 export function isoToCalendarDate(s: string | null | undefined): DateValue | null {
-  if (!s) return null
+  if (!s) return null;
   try {
-    return parseDate(s)
+    return parseDate(s);
   } catch {
-    return null
+    return null;
   }
 }
 
 export function calendarDateToIso(d: DateValue | null | undefined): string | null {
-  return d ? d.toString() : null
+  return d ? d.toString() : null;
 }

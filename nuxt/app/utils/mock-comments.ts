@@ -1,4 +1,4 @@
-import type { Comment } from '~/types/comment'
+import type { Comment } from '~/types/comment';
 
 export const MOCK_COMMENTS: Comment[] = [
   // Task 1: 商品マスタの一括更新エラー
@@ -151,4 +151,4 @@ export const MOCK_COMMENTS: Comment[] = [
     createdAt: '2026-04-30T18:30:00',
     updatedAt: null
   }
-]
+];

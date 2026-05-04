@@ -1,54 +1,54 @@
 <script setup lang="ts">
-import type { MasterColor } from '~/types/master'
+import type { MasterColor } from '~/types/master';
 
 export interface MasterFormPayload {
-  name: string
-  color: MasterColor
-  isTerminal: boolean
+  name: string;
+  color: MasterColor;
+  isTerminal: boolean;
 }
 
 const props = defineProps<{
-  open: boolean
-  type: 'status' | 'priority' | 'tag'
-  initial: MasterFormPayload | null
-}>()
+  open: boolean;
+  type: 'status' | 'priority' | 'tag';
+  initial: MasterFormPayload | null;
+}>();
 
 const emit = defineEmits<{
-  'update:open': [boolean]
-  submit: [MasterFormPayload]
-}>()
+  'update:open': [boolean];
+  submit: [MasterFormPayload];
+}>();
 
-const draft = ref<MasterFormPayload>({ name: '', color: 'neutral', isTerminal: false })
+const draft = ref<MasterFormPayload>({ name: '', color: 'neutral', isTerminal: false });
 
 watch(
   () => props.open,
   (isOpen) => {
-    if (!isOpen) return
+    if (!isOpen) return;
     draft.value = props.initial
       ? { ...props.initial }
-      : { name: '', color: 'neutral', isTerminal: false }
+      : { name: '', color: 'neutral', isTerminal: false };
   }
-)
+);
 
 const titleNoun = computed(
   () => ({ status: 'ステータス', priority: '優先度', tag: 'タグ' })[props.type]
-)
+);
 const labelText = computed(
   () => ({ status: 'ラベル', priority: 'ラベル', tag: '名前' })[props.type]
-)
-const showIsTerminal = computed(() => props.type === 'status')
-const isEdit = computed(() => Boolean(props.initial))
-const canSubmit = computed(() => Boolean(draft.value.name.trim()))
+);
+const showIsTerminal = computed(() => props.type === 'status');
+const isEdit = computed(() => Boolean(props.initial));
+const canSubmit = computed(() => Boolean(draft.value.name.trim()));
 
 const submit = () => {
-  if (!canSubmit.value) return
+  if (!canSubmit.value) return;
   emit('submit', {
     name: draft.value.name.trim(),
     color: draft.value.color,
     isTerminal: draft.value.isTerminal
-  })
-  emit('update:open', false)
-}
+  });
+  emit('update:open', false);
+};
 </script>
 
 <template>

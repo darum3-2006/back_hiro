@@ -1,71 +1,71 @@
 <script setup lang="ts">
-import { updateProject } from '~/api/projects'
+import { updateProject } from '~/api/projects';
 
-const route = useRoute()
-const projectId = computed(() => route.params.projectId as string)
+const route = useRoute();
+const projectId = computed(() => route.params.projectId as string);
 
-const { data: projects, refresh: refreshProjects } = await useProjects()
-const project = computed(() => projects.value.find((p) => p.id === projectId.value))
+const { data: projects, refresh: refreshProjects } = await useProjects();
+const project = computed(() => projects.value.find((p) => p.id === projectId.value));
 
-type EditableField = 'name' | 'description'
-const editingField = ref<EditableField | null>(null)
-const editBuffer = ref('')
-const cancelling = ref(false)
+type EditableField = 'name' | 'description';
+const editingField = ref<EditableField | null>(null);
+const editBuffer = ref('');
+const cancelling = ref(false);
 
 const startEdit = (field: EditableField, current: string | null) => {
-  editingField.value = field
-  editBuffer.value = current ?? ''
-  cancelling.value = false
-}
+  editingField.value = field;
+  editBuffer.value = current ?? '';
+  cancelling.value = false;
+};
 
 const commitEdit = async () => {
   if (cancelling.value) {
-    cancelling.value = false
-    editingField.value = null
-    return
+    cancelling.value = false;
+    editingField.value = null;
+    return;
   }
   if (!editingField.value || !project.value) {
-    editingField.value = null
-    return
+    editingField.value = null;
+    return;
   }
-  const field = editingField.value
-  const value = editBuffer.value
+  const field = editingField.value;
+  const value = editBuffer.value;
   if (field === 'name') {
-    const trimmed = value.trim()
+    const trimmed = value.trim();
     if (trimmed && trimmed !== project.value.name) {
-      await updateProject(projectId.value, { name: trimmed })
-      await refreshProjects()
+      await updateProject(projectId.value, { name: trimmed });
+      await refreshProjects();
     }
   } else if (field === 'description') {
-    const next = value.trim() || null
+    const next = value.trim() || null;
     if (next !== project.value.description) {
-      await updateProject(projectId.value, { description: next })
-      await refreshProjects()
+      await updateProject(projectId.value, { description: next });
+      await refreshProjects();
     }
   }
-  editingField.value = null
-}
+  editingField.value = null;
+};
 
 const cancelEdit = () => {
-  cancelling.value = true
-  editingField.value = null
-}
+  cancelling.value = true;
+  editingField.value = null;
+};
 
-const archiveModalOpen = ref(false)
-const archiving = ref(false)
+const archiveModalOpen = ref(false);
+const archiving = ref(false);
 
 const performArchive = async () => {
-  if (!project.value) return
-  archiving.value = true
+  if (!project.value) return;
+  archiving.value = true;
   try {
-    await updateProject(projectId.value, { archivedAt: new Date().toISOString().slice(0, 19) })
-    await refreshProjects()
-    archiveModalOpen.value = false
+    await updateProject(projectId.value, { archivedAt: new Date().toISOString().slice(0, 19) });
+    await refreshProjects();
+    archiveModalOpen.value = false;
     // app.vue の watchEffect で自動的に別の有効プロジェクトへ遷移
   } finally {
-    archiving.value = false
+    archiving.value = false;
   }
-}
+};
 </script>
 
 <template>

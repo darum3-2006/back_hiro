@@ -1,96 +1,96 @@
 <script setup lang="ts">
-import type { TableColumn, DropdownMenuItem } from '@nuxt/ui'
-import { countMemberReferences, deleteMember } from '~/api/members'
-import type { Member } from '~/types/member'
+import type { TableColumn, DropdownMenuItem } from '@nuxt/ui';
+import { countMemberReferences, deleteMember } from '~/api/members';
+import type { Member } from '~/types/member';
 
-const route = useRoute()
-const projectId = computed(() => route.params.projectId as string)
+const route = useRoute();
+const projectId = computed(() => route.params.projectId as string);
 
-const { data: members, refresh: refreshMembers } = await useMembers(projectId)
-const { data: users } = await useUsers()
+const { data: members, refresh: refreshMembers } = await useMembers(projectId);
+const { data: users } = await useUsers();
 
-const userMap = computed(() => Object.fromEntries(users.value.map((u) => [u.id, u])))
+const userMap = computed(() => Object.fromEntries(users.value.map((u) => [u.id, u])));
 
 const existingUserIds = computed(() =>
   members.value.filter((m) => m.userId !== null).map((m) => m.userId!)
-)
+);
 
-const toast = useToast()
+const toast = useToast();
 
 // ===== Add / Edit =====
-const formModalOpen = ref(false)
-const editingMember = ref<Member | null>(null)
+const formModalOpen = ref(false);
+const editingMember = ref<Member | null>(null);
 
 const openCreate = () => {
-  editingMember.value = null
-  formModalOpen.value = true
-}
+  editingMember.value = null;
+  formModalOpen.value = true;
+};
 
 const openEdit = (member: Member) => {
-  editingMember.value = member
-  formModalOpen.value = true
-}
+  editingMember.value = member;
+  formModalOpen.value = true;
+};
 
 const onSaved = async (member: Member) => {
-  await refreshMembers()
+  await refreshMembers();
   if (!editingMember.value) {
     toast.add({
       title: 'メンバーを追加しました',
       description: member.displayName,
       color: 'success',
       icon: 'i-lucide-check'
-    })
+    });
   }
-}
+};
 
 // ===== Delete =====
-const deleteModalOpen = ref(false)
-const deleteTarget = ref<Member | null>(null)
+const deleteModalOpen = ref(false);
+const deleteTarget = ref<Member | null>(null);
 const deleteReferences = ref<{
-  tasksAssignee: number
-  tasksRequester: number
-  comments: number
-} | null>(null)
-const deleting = ref(false)
-const loadingReferences = ref(false)
+  tasksAssignee: number;
+  tasksRequester: number;
+  comments: number;
+} | null>(null);
+const deleting = ref(false);
+const loadingReferences = ref(false);
 
 const openDelete = async (member: Member) => {
-  deleteTarget.value = member
-  deleteReferences.value = null
-  deleteModalOpen.value = true
-  loadingReferences.value = true
+  deleteTarget.value = member;
+  deleteReferences.value = null;
+  deleteModalOpen.value = true;
+  loadingReferences.value = true;
   try {
-    deleteReferences.value = await countMemberReferences(projectId.value, member.id)
+    deleteReferences.value = await countMemberReferences(projectId.value, member.id);
   } finally {
-    loadingReferences.value = false
+    loadingReferences.value = false;
   }
-}
+};
 
 const totalRefs = computed(() => {
-  const r = deleteReferences.value
-  return r ? r.tasksAssignee + r.tasksRequester + r.comments : 0
-})
+  const r = deleteReferences.value;
+  return r ? r.tasksAssignee + r.tasksRequester + r.comments : 0;
+});
 
-const canDelete = computed(() => deleteReferences.value !== null && totalRefs.value === 0)
+const canDelete = computed(() => deleteReferences.value !== null && totalRefs.value === 0);
 
 const performDelete = async () => {
-  if (!deleteTarget.value || !canDelete.value) return
-  deleting.value = true
-  const name = deleteTarget.value.displayName
+  if (!deleteTarget.value || !canDelete.value) return;
+  deleting.value = true;
+  const name = deleteTarget.value.displayName;
   try {
-    await deleteMember(projectId.value, deleteTarget.value.id)
-    await refreshMembers()
-    deleteModalOpen.value = false
+    await deleteMember(projectId.value, deleteTarget.value.id);
+    await refreshMembers();
+    deleteModalOpen.value = false;
     toast.add({
       title: 'メンバーを削除しました',
       description: name,
       color: 'success',
       icon: 'i-lucide-check'
-    })
+    });
   } finally {
-    deleting.value = false
+    deleting.value = false;
   }
-}
+};
 
 const buildActions = (member: Member): DropdownMenuItem[][] => [
   [
@@ -107,26 +107,21 @@ const buildActions = (member: Member): DropdownMenuItem[][] => [
       onSelect: () => openDelete(member)
     }
   ]
-]
+];
 
 const columns: TableColumn<Member>[] = [
   { accessorKey: 'displayName', header: '名前' },
   { accessorKey: 'userId', header: 'User紐付け' },
   { accessorKey: 'role', header: '権限' },
   { id: 'actions', header: '' }
-]
+];
 </script>
 
 <template>
   <div class="p-6 space-y-4">
     <div class="flex justify-between items-center">
       <p class="text-sm text-muted">メンバー {{ members.length }} 人</p>
-      <UButton
-        color="primary"
-        icon="i-lucide-plus"
-        label="メンバーを追加"
-        @click="openCreate"
-      />
+      <UButton color="primary" icon="i-lucide-plus" label="メンバーを追加" @click="openCreate" />
     </div>
 
     <EmptyState
@@ -135,12 +130,7 @@ const columns: TableColumn<Member>[] = [
       title="メンバーがまだいません"
       description="メンバーを追加するとタスクを担当者に割り当てられます"
     >
-      <UButton
-        color="primary"
-        icon="i-lucide-plus"
-        label="メンバーを追加"
-        @click="openCreate"
-      />
+      <UButton color="primary" icon="i-lucide-plus" label="メンバーを追加" @click="openCreate" />
     </EmptyState>
 
     <UTable v-else :data="members" :columns="columns" :ui="{ td: 'py-2' }">

@@ -1,3 +1,3 @@
-import { fetchProjects } from '~/api/projects'
+import { fetchProjects } from '~/api/projects';
 
-export const useProjects = () => useAsyncData('projects', fetchProjects, { default: () => [] })
+export const useProjects = () => useAsyncData('projects', fetchProjects, { default: () => [] });

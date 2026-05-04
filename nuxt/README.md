@@ -45,13 +45,13 @@ app/
 ```ts
 // Before（モック）
 export const fetchTasks = async (projectId: string): Promise<Task[]> => {
-  return MOCK_TASKS.filter((t) => t.projectId === projectId)
-}
+  return MOCK_TASKS.filter((t) => t.projectId === projectId);
+};
 
 // After（バックエンド接続）
 export const fetchTasks = async (projectId: string): Promise<Task[]> => {
-  return await $fetch<Task[]>(`/api/projects/${projectId}/tasks`)
-}
+  return await $fetch<Task[]>(`/api/projects/${projectId}/tasks`);
+};
 ```
 
 各関数の JSDoc に対応するエンドポイント（例: `GET /projects/{id}/tasks`）を明記済み。

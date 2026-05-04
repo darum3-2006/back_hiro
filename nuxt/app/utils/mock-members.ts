@@ -1,4 +1,4 @@
-import type { Member } from '~/types/member'
+import type { Member } from '~/types/member';
 
 export const MOCK_MEMBERS: Member[] = [
   // ===== p1: 改修対応 (10 linked + 2 placeholders) =====
@@ -38,4 +38,4 @@ export const MOCK_MEMBERS: Member[] = [
   { id: 'm30', projectId: 'p3', displayName: '中村美穂', userId: 'u8', role: 'member' },
   { id: 'm31', projectId: 'p3', displayName: '小林涼', userId: 'u9', role: 'member' },
   { id: 'm32', projectId: 'p3', displayName: '加藤千尋', userId: 'u10', role: 'member' }
-]
+];

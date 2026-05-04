@@ -1,4 +1,4 @@
-import type { Project } from '~/types/project'
+import type { Project } from '~/types/project';
 
 export const MOCK_PROJECTS: Project[] = [
   {
@@ -22,4 +22,4 @@ export const MOCK_PROJECTS: Project[] = [
     description: 'コード整理・技術的負債解消',
     archivedAt: null
   }
-]
+];

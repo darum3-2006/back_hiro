@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import type { MasterColor } from '~/types/master'
+import type { MasterColor } from '~/types/master';
 
 defineProps<{
-  modelValue: MasterColor
-}>()
+  modelValue: MasterColor;
+}>();
 
 const emit = defineEmits<{
-  'update:modelValue': [value: MasterColor]
-}>()
+  'update:modelValue': [value: MasterColor];
+}>();
 
 const colors: { value: MasterColor; label: string }[] = [
   { value: 'neutral', label: 'グレー' },
@@ -16,7 +16,7 @@ const colors: { value: MasterColor; label: string }[] = [
   { value: 'success', label: 'グリーン' },
   { value: 'warning', label: 'イエロー' },
   { value: 'error', label: 'レッド' }
-]
+];
 </script>
 
 <template>

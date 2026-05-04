@@ -1,27 +1,27 @@
 <script setup lang="ts">
-import type { TableColumn, DropdownMenuItem } from '@nuxt/ui'
-import { updateProject } from '~/api/projects'
-import type { Project } from '~/types/project'
+import type { TableColumn, DropdownMenuItem } from '@nuxt/ui';
+import { updateProject } from '~/api/projects';
+import type { Project } from '~/types/project';
 
-const { data: projects, refresh: refreshProjects } = await useProjects()
-const projectCreateModalOpen = useProjectCreateModalOpen()
+const { data: projects, refresh: refreshProjects } = await useProjects();
+const projectCreateModalOpen = useProjectCreateModalOpen();
 
-const showArchived = ref(false)
+const showArchived = ref(false);
 
 const filteredProjects = computed(() => {
-  if (showArchived.value) return projects.value
-  return projects.value.filter((p) => !p.archivedAt)
-})
+  if (showArchived.value) return projects.value;
+  return projects.value.filter((p) => !p.archivedAt);
+});
 
 const archiveProject = async (id: string) => {
-  await updateProject(id, { archivedAt: new Date().toISOString().slice(0, 19) })
-  await refreshProjects()
-}
+  await updateProject(id, { archivedAt: new Date().toISOString().slice(0, 19) });
+  await refreshProjects();
+};
 
 const unarchiveProject = async (id: string) => {
-  await updateProject(id, { archivedAt: null })
-  await refreshProjects()
-}
+  await updateProject(id, { archivedAt: null });
+  await refreshProjects();
+};
 
 const buildActions = (project: Project): DropdownMenuItem[][] => {
   if (project.archivedAt) {
@@ -33,7 +33,7 @@ const buildActions = (project: Project): DropdownMenuItem[][] => {
           onSelect: () => unarchiveProject(project.id)
         }
       ]
-    ]
+    ];
   }
   return [
     [
@@ -50,8 +50,8 @@ const buildActions = (project: Project): DropdownMenuItem[][] => {
         onSelect: () => archiveProject(project.id)
       }
     ]
-  ]
-}
+  ];
+};
 
 const columns: TableColumn<Project>[] = [
   { accessorKey: 'key', header: 'Key' },
@@ -59,7 +59,7 @@ const columns: TableColumn<Project>[] = [
   { accessorKey: 'description', header: '説明' },
   { accessorKey: 'archivedAt', header: 'ステータス' },
   { id: 'actions', header: '' }
-]
+];
 </script>
 
 <template>

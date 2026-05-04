@@ -1,36 +1,36 @@
 <script setup lang="ts">
-import type { DropdownMenuItem } from '@nuxt/ui'
-import { VueDraggable } from 'vue-draggable-plus'
+import type { DropdownMenuItem } from '@nuxt/ui';
+import { VueDraggable } from 'vue-draggable-plus';
 import {
   countTaskStatusReferences,
   createTaskStatus,
   deleteTaskStatus,
   reorderTaskStatuses,
   updateTaskStatus
-} from '~/api/masters'
-import type { TaskStatus } from '~/types/master'
-import type { MasterFormPayload } from '~/components/MasterFormModal.vue'
+} from '~/api/masters';
+import type { TaskStatus } from '~/types/master';
+import type { MasterFormPayload } from '~/components/MasterFormModal.vue';
 
-const route = useRoute()
-const projectId = computed(() => route.params.projectId as string)
+const route = useRoute();
+const projectId = computed(() => route.params.projectId as string);
 
-const { data: statuses, refresh: refreshStatuses } = await useTaskStatuses(projectId)
+const { data: statuses, refresh: refreshStatuses } = await useTaskStatuses(projectId);
 
-const orderedStatuses = ref<TaskStatus[]>([])
+const orderedStatuses = ref<TaskStatus[]>([]);
 
 watch(
   statuses,
   (v) => {
-    orderedStatuses.value = [...v]
+    orderedStatuses.value = [...v];
   },
   { immediate: true }
-)
+);
 
-const toast = useToast()
+const toast = useToast();
 
 // ===== Add / Edit =====
-const formModalOpen = ref(false)
-const editingItem = ref<TaskStatus | null>(null)
+const formModalOpen = ref(false);
+const editingItem = ref<TaskStatus | null>(null);
 
 const modalInitial = computed<MasterFormPayload | null>(() =>
   editingItem.value
@@ -40,17 +40,17 @@ const modalInitial = computed<MasterFormPayload | null>(() =>
         isTerminal: editingItem.value.isTerminal
       }
     : null
-)
+);
 
 const openCreate = () => {
-  editingItem.value = null
-  formModalOpen.value = true
-}
+  editingItem.value = null;
+  formModalOpen.value = true;
+};
 
 const openEdit = (item: TaskStatus) => {
-  editingItem.value = item
-  formModalOpen.value = true
-}
+  editingItem.value = item;
+  formModalOpen.value = true;
+};
 
 const onSubmit = async (data: MasterFormPayload) => {
   if (editingItem.value) {
@@ -58,71 +58,71 @@ const onSubmit = async (data: MasterFormPayload) => {
       label: data.name,
       color: data.color,
       isTerminal: data.isTerminal
-    })
+    });
   } else {
     await createTaskStatus(projectId.value, {
       label: data.name,
       color: data.color,
       isTerminal: data.isTerminal
-    })
+    });
     toast.add({
       title: 'ステータスを追加しました',
       description: data.name,
       color: 'success',
       icon: 'i-lucide-check'
-    })
+    });
   }
-  await refreshStatuses()
-}
+  await refreshStatuses();
+};
 
 // ===== Drag & Drop reorder =====
 const onDragEnd = async () => {
-  const codes = orderedStatuses.value.map((s) => s.code)
-  await reorderTaskStatuses(projectId.value, codes)
-  await refreshStatuses()
-}
+  const codes = orderedStatuses.value.map((s) => s.code);
+  await reorderTaskStatuses(projectId.value, codes);
+  await refreshStatuses();
+};
 
 // ===== Delete =====
-const deleteModalOpen = ref(false)
-const deleteTarget = ref<TaskStatus | null>(null)
-const deleteReferences = ref<{ tasks: number } | null>(null)
-const deleting = ref(false)
-const loadingReferences = ref(false)
+const deleteModalOpen = ref(false);
+const deleteTarget = ref<TaskStatus | null>(null);
+const deleteReferences = ref<{ tasks: number } | null>(null);
+const deleting = ref(false);
+const loadingReferences = ref(false);
 
 const openDelete = async (item: TaskStatus) => {
-  deleteTarget.value = item
-  deleteReferences.value = null
-  deleteModalOpen.value = true
-  loadingReferences.value = true
+  deleteTarget.value = item;
+  deleteReferences.value = null;
+  deleteModalOpen.value = true;
+  loadingReferences.value = true;
   try {
-    deleteReferences.value = await countTaskStatusReferences(projectId.value, item.code)
+    deleteReferences.value = await countTaskStatusReferences(projectId.value, item.code);
   } finally {
-    loadingReferences.value = false
+    loadingReferences.value = false;
   }
-}
+};
 
 const canDelete = computed(
   () => deleteReferences.value !== null && deleteReferences.value.tasks === 0
-)
+);
 
 const performDelete = async () => {
-  if (!deleteTarget.value || !canDelete.value) return
-  deleting.value = true
-  const name = deleteTarget.value.label
+  if (!deleteTarget.value || !canDelete.value) return;
+  deleting.value = true;
+  const name = deleteTarget.value.label;
   try {
-    await deleteTaskStatus(projectId.value, deleteTarget.value.code)
-    await refreshStatuses()
-    deleteModalOpen.value = false
+    await deleteTaskStatus(projectId.value, deleteTarget.value.code);
+    await refreshStatuses();
+    deleteModalOpen.value = false;
     toast.add({
       title: 'ステータスを削除しました',
       description: name,
       color: 'success',
       icon: 'i-lucide-check'
-    })
+    });
   } finally {
-    deleting.value = false
+    deleting.value = false;
   }
-}
+};
 
 const buildActions = (item: TaskStatus): DropdownMenuItem[][] => [
   [
@@ -139,7 +139,7 @@ const buildActions = (item: TaskStatus): DropdownMenuItem[][] => [
       onSelect: () => openDelete(item)
     }
   ]
-]
+];
 </script>
 
 <template>
@@ -155,12 +155,7 @@ const buildActions = (item: TaskStatus): DropdownMenuItem[][] => [
       title="ステータスがまだありません"
       description="タスクの状態（未着手・対応中・完了など）を表すステータスを追加しましょう"
     >
-      <UButton
-        color="primary"
-        icon="i-lucide-plus"
-        label="新規ステータス"
-        @click="openCreate"
-      />
+      <UButton color="primary" icon="i-lucide-plus" label="新規ステータス" @click="openCreate" />
     </EmptyState>
 
     <VueDraggable

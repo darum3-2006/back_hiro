@@ -1,26 +1,26 @@
 <script setup lang="ts">
-import { createTask } from '~/api/tasks'
-import type { Member } from '~/types/member'
-import type { Department, Tag, TaskPriority, TaskStatus } from '~/types/master'
-import type { Task } from '~/types/task'
+import { createTask } from '~/api/tasks';
+import type { Member } from '~/types/member';
+import type { Department, Tag, TaskPriority, TaskStatus } from '~/types/master';
+import type { Task } from '~/types/task';
 
 const props = defineProps<{
-  open: boolean
-  projectId: string
-  currentMemberId: string | null
-  statuses: TaskStatus[]
-  priorities: TaskPriority[]
-  tags: Tag[]
-  members: Member[]
-  departments: Department[]
-}>()
+  open: boolean;
+  projectId: string;
+  currentMemberId: string | null;
+  statuses: TaskStatus[];
+  priorities: TaskPriority[];
+  tags: Tag[];
+  members: Member[];
+  departments: Department[];
+}>();
 
 const emit = defineEmits<{
-  'update:open': [boolean]
-  created: [Task]
-}>()
+  'update:open': [boolean];
+  created: [Task];
+}>();
 
-type Draft = Omit<Task, 'id' | 'projectId' | 'createdAt'>
+type Draft = Omit<Task, 'id' | 'projectId' | 'createdAt'>;
 
 const makeInitialDraft = (): Draft => ({
   content: '',
@@ -34,72 +34,72 @@ const makeInitialDraft = (): Draft => ({
   deadline: null,
   plannedCompletionDate: null,
   tagCodes: []
-})
+});
 
-const draft = ref<Draft>(makeInitialDraft())
-const submitting = ref(false)
+const draft = ref<Draft>(makeInitialDraft());
+const submitting = ref(false);
 
 const addLink = () => {
-  draft.value.links.push({ label: '', url: '' })
-}
+  draft.value.links.push({ label: '', url: '' });
+};
 
 const removeLink = (index: number) => {
-  draft.value.links.splice(index, 1)
-}
+  draft.value.links.splice(index, 1);
+};
 
 watch(
   () => props.open,
   (isOpen) => {
     if (isOpen) {
-      draft.value = makeInitialDraft()
+      draft.value = makeInitialDraft();
     }
   }
-)
+);
 
 const canSubmit = computed(() =>
   Boolean(draft.value.content.trim() && draft.value.assigneeMemberId && draft.value.statusCode)
-)
+);
 
 const submit = async () => {
-  if (!canSubmit.value) return
-  submitting.value = true
+  if (!canSubmit.value) return;
+  submitting.value = true;
   try {
     const task = await createTask(props.projectId, {
       ...draft.value,
       content: draft.value.content.trim(),
       description: draft.value.description.trim()
-    })
-    emit('created', task)
-    emit('update:open', false)
+    });
+    emit('created', task);
+    emit('update:open', false);
   } finally {
-    submitting.value = false
+    submitting.value = false;
   }
-}
+};
 
-const statusMap = computed(() => Object.fromEntries(props.statuses.map((s) => [s.code, s])))
-const priorityMap = computed(() => Object.fromEntries(props.priorities.map((p) => [p.code, p])))
-const memberMap = computed(() => Object.fromEntries(props.members.map((m) => [m.id, m])))
-const departmentMap = computed(() => Object.fromEntries(props.departments.map((d) => [d.code, d])))
+const statusMap = computed(() => Object.fromEntries(props.statuses.map((s) => [s.code, s])));
+const priorityMap = computed(() => Object.fromEntries(props.priorities.map((p) => [p.code, p])));
+const memberMap = computed(() => Object.fromEntries(props.members.map((m) => [m.id, m])));
+const departmentMap = computed(() => Object.fromEntries(props.departments.map((d) => [d.code, d])));
 
 const statusSelectItems = computed(() =>
   [...props.statuses]
     .sort((a, b) => a.order - b.order)
     .map((s) => ({ value: s.code, label: s.label }))
-)
+);
 
 const prioritySelectItems = computed(() =>
   [...props.priorities]
     .sort((a, b) => a.order - b.order)
     .map((p) => ({ value: p.code, label: p.label }))
-)
+);
 
 const memberSelectItems = computed(() =>
   props.members.map((m) => ({ value: m.id, label: m.displayName }))
-)
+);
 
 const departmentSelectItems = computed(() =>
   props.departments.map((d) => ({ value: d.code, label: d.name }))
-)
+);
 </script>
 
 <template>

@@ -1,4 +1,4 @@
-import type { Task } from '~/types/task'
+import type { Task } from '~/types/task';
 
 export const MOCK_TASKS: Task[] = [
   // ===== p1: 改修対応 =====
@@ -645,4 +645,4 @@ export const MOCK_TASKS: Task[] = [
     description: 'Playwright で主要シナリオを自動化。',
     createdAt: '2026-04-29T11:30:00'
   }
-]
+];

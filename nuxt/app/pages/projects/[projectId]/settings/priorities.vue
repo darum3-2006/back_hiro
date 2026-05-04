@@ -1,35 +1,35 @@
 <script setup lang="ts">
-import type { DropdownMenuItem } from '@nuxt/ui'
-import { VueDraggable } from 'vue-draggable-plus'
+import type { DropdownMenuItem } from '@nuxt/ui';
+import { VueDraggable } from 'vue-draggable-plus';
 import {
   countTaskPriorityReferences,
   createTaskPriority,
   deleteTaskPriority,
   reorderTaskPriorities,
   updateTaskPriority
-} from '~/api/masters'
-import type { TaskPriority } from '~/types/master'
-import type { MasterFormPayload } from '~/components/MasterFormModal.vue'
+} from '~/api/masters';
+import type { TaskPriority } from '~/types/master';
+import type { MasterFormPayload } from '~/components/MasterFormModal.vue';
 
-const route = useRoute()
-const projectId = computed(() => route.params.projectId as string)
+const route = useRoute();
+const projectId = computed(() => route.params.projectId as string);
 
-const { data: priorities, refresh: refreshPriorities } = await useTaskPriorities(projectId)
+const { data: priorities, refresh: refreshPriorities } = await useTaskPriorities(projectId);
 
-const orderedPriorities = ref<TaskPriority[]>([])
+const orderedPriorities = ref<TaskPriority[]>([]);
 
 watch(
   priorities,
   (v) => {
-    orderedPriorities.value = [...v]
+    orderedPriorities.value = [...v];
   },
   { immediate: true }
-)
+);
 
-const toast = useToast()
+const toast = useToast();
 
-const formModalOpen = ref(false)
-const editingItem = ref<TaskPriority | null>(null)
+const formModalOpen = ref(false);
+const editingItem = ref<TaskPriority | null>(null);
 
 const modalInitial = computed<MasterFormPayload | null>(() =>
   editingItem.value
@@ -39,85 +39,85 @@ const modalInitial = computed<MasterFormPayload | null>(() =>
         isTerminal: false
       }
     : null
-)
+);
 
 const openCreate = () => {
-  editingItem.value = null
-  formModalOpen.value = true
-}
+  editingItem.value = null;
+  formModalOpen.value = true;
+};
 
 const openEdit = (item: TaskPriority) => {
-  editingItem.value = item
-  formModalOpen.value = true
-}
+  editingItem.value = item;
+  formModalOpen.value = true;
+};
 
 const onSubmit = async (data: MasterFormPayload) => {
   if (editingItem.value) {
     await updateTaskPriority(projectId.value, editingItem.value.code, {
       label: data.name,
       color: data.color
-    })
+    });
   } else {
     await createTaskPriority(projectId.value, {
       label: data.name,
       color: data.color
-    })
+    });
     toast.add({
       title: '優先度を追加しました',
       description: data.name,
       color: 'success',
       icon: 'i-lucide-check'
-    })
+    });
   }
-  await refreshPriorities()
-}
+  await refreshPriorities();
+};
 
 const onDragEnd = async () => {
-  const codes = orderedPriorities.value.map((p) => p.code)
-  await reorderTaskPriorities(projectId.value, codes)
-  await refreshPriorities()
-}
+  const codes = orderedPriorities.value.map((p) => p.code);
+  await reorderTaskPriorities(projectId.value, codes);
+  await refreshPriorities();
+};
 
-const deleteModalOpen = ref(false)
-const deleteTarget = ref<TaskPriority | null>(null)
-const deleteReferences = ref<{ tasks: number } | null>(null)
-const deleting = ref(false)
-const loadingReferences = ref(false)
+const deleteModalOpen = ref(false);
+const deleteTarget = ref<TaskPriority | null>(null);
+const deleteReferences = ref<{ tasks: number } | null>(null);
+const deleting = ref(false);
+const loadingReferences = ref(false);
 
 const openDelete = async (item: TaskPriority) => {
-  deleteTarget.value = item
-  deleteReferences.value = null
-  deleteModalOpen.value = true
-  loadingReferences.value = true
+  deleteTarget.value = item;
+  deleteReferences.value = null;
+  deleteModalOpen.value = true;
+  loadingReferences.value = true;
   try {
-    deleteReferences.value = await countTaskPriorityReferences(projectId.value, item.code)
+    deleteReferences.value = await countTaskPriorityReferences(projectId.value, item.code);
   } finally {
-    loadingReferences.value = false
+    loadingReferences.value = false;
   }
-}
+};
 
 const canDelete = computed(
   () => deleteReferences.value !== null && deleteReferences.value.tasks === 0
-)
+);
 
 const performDelete = async () => {
-  if (!deleteTarget.value || !canDelete.value) return
-  deleting.value = true
-  const name = deleteTarget.value.label
+  if (!deleteTarget.value || !canDelete.value) return;
+  deleting.value = true;
+  const name = deleteTarget.value.label;
   try {
-    await deleteTaskPriority(projectId.value, deleteTarget.value.code)
-    await refreshPriorities()
-    deleteModalOpen.value = false
+    await deleteTaskPriority(projectId.value, deleteTarget.value.code);
+    await refreshPriorities();
+    deleteModalOpen.value = false;
     toast.add({
       title: '優先度を削除しました',
       description: name,
       color: 'success',
       icon: 'i-lucide-check'
-    })
+    });
   } finally {
-    deleting.value = false
+    deleting.value = false;
   }
-}
+};
 
 const buildActions = (item: TaskPriority): DropdownMenuItem[][] => [
   [
@@ -134,7 +134,7 @@ const buildActions = (item: TaskPriority): DropdownMenuItem[][] => [
       onSelect: () => openDelete(item)
     }
   ]
-]
+];
 </script>
 
 <template>

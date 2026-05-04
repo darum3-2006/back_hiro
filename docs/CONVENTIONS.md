@@ -35,7 +35,7 @@ async function fetchData(id: string) { ... }
 
 ### 整形と Lint
 
-- **Prettier** が整形担当（`.prettierrc.json` 参照）。`semi: false`, `singleQuote: true`, `trailingComma: 'none'`, `printWidth: 100`, `tabWidth: 2`
+- **Prettier** が整形担当（`.prettierrc.json` 参照）。`semi: true`, `singleQuote: true`, `trailingComma: 'none'`, `printWidth: 100`, `tabWidth: 2`
 - **ESLint** はロジック系・Vue 固有ルールを担当。スタイル系ルールは off（`stylistic: false` + `eslint-config-prettier`）
 
 ```bash

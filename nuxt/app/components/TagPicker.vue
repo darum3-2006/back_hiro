@@ -1,19 +1,19 @@
 <script setup lang="ts">
-import type { Tag } from '~/types/master'
+import type { Tag } from '~/types/master';
 
 const props = defineProps<{
-  tags: Tag[]
-  selected: string[]
-}>()
+  tags: Tag[];
+  selected: string[];
+}>();
 
 const emit = defineEmits<{
-  'update:selected': [codes: string[]]
-}>()
+  'update:selected': [codes: string[]];
+}>();
 
 const toggleTag = (code: string, enabled: boolean) => {
-  const next = enabled ? [...props.selected, code] : props.selected.filter((c) => c !== code)
-  emit('update:selected', next)
-}
+  const next = enabled ? [...props.selected, code] : props.selected.filter((c) => c !== code);
+  emit('update:selected', next);
+};
 </script>
 
 <template>

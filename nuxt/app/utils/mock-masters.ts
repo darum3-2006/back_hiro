@@ -1,4 +1,4 @@
-import type { Department, Tag, TaskPriority, TaskStatus, User } from '~/types/master'
+import type { Department, Tag, TaskPriority, TaskStatus, User } from '~/types/master';
 
 export const MOCK_TASK_STATUSES: TaskStatus[] = [
   // p1: 改修対応
@@ -53,7 +53,7 @@ export const MOCK_TASK_STATUSES: TaskStatus[] = [
   { projectId: 'p3', code: 'todo', label: '未着手', color: 'neutral', order: 1, isTerminal: false },
   { projectId: 'p3', code: 'doing', label: '対応中', color: 'info', order: 2, isTerminal: false },
   { projectId: 'p3', code: 'done', label: '完了', color: 'success', order: 3, isTerminal: true }
-]
+];
 
 export const MOCK_TASK_PRIORITIES: TaskPriority[] = [
   // p1
@@ -68,7 +68,7 @@ export const MOCK_TASK_PRIORITIES: TaskPriority[] = [
   // p3
   { projectId: 'p3', code: 'high', label: '高', color: 'error', order: 1 },
   { projectId: 'p3', code: 'low', label: '低', color: 'neutral', order: 2 }
-]
+];
 
 export const MOCK_TAGS: Tag[] = [
   // p1
@@ -86,7 +86,7 @@ export const MOCK_TAGS: Tag[] = [
   { projectId: 'p3', code: 'cleanup', name: 'コード整理', color: 'neutral' },
   { projectId: 'p3', code: 'tests', name: 'テスト追加', color: 'success' },
   { projectId: 'p3', code: 'deps', name: '依存更新', color: 'info' }
-]
+];
 
 export const MOCK_DEPARTMENTS: Department[] = [
   { code: 'biz_dev', name: '事業開発部' },
@@ -96,7 +96,7 @@ export const MOCK_DEPARTMENTS: Department[] = [
   { code: 'marketing', name: 'マーケティング' },
   { code: 'sales', name: '営業部' },
   { code: 'system', name: 'システム部' }
-]
+];
 
 export const MOCK_USERS: User[] = [
   { id: 'u1', name: '田中健太', email: 'tanaka@example.com' },
@@ -109,4 +109,4 @@ export const MOCK_USERS: User[] = [
   { id: 'u8', name: '中村美穂', email: 'nakamura@example.com' },
   { id: 'u9', name: '小林涼', email: 'kobayashi@example.com' },
   { id: 'u10', name: '加藤千尋', email: 'kato@example.com' }
-]
+];

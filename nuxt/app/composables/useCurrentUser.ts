@@ -1,1 +1,1 @@
-export const useCurrentUserId = () => useState<string>('current-user-id', () => 'u1')
+export const useCurrentUserId = () => useState<string>('current-user-id', () => 'u1');

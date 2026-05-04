@@ -1,59 +1,57 @@
 <script setup lang="ts">
-import { createProject } from '~/api/projects'
-import type { Project } from '~/types/project'
+import { createProject } from '~/api/projects';
+import type { Project } from '~/types/project';
 
 const props = defineProps<{
-  open: boolean
-}>()
+  open: boolean;
+}>();
 
 const emit = defineEmits<{
-  'update:open': [boolean]
-  created: [Project]
-}>()
+  'update:open': [boolean];
+  created: [Project];
+}>();
 
-const { data: projects } = await useProjects()
+const { data: projects } = await useProjects();
 
-const draft = ref({ name: '', key: '', description: '' })
-const submitting = ref(false)
+const draft = ref({ name: '', key: '', description: '' });
+const submitting = ref(false);
 
 watch(
   () => props.open,
   (isOpen) => {
     if (isOpen) {
-      draft.value = { name: '', key: '', description: '' }
+      draft.value = { name: '', key: '', description: '' };
     }
   }
-)
+);
 
-const normalizedKey = computed(() => draft.value.key.trim().toUpperCase())
+const normalizedKey = computed(() => draft.value.key.trim().toUpperCase());
 
-const existingKeys = computed(
-  () => new Set(projects.value.map((p) => p.key.toUpperCase()))
-)
+const existingKeys = computed(() => new Set(projects.value.map((p) => p.key.toUpperCase())));
 
 const keyConflict = computed(
   () => Boolean(normalizedKey.value) && existingKeys.value.has(normalizedKey.value)
-)
+);
 
-const canSubmit = computed(
-  () => Boolean(draft.value.name.trim() && normalizedKey.value && !keyConflict.value)
-)
+const canSubmit = computed(() =>
+  Boolean(draft.value.name.trim() && normalizedKey.value && !keyConflict.value)
+);
 
 const submit = async () => {
-  if (!canSubmit.value) return
-  submitting.value = true
+  if (!canSubmit.value) return;
+  submitting.value = true;
   try {
     const project = await createProject({
       name: draft.value.name.trim(),
       key: normalizedKey.value,
       description: draft.value.description.trim() || null
-    })
-    emit('created', project)
-    emit('update:open', false)
+    });
+    emit('created', project);
+    emit('update:open', false);
   } finally {
-    submitting.value = false
+    submitting.value = false;
   }
-}
+};
 </script>
 
 <template>

@@ -1,7 +1,7 @@
 export interface Project {
-  id: string
-  key: string
-  name: string
-  description: string | null
-  archivedAt: string | null
+  id: string;
+  key: string;
+  name: string;
+  description: string | null;
+  archivedAt: string | null;
 }

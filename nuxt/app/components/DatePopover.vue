@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import type { DateValue } from '@internationalized/date'
-import { calendarDateToIso, isoToCalendarDate } from '~/utils/date'
+import type { DateValue } from '@internationalized/date';
+import { calendarDateToIso, isoToCalendarDate } from '~/utils/date';
 
 defineProps<{
-  modelValue: string | null
-}>()
+  modelValue: string | null;
+}>();
 
 const emit = defineEmits<{
-  'update:modelValue': [value: string | null]
-}>()
+  'update:modelValue': [value: string | null];
+}>();
 </script>
 
 <template>

@@ -1,9 +1,9 @@
-export type MemberRole = 'admin' | 'member'
+export type MemberRole = 'admin' | 'member';
 
 export interface Member {
-  id: string
-  projectId: string
-  displayName: string
-  userId: string | null
-  role: MemberRole
+  id: string;
+  projectId: string;
+  displayName: string;
+  userId: string | null;
+  role: MemberRole;
 }
