@@ -48,6 +48,30 @@ async function fetchData(id: string) { ... }
 - API レスポンスは Date → ISO 文字列が JSON.stringify で自動変換されるので、追加処理不要
 - フロントは API から ISO 文字列で受け取り、`@internationalized/date` ／ `dayjs` で扱う
 
+## セキュリティ
+
+### 秘匿 env は fail-fast
+
+- `JWT_SECRET` など秘匿情報は **ハードコードフォールバック禁止**
+- `config.get('X') ?? 'dev-secret'` のような書き方をしない
+- `config.getOrThrow<string>('X')` を使い、未設定なら起動時に throw
+- 公開リポジトリ上の固定値で署名・検証されると、本番で env 反映漏れの際にトークン偽造される致命傷になる
+
+### レート制限
+
+- `@nestjs/throttler` で全体・ログインともに必ず適用
+- AppModule で `ThrottlerModule.forRoot([...])` + `APP_GUARD: ThrottlerGuard`
+- 認証系エンドポイントには `@Throttle({ default: { ttl: 60_000, limit: 5 } })` で個別に厳しく
+- 本番で nginx 等の後ろに置くなら `app.set('trust proxy', true)` でクライアント IP を取得（IP 単位の制限のため）
+
+### 入力長の上限
+
+- パスワード DTO には必ず `@MaxLength(72)`
+  - bcrypt は 72 byte 超を黙って切り詰めるため、それ以前で reject
+  - 長大文字列による hash DoS も防止
+- email は RFC 5321 上限の 254
+- tenantKey 等の外部入力にも合理的な上限を設ける
+
 ## ツール
 
 ### 整形と Lint

@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -11,6 +13,11 @@ import { UsersModule } from './users/users.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    // 全体のレート制限（IP 単位）。auth/login 等で個別に override 可能。
+    ThrottlerModule.forRoot([
+      { name: 'short', ttl: 1000, limit: 20 }, // 20 req/sec
+      { name: 'medium', ttl: 60_000, limit: 200 }, // 200 req/min
+    ]),
     TypeOrmModule.forRootAsync({
       useFactory: () => buildDatabaseOptions(process.env),
     }),
@@ -19,6 +26,12 @@ import { UsersModule } from './users/users.module';
     AuthModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}
