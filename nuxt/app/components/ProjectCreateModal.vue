@@ -11,6 +11,8 @@ const emit = defineEmits<{
   created: [Project]
 }>()
 
+const { data: projects } = await useProjects()
+
 const draft = ref({ name: '', key: '', description: '' })
 const submitting = ref(false)
 
@@ -23,7 +25,19 @@ watch(
   }
 )
 
-const canSubmit = computed(() => Boolean(draft.value.name.trim() && draft.value.key.trim()))
+const normalizedKey = computed(() => draft.value.key.trim().toUpperCase())
+
+const existingKeys = computed(
+  () => new Set(projects.value.map((p) => p.key.toUpperCase()))
+)
+
+const keyConflict = computed(
+  () => Boolean(normalizedKey.value) && existingKeys.value.has(normalizedKey.value)
+)
+
+const canSubmit = computed(
+  () => Boolean(draft.value.name.trim() && normalizedKey.value && !keyConflict.value)
+)
 
 const submit = async () => {
   if (!canSubmit.value) return
@@ -31,7 +45,7 @@ const submit = async () => {
   try {
     const project = await createProject({
       name: draft.value.name.trim(),
-      key: draft.value.key.trim().toUpperCase(),
+      key: normalizedKey.value,
       description: draft.value.description.trim() || null
     })
     emit('created', project)
@@ -53,7 +67,12 @@ const submit = async () => {
         <UFormField label="名前" required>
           <UInput v-model="draft.name" placeholder="プロジェクト名" autofocus class="w-full" />
         </UFormField>
-        <UFormField label="Key" hint="識別子（大文字英数）" required>
+        <UFormField
+          label="Key"
+          hint="識別子（大文字英数）"
+          required
+          :error="keyConflict ? `「${normalizedKey}」は既に使われています` : undefined"
+        >
           <UInput v-model="draft.key" placeholder="MYPROJECT" class="w-full" />
         </UFormField>
         <UFormField label="説明">

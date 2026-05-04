@@ -12,13 +12,17 @@ export const createProject = async (input: {
   key: string
   description: string | null
 }): Promise<Project> => {
+  const upperKey = input.key.toUpperCase()
+  if (MOCK_PROJECTS.some((p) => p.key.toUpperCase() === upperKey)) {
+    throw new Error(`プロジェクトキー「${upperKey}」は既に使われています`)
+  }
   const nextNum =
     MOCK_PROJECTS.length === 0
       ? 1
       : Math.max(...MOCK_PROJECTS.map((p) => Number.parseInt(p.id.slice(1)) || 0)) + 1
   const project: Project = {
     id: `p${nextNum}`,
-    key: input.key,
+    key: upperKey,
     name: input.name,
     description: input.description,
     archivedAt: null
