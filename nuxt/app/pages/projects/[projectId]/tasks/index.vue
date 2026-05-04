@@ -30,10 +30,36 @@ const tagMap = computed(() => Object.fromEntries(tags.value.map((t) => [t.code, 
 const memberMap = computed(() => Object.fromEntries(members.value.map((m) => [m.id, m])))
 const departmentMap = computed(() => Object.fromEntries(departments.value.map((d) => [d.code, d])))
 
-const search = ref('')
-const statusFilter = ref<string>('')
-const priorityFilter = ref<string>('')
-const assigneeFilter = ref<string>('')
+// ===== フィルタ / ソート: URL クエリで同期 =====
+const updateQuery = (changes: Record<string, string | undefined>) => {
+  const merged = { ...route.query, ...changes }
+  const cleaned = Object.fromEntries(
+    Object.entries(merged).filter(([, v]) => v !== undefined && v !== '')
+  )
+  router.replace({ query: cleaned })
+}
+
+const queryString = (key: string): string => (route.query[key] as string | undefined) ?? ''
+
+const search = computed<string>({
+  get: () => queryString('search'),
+  set: (v) => updateQuery({ search: v || undefined })
+})
+
+const statusFilter = computed<string>({
+  get: () => queryString('status'),
+  set: (v) => updateQuery({ status: v || undefined })
+})
+
+const priorityFilter = computed<string>({
+  get: () => queryString('priority'),
+  set: (v) => updateQuery({ priority: v || undefined })
+})
+
+const assigneeFilter = computed<string>({
+  get: () => queryString('assignee'),
+  set: (v) => updateQuery({ assignee: v || undefined })
+})
 
 const statusSelectItems = computed(() =>
   statuses.value.map((s) => ({ label: s.label, value: s.code }))
@@ -50,16 +76,18 @@ const hasActiveFilter = computed(() =>
 )
 
 const resetFilters = () => {
-  search.value = ''
-  statusFilter.value = ''
-  priorityFilter.value = ''
-  assigneeFilter.value = ''
+  updateQuery({
+    search: undefined,
+    status: undefined,
+    priority: undefined,
+    assignee: undefined
+  })
 }
 
 // ===== タスク詳細スライドオーバー: URL クエリで連動 =====
 const selectedTaskId = computed<number | null>(() => {
-  const v = route.query.task
-  if (typeof v !== 'string') return null
+  const v = queryString('task')
+  if (!v) return null
   const n = Number(v)
   return Number.isFinite(n) ? n : null
 })
@@ -73,13 +101,7 @@ const selectedTask = computed<Task | null>(() =>
 const slideoverOpen = computed(() => selectedTaskId.value !== null)
 
 const setSelectedTaskId = (id: number | null) => {
-  const query = { ...route.query }
-  if (id === null) {
-    delete query.task
-  } else {
-    query.task = String(id)
-  }
-  router.replace({ query })
+  updateQuery({ task: id === null ? undefined : String(id) })
 }
 
 const openTask = (task: Task) => {
@@ -104,10 +126,6 @@ const onTaskCreated = async (task: Task) => {
   setSelectedTaskId(task.id)
 }
 
-watch(currentProjectId, () => {
-  resetFilters()
-})
-
 const filteredTasks = computed(() => {
   return tasks.value.filter((t) => {
     if (search.value && !t.content.toLowerCase().includes(search.value.toLowerCase())) return false
@@ -118,7 +136,20 @@ const filteredTasks = computed(() => {
   })
 })
 
-const sorting = ref<{ id: string; desc: boolean }[]>([{ id: 'id', desc: false }])
+const sorting = computed<{ id: string; desc: boolean }[]>({
+  get: () => {
+    const id = queryString('sort')
+    if (!id) return [{ id: 'id', desc: false }]
+    return [{ id, desc: queryString('sortDir') === 'desc' }]
+  },
+  set: (v) => {
+    if (v.length === 0) {
+      updateQuery({ sort: undefined, sortDir: undefined })
+    } else {
+      updateQuery({ sort: v[0]!.id, sortDir: v[0]!.desc ? 'desc' : 'asc' })
+    }
+  }
+})
 
 const sortHeader = (label: string) => {
   return ({
@@ -236,33 +267,66 @@ const updateTaskField = async (
             icon="i-lucide-search"
             class="min-w-64"
           />
-        <USelect
-          v-model="statusFilter"
-          :items="statusSelectItems"
-          value-key="value"
-          placeholder="すべてのステータス"
-          class="w-44"
-        />
-        <USelect
-          v-model="priorityFilter"
-          :items="prioritySelectItems"
-          value-key="value"
-          placeholder="すべての優先度"
-          class="w-40"
-        />
-        <USelect
-          v-model="assigneeFilter"
-          :items="memberSelectItems"
-          value-key="value"
-          placeholder="すべての担当者"
-          class="w-44"
-        />
+        <div class="flex items-center gap-1">
+          <USelect
+            v-model="statusFilter"
+            :items="statusSelectItems"
+            value-key="value"
+            placeholder="すべてのステータス"
+            class="w-44"
+          />
+          <UButton
+            v-if="statusFilter"
+            icon="i-lucide-x"
+            size="xs"
+            color="neutral"
+            variant="ghost"
+            aria-label="ステータスフィルタをクリア"
+            @click="statusFilter = ''"
+          />
+        </div>
+        <div class="flex items-center gap-1">
+          <USelect
+            v-model="priorityFilter"
+            :items="prioritySelectItems"
+            value-key="value"
+            placeholder="すべての優先度"
+            class="w-40"
+          />
+          <UButton
+            v-if="priorityFilter"
+            icon="i-lucide-x"
+            size="xs"
+            color="neutral"
+            variant="ghost"
+            aria-label="優先度フィルタをクリア"
+            @click="priorityFilter = ''"
+          />
+        </div>
+        <div class="flex items-center gap-1">
+          <USelect
+            v-model="assigneeFilter"
+            :items="memberSelectItems"
+            value-key="value"
+            placeholder="すべての担当者"
+            class="w-44"
+          />
+          <UButton
+            v-if="assigneeFilter"
+            icon="i-lucide-x"
+            size="xs"
+            color="neutral"
+            variant="ghost"
+            aria-label="担当者フィルタをクリア"
+            @click="assigneeFilter = ''"
+          />
+        </div>
         <UButton
           v-if="hasActiveFilter"
           color="neutral"
           variant="ghost"
           icon="i-lucide-x"
-          label="クリア"
+          label="すべてクリア"
           @click="resetFilters"
         />
         <span class="ml-auto text-sm text-muted">
