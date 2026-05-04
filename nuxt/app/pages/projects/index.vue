@@ -38,6 +38,13 @@ const buildActions = (project: Project): DropdownMenuItem[][] => {
   return [
     [
       {
+        label: '設定',
+        icon: 'i-lucide-settings',
+        to: `/projects/${project.id}/settings`
+      }
+    ],
+    [
+      {
         label: 'アーカイブ',
         icon: 'i-lucide-archive',
         onSelect: () => archiveProject(project.id)
