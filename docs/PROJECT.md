@@ -5,7 +5,7 @@
 ## スタック構成
 
 - **フロントエンド:** Nuxt 4 + Nuxt UI 4 + Tailwind 4（`nuxt/` ディレクトリ）
-- **バックエンド:** 別途 NestJS で構築予定（未着手）
+- **バックエンド:** NestJS（`nest/` ディレクトリ、scaffold 済み・実装これから）
 - **DB:** PostgreSQL（行レベル分離 + RLS でテナント分離想定）
 
 ## マルチテナンシー方針
@@ -55,8 +55,14 @@ Tenant
 ## フロントの API 境界
 
 - `nuxt/app/api/*.ts` がバックエンド接続時の差し替えポイント
-- 各関数の JSDoc に対応する将来エンドポイント（例: `GET /projects/{id}/tasks`）を明記
-- composable は `useAsyncData` ラッパー（バックエンド着手時に `api/` の中身だけ書き換える）
+- 各関数の JSDoc に対応するエンドポイント（例: `GET /projects/{id}/tasks`）を明記
+- composable は `useAsyncData` ラッパー（バックエンド接続時に `api/` の中身だけ書き換える）
+
+## バックエンド（`nest/`）
+
+- NestJS 11.x で scaffold 済み（実装は未着手）
+- 規約は `nuxt/` と統一（Prettier: `semi: false` / `trailingComma: 'none'` / `printWidth: 100`、ESLint は competing rules を `eslint-config-prettier` で無効化のみ）
+- scripts: `pnpm format` / `format:check` / `lint` / `lint:fix` / `start:dev` / `build` / `test`
 
 ## データモデルの中心
 

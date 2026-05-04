@@ -11,7 +11,7 @@
 
 ```
 back_hiro/
-├── nuxt/         フロントエンド (Nuxt 4 + Nuxt UI 4)
-├── docs/         設計ドキュメント
-└── （未来）backend/   NestJS バックエンド
+├── nuxt/    フロントエンド (Nuxt 4 + Nuxt UI 4)
+├── nest/    バックエンド (NestJS)
+└── docs/    設計ドキュメント
 ```
