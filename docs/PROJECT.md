@@ -5,16 +5,20 @@
 ## スタック構成
 
 - **フロントエンド:** Nuxt 4 + Nuxt UI 4 + Tailwind 4（`nuxt/` ディレクトリ）
-- **バックエンド:** NestJS（`nest/` ディレクトリ、scaffold 済み・実装これから）
-- **DB:** PostgreSQL（行レベル分離 + RLS でテナント分離想定）
+- **バックエンド:** NestJS + TypeORM（`nest/` ディレクトリ）
+- **DB:** MySQL 8（ローカル開発はポート 53306、接続情報は `nest/.env`）
 
 ## マルチテナンシー方針
 
 - ローンチ時は単一テナントで運用するが、設計は最初からマルチテナント前提
-- すべてのテナント所有テーブルに `tenant_id` 列を持たせる（RLS で強制）
+- すべてのテナント所有テーブルに `tenant_id` 列を持たせる
+- MySQL 8 に Row Level Security はないため、**アプリ層（Repository）で `tenant_id` フィルタを強制**
 
 **Why:** 将来的に外販 or 他組織へ展開する可能性を残しつつ、初期コストは抑えたい
-**運用ルール:** 新規テーブル設計時は必ず `tenant_id` を付ける。アプリ層では tenant_id を URL/JWT から取り出して RLS のセッション変数にセット
+**運用ルール:**
+- 新規テーブル設計時は必ず `tenant_id` を付ける
+- Repository で書き込み・読み取りを行う際、リクエストコンテキスト由来の `tenant_id` を必ずクエリ条件に含める（共通基底 Repository / Interceptor で自動付与する設計を想定）
+- 直接 SQL を書く場合も `WHERE tenant_id = ?` を必ず付ける運用
 
 ## エンティティ階層
 
@@ -60,8 +64,12 @@ Tenant
 
 ## バックエンド（`nest/`）
 
-- NestJS 11.x で scaffold 済み（実装は未着手）
-- 規約は `nuxt/` と統一（Prettier: `semi: false` / `trailingComma: 'none'` / `printWidth: 100`、ESLint は competing rules を `eslint-config-prettier` で無効化のみ）
+- NestJS 11 + TypeORM 0.3 + MySQL 8 + mysql2 ドライバ
+- 命名規約: snake_case（`typeorm-naming-strategies` の `SnakeNamingStrategy`）
+- 全エンティティ共通の基底（`src/common/entities/base.entity.ts`）に `created_at` / `updated_at` / `deleted_at` を持たせる（論理削除は `@DeleteDateColumn`）
+- 接続設定は `.env`（`DATABASE_HOST/PORT/USERNAME/PASSWORD/NAME`）→ `src/config/database.config.ts`
+- マイグレーションは TypeORM CLI（`src/data-source.ts` を `-d` で指定）。`pnpm migration:generate` / `migration:run` / `migration:revert`
+- 規約は `nuxt/` と統一（Prettier: `semi: true` / `trailingComma: 'none'` / `printWidth: 100`、ESLint は競合ルールを `eslint-config-prettier` で無効化）
 - scripts: `pnpm format` / `format:check` / `lint` / `lint:fix` / `start:dev` / `build` / `test`
 
 ## データモデルの中心
