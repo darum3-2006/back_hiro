@@ -1,6 +1,8 @@
 /**
  * Authorization ヘッダ付きの $fetch ラッパー。
  * 401 を受けたらトークンを破棄してログイン画面へ戻す。
+ *
+ * アプリは ssr:false （CSR のみ）なので相対パスで OK。
  */
 export const useApi = () => {
   const token = useAuthToken();
@@ -17,7 +19,6 @@ export const useApi = () => {
     async onResponseError({ response }) {
       if (response.status !== 401) return;
       token.value = null;
-      if (!import.meta.client) return;
       const path = window.location.pathname;
       const m = /^\/([^/]+)/.exec(path);
       const tenantKey = m?.[1] ?? '';

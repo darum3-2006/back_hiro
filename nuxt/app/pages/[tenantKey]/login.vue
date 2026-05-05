@@ -56,47 +56,32 @@ const onSubmit = async () => {
         </div>
       </template>
 
-      <ClientOnly>
-        <div class="space-y-4">
-          <UFormField label="メールアドレス" required>
-            <UInput
-              v-model="email"
-              type="email"
-              autocomplete="email"
-              placeholder="user@example.com"
-              class="w-full"
-              @keyup.enter="onSubmit"
-            />
-          </UFormField>
+      <div class="space-y-4">
+        <UFormField label="メールアドレス" required>
+          <UInput
+            v-model="email"
+            type="email"
+            autocomplete="email"
+            placeholder="user@example.com"
+            class="w-full"
+            @keyup.enter="onSubmit"
+          />
+        </UFormField>
 
-          <UFormField label="パスワード" required>
-            <UInput
-              v-model="password"
-              type="password"
-              autocomplete="current-password"
-              class="w-full"
-              @keyup.enter="onSubmit"
-            />
-          </UFormField>
+        <UFormField label="パスワード" required>
+          <UInput
+            v-model="password"
+            type="password"
+            autocomplete="current-password"
+            class="w-full"
+            @keyup.enter="onSubmit"
+          />
+        </UFormField>
 
-          <UButton
-            block
-            :loading="submitting"
-            :disabled="!tenantKey"
-            @click="onSubmit"
-          >
-            ログイン
-          </UButton>
-        </div>
-
-        <template #fallback>
-          <div class="space-y-4">
-            <div class="h-14 bg-elevated rounded animate-pulse" />
-            <div class="h-14 bg-elevated rounded animate-pulse" />
-            <div class="h-9 bg-elevated rounded animate-pulse" />
-          </div>
-        </template>
-      </ClientOnly>
+        <UButton block :loading="submitting" :disabled="!tenantKey" @click="onSubmit">
+          ログイン
+        </UButton>
+      </div>
     </UCard>
   </div>
 </template>

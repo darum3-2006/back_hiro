@@ -3,18 +3,22 @@
 // - ログイン済みなら自分のテナントへ
 // - 未ログインなら、テナントキーが分からないので案内表示
 const { token, me, fetchMe } = useAuth();
+const ready = ref(false);
 
-if (token.value && !me.value) {
-  await fetchMe();
-}
-
-if (me.value) {
-  await navigateTo(`/${me.value.tenant.key}`, { replace: true });
-}
+onMounted(async () => {
+  if (token.value && !me.value) {
+    await fetchMe();
+  }
+  if (me.value) {
+    navigateTo(`/${me.value.tenant.key}`, { replace: true });
+    return;
+  }
+  ready.value = true;
+});
 </script>
 
 <template>
-  <div class="min-h-screen flex items-center justify-center px-4">
+  <div v-if="ready" class="min-h-screen flex items-center justify-center px-4">
     <UCard class="max-w-md text-center">
       <p class="text-sm">
         URL にテナントキーを含めてアクセスしてください（例: <code>/your-tenant</code>）。

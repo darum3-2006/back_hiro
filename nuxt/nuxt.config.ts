@@ -2,6 +2,10 @@
 export default defineNuxtConfig({
   modules: ['@nuxt/eslint', '@nuxt/ui'],
 
+  // 認証必須の社内ツールで SEO 不要のため SPA モード（CSR のみ）。
+  // SSR/CSR 境界の API 呼び出し問題（baseURL 相対パス, Cookie 転送等）を回避。
+  ssr: false,
+
   devtools: {
     enabled: true,
   },
