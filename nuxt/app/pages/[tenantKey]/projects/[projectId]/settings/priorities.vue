@@ -2,11 +2,11 @@
 import type { DropdownMenuItem } from '@nuxt/ui';
 import { VueDraggable } from 'vue-draggable-plus';
 import {
+  apiCreateTaskPriority,
+  apiDeleteTaskPriority,
+  apiReorderTaskPriorities,
+  apiUpdateTaskPriority,
   countTaskPriorityReferences,
-  createTaskPriority,
-  deleteTaskPriority,
-  reorderTaskPriorities,
-  updateTaskPriority,
 } from '~/api/masters';
 import type { TaskPriority } from '~/types/master';
 import type { MasterFormPayload } from '~/components/MasterFormModal.vue';
@@ -14,6 +14,7 @@ import type { MasterFormPayload } from '~/components/MasterFormModal.vue';
 const route = useRoute();
 const projectId = computed(() => route.params.projectId as string);
 
+const api = useApi();
 const { data: priorities, refresh: refreshPriorities } = await useTaskPriorities(projectId);
 
 const orderedPriorities = ref<TaskPriority[]>([]);
@@ -53,12 +54,12 @@ const openEdit = (item: TaskPriority) => {
 
 const onSubmit = async (data: MasterFormPayload) => {
   if (editingItem.value) {
-    await updateTaskPriority(projectId.value, editingItem.value.code, {
+    await apiUpdateTaskPriority(api, projectId.value, editingItem.value.code, {
       label: data.name,
       color: data.color,
     });
   } else {
-    await createTaskPriority(projectId.value, {
+    await apiCreateTaskPriority(api, projectId.value, {
       label: data.name,
       color: data.color,
     });
@@ -74,7 +75,7 @@ const onSubmit = async (data: MasterFormPayload) => {
 
 const onDragEnd = async () => {
   const codes = orderedPriorities.value.map((p) => p.code);
-  await reorderTaskPriorities(projectId.value, codes);
+  await apiReorderTaskPriorities(api, projectId.value, codes);
   await refreshPriorities();
 };
 
@@ -105,7 +106,7 @@ const performDelete = async () => {
   deleting.value = true;
   const name = deleteTarget.value.label;
   try {
-    await deleteTaskPriority(projectId.value, deleteTarget.value.code);
+    await apiDeleteTaskPriority(api, projectId.value, deleteTarget.value.code);
     await refreshPriorities();
     deleteModalOpen.value = false;
     toast.add({

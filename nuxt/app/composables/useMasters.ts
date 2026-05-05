@@ -1,8 +1,8 @@
 import {
   apiListDepartments,
-  fetchTags,
-  fetchTaskPriorities,
-  fetchTaskStatuses,
+  apiListTags,
+  apiListTaskPriorities,
+  apiListTaskStatuses,
   fetchUsers,
 } from '~/api/masters';
 
@@ -13,23 +13,29 @@ export const useDepartments = () => {
   return useAsyncData('departments', () => apiListDepartments(api), { default: () => [] });
 };
 
-export const useTaskStatuses = (projectId: Ref<string>) =>
-  useAsyncData(
+export const useTaskStatuses = (projectId: Ref<string>) => {
+  const api = useApi();
+  return useAsyncData(
     () => `task-statuses:${projectId.value}`,
-    () => fetchTaskStatuses(projectId.value),
+    () => apiListTaskStatuses(api, projectId.value),
     { default: () => [], watch: [projectId] },
   );
+};
 
-export const useTaskPriorities = (projectId: Ref<string>) =>
-  useAsyncData(
+export const useTaskPriorities = (projectId: Ref<string>) => {
+  const api = useApi();
+  return useAsyncData(
     () => `task-priorities:${projectId.value}`,
-    () => fetchTaskPriorities(projectId.value),
+    () => apiListTaskPriorities(api, projectId.value),
     { default: () => [], watch: [projectId] },
   );
+};
 
-export const useTags = (projectId: Ref<string>) =>
-  useAsyncData(
+export const useTags = (projectId: Ref<string>) => {
+  const api = useApi();
+  return useAsyncData(
     () => `tags:${projectId.value}`,
-    () => fetchTags(projectId.value),
+    () => apiListTags(api, projectId.value),
     { default: () => [], watch: [projectId] },
   );
+};

@@ -2,11 +2,11 @@
 import type { DropdownMenuItem } from '@nuxt/ui';
 import { VueDraggable } from 'vue-draggable-plus';
 import {
+  apiCreateTaskStatus,
+  apiDeleteTaskStatus,
+  apiReorderTaskStatuses,
+  apiUpdateTaskStatus,
   countTaskStatusReferences,
-  createTaskStatus,
-  deleteTaskStatus,
-  reorderTaskStatuses,
-  updateTaskStatus,
 } from '~/api/masters';
 import type { TaskStatus } from '~/types/master';
 import type { MasterFormPayload } from '~/components/MasterFormModal.vue';
@@ -14,6 +14,7 @@ import type { MasterFormPayload } from '~/components/MasterFormModal.vue';
 const route = useRoute();
 const projectId = computed(() => route.params.projectId as string);
 
+const api = useApi();
 const { data: statuses, refresh: refreshStatuses } = await useTaskStatuses(projectId);
 
 const orderedStatuses = ref<TaskStatus[]>([]);
@@ -54,13 +55,13 @@ const openEdit = (item: TaskStatus) => {
 
 const onSubmit = async (data: MasterFormPayload) => {
   if (editingItem.value) {
-    await updateTaskStatus(projectId.value, editingItem.value.code, {
+    await apiUpdateTaskStatus(api, projectId.value, editingItem.value.code, {
       label: data.name,
       color: data.color,
       isTerminal: data.isTerminal,
     });
   } else {
-    await createTaskStatus(projectId.value, {
+    await apiCreateTaskStatus(api, projectId.value, {
       label: data.name,
       color: data.color,
       isTerminal: data.isTerminal,
@@ -78,7 +79,7 @@ const onSubmit = async (data: MasterFormPayload) => {
 // ===== Drag & Drop reorder =====
 const onDragEnd = async () => {
   const codes = orderedStatuses.value.map((s) => s.code);
-  await reorderTaskStatuses(projectId.value, codes);
+  await apiReorderTaskStatuses(api, projectId.value, codes);
   await refreshStatuses();
 };
 
@@ -110,7 +111,7 @@ const performDelete = async () => {
   deleting.value = true;
   const name = deleteTarget.value.label;
   try {
-    await deleteTaskStatus(projectId.value, deleteTarget.value.code);
+    await apiDeleteTaskStatus(api, projectId.value, deleteTarget.value.code);
     await refreshStatuses();
     deleteModalOpen.value = false;
     toast.add({

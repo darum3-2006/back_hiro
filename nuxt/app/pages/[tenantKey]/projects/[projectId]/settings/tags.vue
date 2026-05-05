@@ -1,12 +1,18 @@
 <script setup lang="ts">
 import type { TableColumn, DropdownMenuItem } from '@nuxt/ui';
-import { countTagReferences, createTag, deleteTag, updateTag } from '~/api/masters';
+import {
+  apiCreateTag,
+  apiDeleteTag,
+  apiUpdateTag,
+  countTagReferences,
+} from '~/api/masters';
 import type { Tag } from '~/types/master';
 import type { MasterFormPayload } from '~/components/MasterFormModal.vue';
 
 const route = useRoute();
 const projectId = computed(() => route.params.projectId as string);
 
+const api = useApi();
 const { data: tags, refresh: refreshTags } = await useTags(projectId);
 
 const toast = useToast();
@@ -36,12 +42,12 @@ const openEdit = (item: Tag) => {
 
 const onSubmit = async (data: MasterFormPayload) => {
   if (editingItem.value) {
-    await updateTag(projectId.value, editingItem.value.code, {
+    await apiUpdateTag(api, projectId.value, editingItem.value.code, {
       name: data.name,
       color: data.color,
     });
   } else {
-    await createTag(projectId.value, {
+    await apiCreateTag(api, projectId.value, {
       name: data.name,
       color: data.color,
     });
@@ -82,7 +88,7 @@ const performDelete = async () => {
   deleting.value = true;
   const name = deleteTarget.value.name;
   try {
-    await deleteTag(projectId.value, deleteTarget.value.code);
+    await apiDeleteTag(api, projectId.value, deleteTarget.value.code);
     await refreshTags();
     deleteModalOpen.value = false;
     toast.add({
