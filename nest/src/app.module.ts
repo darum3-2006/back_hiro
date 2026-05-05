@@ -7,6 +7,8 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { buildDatabaseOptions } from './config/database.config';
+import { DepartmentsModule } from './departments/departments.module';
+import { ProjectsModule } from './projects/projects.module';
 import { TenantsModule } from './tenants/tenants.module';
 import { UsersModule } from './users/users.module';
 
@@ -24,6 +26,8 @@ import { UsersModule } from './users/users.module';
     TenantsModule,
     UsersModule,
     AuthModule,
+    ProjectsModule,
+    DepartmentsModule,
   ],
   controllers: [AppController],
   providers: [

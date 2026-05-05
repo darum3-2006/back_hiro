@@ -31,4 +31,13 @@ export default tseslint.config(
       '@typescript-eslint/no-unsafe-argument': 'warn',
     },
   },
+  {
+    // jest mock の method 渡しや fixture 用キャストが大量に出るため spec 内では緩める
+    files: ['**/*.spec.ts', '**/*.e2e-spec.ts'],
+    rules: {
+      '@typescript-eslint/unbound-method': 'off',
+      '@typescript-eslint/no-unnecessary-type-assertion': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+    },
+  },
 );
