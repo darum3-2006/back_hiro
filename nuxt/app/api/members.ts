@@ -1,5 +1,7 @@
 import type { Member, MemberRole } from '~/types/member';
 
+import { apiCountTasks } from '~/api/tasks';
+
 export interface CreateMemberInput {
   displayName: string;
   userId: string | null;
@@ -44,12 +46,16 @@ export const apiDeleteMember = async (
 
 /**
  * メンバーが参照されている件数。
- * NOTE: tasks / comments のバックエンドが未実装のため、当面は常に 0 を返す。
- *       Step 5/6 で tasks/comments が入った時点で API 化する。
+ * tasks は実 API、comments は backend 未実装のため当面 0 のまま（Step 6 で対応）。
  */
 export const countMemberReferences = async (
-  _projectId: string,
-  _memberId: string,
+  api: typeof $fetch,
+  projectId: string,
+  memberId: string,
 ): Promise<{ tasksAssignee: number; tasksRequester: number; comments: number }> => {
-  return { tasksAssignee: 0, tasksRequester: 0, comments: 0 };
+  const [tasksAssignee, tasksRequester] = await Promise.all([
+    apiCountTasks(api, projectId, { assigneeMemberId: memberId }),
+    apiCountTasks(api, projectId, { requesterMemberId: memberId }),
+  ]);
+  return { tasksAssignee, tasksRequester, comments: 0 };
 };

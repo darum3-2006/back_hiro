@@ -1,35 +1,79 @@
-import type { Task } from '~/types/task';
-import { MOCK_TASKS } from '~/utils/mock-tasks';
+import type { Task, TaskLink } from '~/types/task';
 
-/** GET /projects/{projectId}/tasks */
-export async function fetchTasks(projectId: string): Promise<Task[]> {
-  return MOCK_TASKS.filter((t) => t.projectId === projectId);
+export interface CreateTaskInput {
+  content: string;
+  description?: string;
+  links?: TaskLink[];
+  statusCode: string;
+  priorityCode?: string | null;
+  assigneeMemberId?: string | null;
+  requesterMemberId?: string | null;
+  requestingDeptCode?: string | null;
+  deadline?: string | null;
+  plannedCompletionDate?: string | null;
+  tagCodes?: string[];
 }
 
-/** PATCH /projects/{projectId}/tasks/{taskId} */
-export async function updateTask(
+export type UpdateTaskInput = Partial<CreateTaskInput>;
+
+export interface TaskFilter {
+  statusCode?: string;
+  priorityCode?: string;
+  tagCode?: string;
+  assigneeMemberId?: string;
+  requesterMemberId?: string;
+  requestingDeptCode?: string;
+}
+
+const buildQuery = (filter: TaskFilter): string => {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filter)) {
+    if (value !== undefined && value !== '') params.set(key, String(value));
+  }
+  const qs = params.toString();
+  return qs ? `?${qs}` : '';
+};
+
+/** GET /api/projects/:projectId/tasks */
+export const apiListTasks = (
+  api: typeof $fetch,
   projectId: string,
-  taskId: number,
-  patch: Partial<Omit<Task, 'id' | 'projectId' | 'createdAt'>>,
-): Promise<Task> {
-  const idx = MOCK_TASKS.findIndex((t) => t.projectId === projectId && t.id === taskId);
-  if (idx < 0) throw new Error(`Task ${taskId} not found in project ${projectId}`);
-  MOCK_TASKS[idx] = { ...MOCK_TASKS[idx]!, ...patch };
-  return MOCK_TASKS[idx]!;
-}
+  filter: TaskFilter = {},
+): Promise<Task[]> => api<Task[]>(`/projects/${projectId}/tasks${buildQuery(filter)}`);
 
-/** POST /projects/{projectId}/tasks */
-export async function createTask(
+/** GET /api/projects/:projectId/tasks/count */
+export const apiCountTasks = async (
+  api: typeof $fetch,
   projectId: string,
-  input: Omit<Task, 'id' | 'projectId' | 'createdAt'>,
-): Promise<Task> {
-  const nextId = MOCK_TASKS.length === 0 ? 1 : Math.max(...MOCK_TASKS.map((t) => t.id)) + 1;
-  const task: Task = {
-    id: nextId,
-    projectId,
-    createdAt: new Date().toISOString().slice(0, 19),
-    ...input,
-  };
-  MOCK_TASKS.push(task);
-  return task;
-}
+  filter: TaskFilter = {},
+): Promise<number> => {
+  const res = await api<{ count: number }>(
+    `/projects/${projectId}/tasks/count${buildQuery(filter)}`,
+  );
+  return res.count;
+};
+
+/** POST /api/projects/:projectId/tasks */
+export const apiCreateTask = (
+  api: typeof $fetch,
+  projectId: string,
+  input: CreateTaskInput,
+): Promise<Task> => api<Task>(`/projects/${projectId}/tasks`, { method: 'POST', body: input });
+
+/** PATCH /api/projects/:projectId/tasks/:id */
+export const apiUpdateTask = (
+  api: typeof $fetch,
+  projectId: string,
+  id: string,
+  patch: UpdateTaskInput,
+): Promise<Task> =>
+  api<Task>(`/projects/${projectId}/tasks/${id}`, { method: 'PATCH', body: patch });
+
+/** DELETE /api/projects/:projectId/tasks/:id */
+export const apiDeleteTask = async (
+  api: typeof $fetch,
+  projectId: string,
+  id: string,
+): Promise<void> => {
+  await api(`/projects/${projectId}/tasks/${id}`, { method: 'DELETE' });
+};

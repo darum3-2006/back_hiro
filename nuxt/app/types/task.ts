@@ -4,13 +4,15 @@ export interface TaskLink {
 }
 
 export interface Task {
-  id: number;
+  id: string;
   projectId: string;
+  /** プロジェクト内連番（表示用 #N） */
+  seq: number;
   content: string;
   links: TaskLink[];
   requesterMemberId: string | null;
   requestingDeptCode: string | null;
-  assigneeMemberId: string;
+  assigneeMemberId: string | null;
   priorityCode: string | null;
   statusCode: string;
   deadline: string | null;

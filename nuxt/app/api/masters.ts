@@ -1,6 +1,11 @@
 import type { Department, MasterColor, Tag, TaskPriority, TaskStatus, User } from '~/types/master';
 import { MOCK_USERS } from '~/utils/mock-masters';
 
+// ===== References (タスク参照件数) =====
+// Tasks API の /tasks/count に絞り込み条件を渡して件数を取得する。
+
+import { apiCountTasks } from '~/api/tasks';
+
 // ===== Users (tenant) =====
 
 /**
@@ -172,12 +177,26 @@ export const apiDeleteTag = async (
   await api(`/projects/${projectId}/tags/${code}`, { method: 'DELETE' });
 };
 
-// ===== References (タスク参照件数) =====
-//
-// NOTE: Tasks backend が未実装のため、当面は常に 0 を返すスタブ。
-// Step 5 で実装するときに実 API に差し替える。
-const zeroRefs = async (): Promise<{ tasks: number }> => ({ tasks: 0 });
+export const countTaskStatusReferences = async (
+  api: typeof $fetch,
+  projectId: string,
+  code: string,
+): Promise<{ tasks: number }> => ({
+  tasks: await apiCountTasks(api, projectId, { statusCode: code }),
+});
 
-export const countTaskStatusReferences = (_projectId: string, _code: string) => zeroRefs();
-export const countTaskPriorityReferences = (_projectId: string, _code: string) => zeroRefs();
-export const countTagReferences = (_projectId: string, _code: string) => zeroRefs();
+export const countTaskPriorityReferences = async (
+  api: typeof $fetch,
+  projectId: string,
+  code: string,
+): Promise<{ tasks: number }> => ({
+  tasks: await apiCountTasks(api, projectId, { priorityCode: code }),
+});
+
+export const countTagReferences = async (
+  api: typeof $fetch,
+  projectId: string,
+  code: string,
+): Promise<{ tasks: number }> => ({
+  tasks: await apiCountTasks(api, projectId, { tagCode: code }),
+});

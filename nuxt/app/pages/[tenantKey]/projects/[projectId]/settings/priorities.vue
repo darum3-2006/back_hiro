@@ -91,7 +91,7 @@ const openDelete = async (item: TaskPriority) => {
   deleteModalOpen.value = true;
   loadingReferences.value = true;
   try {
-    deleteReferences.value = await countTaskPriorityReferences(projectId.value, item.code);
+    deleteReferences.value = await countTaskPriorityReferences(api, projectId.value, item.code);
   } finally {
     loadingReferences.value = false;
   }

@@ -96,7 +96,7 @@ const openDelete = async (item: TaskStatus) => {
   deleteModalOpen.value = true;
   loadingReferences.value = true;
   try {
-    deleteReferences.value = await countTaskStatusReferences(projectId.value, item.code);
+    deleteReferences.value = await countTaskStatusReferences(api, projectId.value, item.code);
   } finally {
     loadingReferences.value = false;
   }

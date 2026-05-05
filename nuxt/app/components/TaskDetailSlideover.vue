@@ -3,6 +3,7 @@ import { createComment, updateComment } from '~/api/comments';
 import type { Member } from '~/types/member';
 import type { Department, Tag, TaskPriority, TaskStatus } from '~/types/master';
 import type { Task, TaskLink } from '~/types/task';
+import { fmtDate, fmtDateTime } from '~/utils/date';
 
 const props = defineProps<{
   task: Task | null;
@@ -21,7 +22,7 @@ const emit = defineEmits<{
 }>();
 
 const projectIdRef = computed(() => props.task?.projectId ?? '');
-const taskIdRef = computed<number | null>(() => props.task?.id ?? null);
+const taskIdRef = computed<string | null>(() => props.task?.id ?? null);
 
 const { data: comments, refresh: refreshComments } = await useTaskComments(projectIdRef, taskIdRef);
 
@@ -44,11 +45,11 @@ const postComment = async () => {
   }
 };
 
-const editingCommentId = ref<number | null>(null);
+const editingCommentId = ref<string | null>(null);
 const commentEditBuffer = ref('');
 const savingEdit = ref(false);
 
-const startEditComment = (commentId: number, body: string) => {
+const startEditComment = (commentId: string, body: string) => {
   editingCommentId.value = commentId;
   commentEditBuffer.value = body;
 };
@@ -73,10 +74,6 @@ const saveCommentEdit = async () => {
     savingEdit.value = false;
   }
 };
-
-// ===== Formatters =====
-const fmtDate = (d: string | null): string => d ?? '—';
-const fmtDateTime = (d: string): string => d.replace('T', ' ');
 
 // ===== Text inline edit =====
 type EditableField = 'content' | 'description';
@@ -196,7 +193,7 @@ const tagsList = computed(() => Object.values(props.tagMap));
 <template>
   <USlideover
     :open="open"
-    :title="task ? `#${task.id}` : ''"
+    :title="task ? `#${task.seq}` : ''"
     :description="task?.content ?? ''"
     :ui="{ content: 'sm:max-w-xl' }"
     @update:open="(v: boolean) => $emit('update:open', v)"
@@ -297,13 +294,18 @@ const tagsList = computed(() => Object.values(props.tagMap));
             <SelectMenu
               :items="memberSelectItems"
               :current="task.assigneeMemberId"
+              allow-none
+              none-label="担当者なし"
               default-icon="i-lucide-user"
-              @select="(c: string | null) => c && emit('change-field', { assigneeMemberId: c })"
+              @select="(c: string | null) => emit('change-field', { assigneeMemberId: c })"
             >
               <button class="text-sm hover:underline cursor-pointer text-left">
-                {{ memberMap[task.assigneeMemberId]?.displayName ?? '—' }}
+                {{ memberMap[task.assigneeMemberId ?? '']?.displayName ?? '担当者なし' }}
                 <UBadge
-                  v-if="memberMap[task.assigneeMemberId]?.userId === null"
+                  v-if="
+                    task.assigneeMemberId &&
+                    memberMap[task.assigneeMemberId]?.userId === null
+                  "
                   color="neutral"
                   size="sm"
                   variant="soft"

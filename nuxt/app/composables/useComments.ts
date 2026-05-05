@@ -1,6 +1,6 @@
 import { fetchComments } from '~/api/comments';
 
-export const useTaskComments = (projectId: Ref<string>, taskId: Ref<number | null>) =>
+export const useTaskComments = (projectId: Ref<string>, taskId: Ref<string | null>) =>
   useAsyncData(
     () => `task-comments:${projectId.value}:${taskId.value ?? 'none'}`,
     () =>

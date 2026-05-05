@@ -17,12 +17,14 @@ const { data: projects } = await useProjects();
 
 const draft = ref({ name: '', key: '', description: '' });
 const submitting = ref(false);
+const { errors, clearField, clear: clearErrors, setFromApiError } = useFormErrors();
 
 watch(
   () => props.open,
   (isOpen) => {
     if (isOpen) {
       draft.value = { name: '', key: '', description: '' };
+      clearErrors();
     }
   },
 );
@@ -44,6 +46,7 @@ const toast = useToast();
 const submit = async () => {
   if (!canSubmit.value) return;
   submitting.value = true;
+  clearErrors();
   try {
     const project = await apiCreateProject(api, {
       name: draft.value.name.trim(),
@@ -53,12 +56,18 @@ const submit = async () => {
     emit('created', project);
     emit('update:open', false);
   } catch (e: unknown) {
-    const raw =
-      typeof e === 'object' && e !== null && 'data' in e
-        ? (e as { data?: { message?: string | string[] } }).data?.message
-        : undefined;
-    const message = Array.isArray(raw) ? raw.join(', ') : (raw ?? 'プロジェクトの作成に失敗しました');
-    toast.add({ title: message, color: 'error' });
+    setFromApiError(e);
+    if (Object.keys(errors.value).length === 0) {
+      // フィールドにマップできない一般エラー（409 など）は toast で
+      const data =
+        typeof e === 'object' && e !== null && 'data' in e
+          ? ((e as { data?: { message?: string | string[] } }).data ?? {})
+          : {};
+      const msg = Array.isArray(data.message)
+        ? data.message.join(', ')
+        : (data.message ?? 'プロジェクトの作成に失敗しました');
+      toast.add({ title: msg, color: 'error' });
+    }
   } finally {
     submitting.value = false;
   }
@@ -73,24 +82,38 @@ const submit = async () => {
   >
     <template #body>
       <div class="space-y-4">
-        <UFormField label="名前" required>
-          <UInput v-model="draft.name" placeholder="プロジェクト名" autofocus class="w-full" />
+        <UFormField label="名前" required :error="errors.name">
+          <UInput
+            v-model="draft.name"
+            placeholder="プロジェクト名"
+            autofocus
+            class="w-full"
+            @update:model-value="clearField('name')"
+          />
         </UFormField>
         <UFormField
           label="Key"
           hint="識別子（大文字英数）"
           required
-          :error="keyConflict ? `「${normalizedKey}」は既に使われています` : undefined"
+          :error="
+            keyConflict ? `「${normalizedKey}」は既に使われています` : (errors.key ?? undefined)
+          "
         >
-          <UInput v-model="draft.key" placeholder="MYPROJECT" class="w-full" />
+          <UInput
+            v-model="draft.key"
+            placeholder="MYPROJECT"
+            class="w-full"
+            @update:model-value="clearField('key')"
+          />
         </UFormField>
-        <UFormField label="説明">
+        <UFormField label="説明" :error="errors.description">
           <UTextarea
             v-model="draft.description"
             :rows="3"
             autoresize
             placeholder="任意"
             class="w-full"
+            @update:model-value="clearField('description')"
           />
         </UFormField>
       </div>

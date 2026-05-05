@@ -2,8 +2,10 @@
 import { h, resolveComponent } from 'vue';
 import type { Row } from '@tanstack/vue-table';
 import type { TableColumn } from '@nuxt/ui';
-import { updateTask } from '~/api/tasks';
+import { apiUpdateTask } from '~/api/tasks';
 import type { Task } from '~/types/task';
+
+const api = useApi();
 
 const UButton = resolveComponent('UButton');
 
@@ -85,12 +87,7 @@ const resetFilters = () => {
 };
 
 // ===== タスク詳細スライドオーバー: URL クエリで連動 =====
-const selectedTaskId = computed<number | null>(() => {
-  const v = queryString('task');
-  if (!v) return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-});
+const selectedTaskId = computed<string | null>(() => queryString('task') || null);
 
 const selectedTask = computed<Task | null>(() =>
   selectedTaskId.value !== null
@@ -100,8 +97,8 @@ const selectedTask = computed<Task | null>(() =>
 
 const slideoverOpen = computed(() => selectedTaskId.value !== null);
 
-const setSelectedTaskId = (id: number | null) => {
-  updateQuery({ task: id === null ? undefined : String(id) });
+const setSelectedTaskId = (id: string | null) => {
+  updateQuery({ task: id === null ? undefined : id });
 };
 
 const openTask = (task: Task) => {
@@ -119,11 +116,10 @@ const onTaskCreated = async (task: Task) => {
   await refreshTasks();
   toast.add({
     title: 'タスクを作成しました',
-    description: `#${task.id} ${task.content}`,
+    description: `#${task.seq} ${task.content}`,
     color: 'success',
     icon: 'i-lucide-check',
   });
-  setSelectedTaskId(task.id);
 };
 
 const filteredTasks = computed(() => {
@@ -175,14 +171,14 @@ const sortHeader = (label: string) => {
 };
 
 const columns: TableColumn<Task>[] = [
-  { accessorKey: 'id', header: sortHeader('No') },
+  { accessorKey: 'seq', header: sortHeader('No') },
   { accessorKey: 'content', header: sortHeader('内容') },
   {
     accessorKey: 'assigneeMemberId',
     header: sortHeader('担当者'),
     sortingFn: (a: Row<Task>, b: Row<Task>) => {
-      const na = memberMap.value[a.original.assigneeMemberId]?.displayName ?? '';
-      const nb = memberMap.value[b.original.assigneeMemberId]?.displayName ?? '';
+      const na = memberMap.value[a.original.assigneeMemberId ?? '']?.displayName ?? '';
+      const nb = memberMap.value[b.original.assigneeMemberId ?? '']?.displayName ?? '';
       return na.localeCompare(nb, 'ja');
     },
   },
@@ -221,10 +217,10 @@ const columns: TableColumn<Task>[] = [
 ];
 
 const updateTaskField = async (
-  taskId: number,
-  patch: Partial<Omit<Task, 'id' | 'projectId' | 'createdAt'>>,
+  taskId: string,
+  patch: Partial<Omit<Task, 'id' | 'projectId' | 'createdAt' | 'seq'>>,
 ) => {
-  await updateTask(currentProjectId.value, taskId, patch);
+  await apiUpdateTask(api, currentProjectId.value, taskId, patch);
   await refreshTasks();
 };
 </script>
@@ -357,12 +353,12 @@ const updateTaskField = async (
           :columns="columns"
           :ui="{ td: 'align-top py-2' }"
         >
-          <template #id-cell="{ row }">
+          <template #seq-cell="{ row }">
             <button
               class="font-mono text-xs text-muted hover:text-default"
               @click="openTask(row.original)"
             >
-              #{{ row.original.id }}
+              #{{ row.original.seq }}
             </button>
           </template>
 
@@ -376,13 +372,15 @@ const updateTaskField = async (
             <SelectMenu
               :items="memberSelectItems"
               :current="row.original.assigneeMemberId"
+              allow-none
+              none-label="担当者なし"
               default-icon="i-lucide-user"
               @select="
-                (c: string | null) => c && updateTaskField(row.original.id, { assigneeMemberId: c })
+                (c: string | null) => updateTaskField(row.original.id, { assigneeMemberId: c })
               "
             >
               <button class="text-sm hover:underline cursor-pointer">
-                {{ memberMap[row.original.assigneeMemberId]?.displayName ?? '—' }}
+                {{ memberMap[row.original.assigneeMemberId ?? '']?.displayName ?? '担当者なし' }}
               </button>
             </SelectMenu>
           </template>

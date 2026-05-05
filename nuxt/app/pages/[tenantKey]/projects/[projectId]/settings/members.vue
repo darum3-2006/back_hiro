@@ -61,7 +61,7 @@ const openDelete = async (member: Member) => {
   deleteModalOpen.value = true;
   loadingReferences.value = true;
   try {
-    deleteReferences.value = await countMemberReferences(projectId.value, member.id);
+    deleteReferences.value = await countMemberReferences(api, projectId.value, member.id);
   } finally {
     loadingReferences.value = false;
   }

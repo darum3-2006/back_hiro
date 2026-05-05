@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { createTask } from '~/api/tasks';
+import { apiCreateTask } from '~/api/tasks';
 import type { Member } from '~/types/member';
 import type { Department, Tag, TaskPriority, TaskStatus } from '~/types/master';
 import type { Task } from '~/types/task';
+
+const api = useApi();
 
 const props = defineProps<{
   open: boolean;
@@ -20,7 +22,7 @@ const emit = defineEmits<{
   created: [Task];
 }>();
 
-type Draft = Omit<Task, 'id' | 'projectId' | 'createdAt'>;
+type Draft = Omit<Task, 'id' | 'projectId' | 'createdAt' | 'seq'>;
 
 const makeInitialDraft = (): Draft => ({
   content: '',
@@ -28,7 +30,7 @@ const makeInitialDraft = (): Draft => ({
   links: [],
   requesterMemberId: props.currentMemberId,
   requestingDeptCode: null,
-  assigneeMemberId: props.currentMemberId ?? '',
+  assigneeMemberId: props.currentMemberId,
   priorityCode: null,
   statusCode: props.statuses[0]?.code ?? '',
   deadline: null,
@@ -38,6 +40,23 @@ const makeInitialDraft = (): Draft => ({
 
 const draft = ref<Draft>(makeInitialDraft());
 const submitting = ref(false);
+const { errors, clearField, clear: clearErrors, setFromApiError } = useFormErrors();
+
+// 「続けて作成」状態は localStorage で永続化（連続入力ユーザーの利便性）
+const KEEP_OPEN_KEY = 'task-create-keep-open';
+const keepOpen = ref(false);
+
+onMounted(() => {
+  if (import.meta.client) {
+    keepOpen.value = localStorage.getItem(KEEP_OPEN_KEY) === '1';
+  }
+});
+
+watch(keepOpen, (v) => {
+  if (import.meta.client) {
+    localStorage.setItem(KEEP_OPEN_KEY, v ? '1' : '0');
+  }
+});
 
 const addLink = () => {
   draft.value.links.push({ label: '', url: '' });
@@ -45,6 +64,7 @@ const addLink = () => {
 
 const removeLink = (index: number) => {
   draft.value.links.splice(index, 1);
+  clearErrors();
 };
 
 watch(
@@ -52,25 +72,59 @@ watch(
   (isOpen) => {
     if (isOpen) {
       draft.value = makeInitialDraft();
+      clearErrors();
     }
   },
 );
 
+/** links.0.url のような path のエラーを取り出す */
+const linkError = (index: number, field: 'label' | 'url'): string | undefined =>
+  errors.value[`links.${index}.${field}`];
+
 const canSubmit = computed(() =>
-  Boolean(draft.value.content.trim() && draft.value.assigneeMemberId && draft.value.statusCode),
+  Boolean(draft.value.content.trim() && draft.value.statusCode),
 );
+
+const toast = useToast();
 
 const submit = async () => {
   if (!canSubmit.value) return;
   submitting.value = true;
+  clearErrors();
   try {
-    const task = await createTask(props.projectId, {
-      ...draft.value,
+    const task = await apiCreateTask(api, props.projectId, {
       content: draft.value.content.trim(),
       description: draft.value.description.trim(),
+      links: draft.value.links,
+      statusCode: draft.value.statusCode,
+      priorityCode: draft.value.priorityCode,
+      assigneeMemberId: draft.value.assigneeMemberId,
+      requesterMemberId: draft.value.requesterMemberId,
+      requestingDeptCode: draft.value.requestingDeptCode,
+      deadline: draft.value.deadline,
+      plannedCompletionDate: draft.value.plannedCompletionDate,
+      tagCodes: draft.value.tagCodes,
     });
     emit('created', task);
-    emit('update:open', false);
+    if (keepOpen.value) {
+      // 続けて作成: フォームリセットして slideover 開いたまま
+      draft.value = makeInitialDraft();
+      clearErrors();
+    } else {
+      emit('update:open', false);
+    }
+  } catch (e: unknown) {
+    setFromApiError(e);
+    if (Object.keys(errors.value).length === 0) {
+      const data =
+        typeof e === 'object' && e !== null && 'data' in e
+          ? ((e as { data?: { message?: string | string[] } }).data ?? {})
+          : {};
+      const msg = Array.isArray(data.message)
+        ? data.message.join(', ')
+        : (data.message ?? 'タスクの作成に失敗しました');
+      toast.add({ title: msg, color: 'error' });
+    }
   } finally {
     submitting.value = false;
   }
@@ -111,21 +165,26 @@ const departmentSelectItems = computed(() =>
   >
     <template #body>
       <div class="space-y-4 p-1">
-        <div>
-          <p class="text-xs text-muted mb-1">内容 <span class="text-error">*</span></p>
-          <UInput v-model="draft.content" placeholder="タスクの概要" autofocus class="w-full" />
-        </div>
+        <UFormField label="内容" required :error="errors.content">
+          <UInput
+            v-model="draft.content"
+            placeholder="タスクの概要"
+            autofocus
+            class="w-full"
+            @update:model-value="clearField('content')"
+          />
+        </UFormField>
 
-        <div>
-          <p class="text-xs text-muted mb-1">説明</p>
+        <UFormField label="説明" :error="errors.description">
           <UTextarea
             v-model="draft.description"
             :rows="4"
             autoresize
             placeholder="詳細を記入"
             class="w-full"
+            @update:model-value="clearField('description')"
           />
-        </div>
+        </UFormField>
 
         <USeparator />
 
@@ -173,18 +232,20 @@ const departmentSelectItems = computed(() =>
             </SelectMenu>
           </div>
           <div>
-            <p class="text-xs text-muted mb-1">担当者 <span class="text-error">*</span></p>
+            <p class="text-xs text-muted mb-1">担当者</p>
             <SelectMenu
               :items="memberSelectItems"
-              :current="draft.assigneeMemberId || null"
+              :current="draft.assigneeMemberId"
+              allow-none
+              none-label="担当者なし"
               default-icon="i-lucide-user"
-              @select="(c: string | null) => c && (draft.assigneeMemberId = c)"
+              @select="(c: string | null) => (draft.assigneeMemberId = c)"
             >
               <button class="text-sm hover:underline cursor-pointer text-left">
                 {{
                   draft.assigneeMemberId
                     ? (memberMap[draft.assigneeMemberId]?.displayName ?? '—')
-                    : '選択してください'
+                    : '担当者なし'
                 }}
               </button>
             </SelectMenu>
@@ -276,15 +337,24 @@ const departmentSelectItems = computed(() =>
 
         <div>
           <p class="text-xs text-muted mb-1">リンク</p>
-          <div class="space-y-1">
-            <div v-for="(link, i) in draft.links" :key="i" class="flex items-center gap-2">
-              <UInput v-model="link.label" placeholder="ラベル" class="w-32" />
-              <UInput v-model="link.url" placeholder="https://..." class="flex-1" />
+          <div class="space-y-2">
+            <div
+              v-for="(link, i) in draft.links"
+              :key="i"
+              class="flex items-start gap-2"
+            >
+              <UFormField :error="linkError(i, 'label')" class="w-32">
+                <UInput v-model="link.label" placeholder="ラベル" class="w-full" />
+              </UFormField>
+              <UFormField :error="linkError(i, 'url')" class="flex-1">
+                <UInput v-model="link.url" placeholder="https://..." class="w-full" />
+              </UFormField>
               <UButton
                 size="xs"
                 color="neutral"
                 variant="ghost"
                 icon="i-lucide-trash-2"
+                class="mt-1"
                 @click="removeLink(i)"
               />
             </div>
@@ -303,21 +373,24 @@ const departmentSelectItems = computed(() =>
     </template>
 
     <template #footer>
-      <div class="flex justify-end gap-2 w-full">
-        <UButton
-          color="neutral"
-          variant="ghost"
-          label="キャンセル"
-          @click="emit('update:open', false)"
-        />
-        <UButton
-          color="primary"
-          icon="i-lucide-plus"
-          :loading="submitting"
-          :disabled="!canSubmit"
-          label="作成"
-          @click="submit"
-        />
+      <div class="flex items-center justify-between gap-2 w-full">
+        <UCheckbox v-model="keepOpen" label="続けて作成" />
+        <div class="flex gap-2">
+          <UButton
+            color="neutral"
+            variant="ghost"
+            label="キャンセル"
+            @click="emit('update:open', false)"
+          />
+          <UButton
+            color="primary"
+            icon="i-lucide-plus"
+            :loading="submitting"
+            :disabled="!canSubmit"
+            label="作成"
+            @click="submit"
+          />
+        </div>
       </div>
     </template>
   </USlideover>
