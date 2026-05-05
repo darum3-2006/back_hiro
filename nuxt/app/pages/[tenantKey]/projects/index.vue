@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import type { TableColumn, DropdownMenuItem } from '@nuxt/ui';
-import { updateProject } from '~/api/projects';
+import { apiUpdateProject } from '~/api/projects';
 import type { Project } from '~/types/project';
 
+const api = useApi();
 const { data: projects, refresh: refreshProjects } = await useProjects();
 const projectCreateModalOpen = useProjectCreateModalOpen();
 const currentTenantKey = useCurrentTenantKey();
@@ -15,12 +16,12 @@ const filteredProjects = computed(() => {
 });
 
 const archiveProject = async (id: string) => {
-  await updateProject(id, { archivedAt: new Date().toISOString().slice(0, 19) });
+  await apiUpdateProject(api, id, { archived: true });
   await refreshProjects();
 };
 
 const unarchiveProject = async (id: string) => {
-  await updateProject(id, { archivedAt: null });
+  await apiUpdateProject(api, id, { archived: false });
   await refreshProjects();
 };
 

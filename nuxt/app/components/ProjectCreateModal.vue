@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { createProject } from '~/api/projects';
+import { apiCreateProject } from '~/api/projects';
 import type { Project } from '~/types/project';
+
+const api = useApi();
 
 const props = defineProps<{
   open: boolean;
@@ -37,17 +39,26 @@ const canSubmit = computed(() =>
   Boolean(draft.value.name.trim() && normalizedKey.value && !keyConflict.value),
 );
 
+const toast = useToast();
+
 const submit = async () => {
   if (!canSubmit.value) return;
   submitting.value = true;
   try {
-    const project = await createProject({
+    const project = await apiCreateProject(api, {
       name: draft.value.name.trim(),
       key: normalizedKey.value,
       description: draft.value.description.trim() || null,
     });
     emit('created', project);
     emit('update:open', false);
+  } catch (e: unknown) {
+    const raw =
+      typeof e === 'object' && e !== null && 'data' in e
+        ? (e as { data?: { message?: string | string[] } }).data?.message
+        : undefined;
+    const message = Array.isArray(raw) ? raw.join(', ') : (raw ?? 'プロジェクトの作成に失敗しました');
+    toast.add({ title: message, color: 'error' });
   } finally {
     submitting.value = false;
   }

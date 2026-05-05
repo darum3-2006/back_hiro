@@ -1,5 +1,5 @@
 import {
-  fetchDepartments,
+  apiListDepartments,
   fetchTags,
   fetchTaskPriorities,
   fetchTaskStatuses,
@@ -8,8 +8,10 @@ import {
 
 export const useUsers = () => useAsyncData('users', fetchUsers, { default: () => [] });
 
-export const useDepartments = () =>
-  useAsyncData('departments', fetchDepartments, { default: () => [] });
+export const useDepartments = () => {
+  const api = useApi();
+  return useAsyncData('departments', () => apiListDepartments(api), { default: () => [] });
+};
 
 export const useTaskStatuses = (projectId: Ref<string>) =>
   useAsyncData(

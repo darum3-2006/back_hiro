@@ -1,43 +1,29 @@
 import type { Project } from '~/types/project';
-import { MOCK_PROJECTS } from '~/utils/mock-projects';
 
-/** GET /tenants/me/projects */
-export const fetchProjects = async (): Promise<Project[]> => {
-  return [...MOCK_PROJECTS];
-};
-
-/** POST /tenants/me/projects */
-export const createProject = async (input: {
-  name: string;
+export interface CreateProjectInput {
   key: string;
+  name: string;
   description: string | null;
-}): Promise<Project> => {
-  const upperKey = input.key.toUpperCase();
-  if (MOCK_PROJECTS.some((p) => p.key.toUpperCase() === upperKey)) {
-    throw new Error(`プロジェクトキー「${upperKey}」は既に使われています`);
-  }
-  const nextNum =
-    MOCK_PROJECTS.length === 0
-      ? 1
-      : Math.max(...MOCK_PROJECTS.map((p) => Number.parseInt(p.id.slice(1)) || 0)) + 1;
-  const project: Project = {
-    id: `p${nextNum}`,
-    key: upperKey,
-    name: input.name,
-    description: input.description,
-    archivedAt: null,
-  };
-  MOCK_PROJECTS.push(project);
-  return project;
-};
+}
 
-/** PATCH /tenants/me/projects/{id} */
-export const updateProject = async (
+export interface UpdateProjectInput {
+  name?: string;
+  description?: string | null;
+  /** true でアーカイブ、false で復元 */
+  archived?: boolean;
+}
+
+/** GET /api/projects */
+export const apiListProjects = (api: typeof $fetch): Promise<Project[]> =>
+  api<Project[]>('/projects');
+
+/** POST /api/projects */
+export const apiCreateProject = (api: typeof $fetch, input: CreateProjectInput): Promise<Project> =>
+  api<Project>('/projects', { method: 'POST', body: input });
+
+/** PATCH /api/projects/:id */
+export const apiUpdateProject = (
+  api: typeof $fetch,
   id: string,
-  patch: Partial<Omit<Project, 'id'>>,
-): Promise<Project> => {
-  const idx = MOCK_PROJECTS.findIndex((p) => p.id === id);
-  if (idx < 0) throw new Error(`Project ${id} not found`);
-  MOCK_PROJECTS[idx] = { ...MOCK_PROJECTS[idx]!, ...patch };
-  return MOCK_PROJECTS[idx]!;
-};
+  patch: UpdateProjectInput,
+): Promise<Project> => api<Project>(`/projects/${id}`, { method: 'PATCH', body: patch });

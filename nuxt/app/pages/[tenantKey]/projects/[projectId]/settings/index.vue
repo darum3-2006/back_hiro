@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { updateProject } from '~/api/projects';
+import { apiUpdateProject } from '~/api/projects';
 
 const route = useRoute();
 const projectId = computed(() => route.params.projectId as string);
 
+const api = useApi();
 const { data: projects, refresh: refreshProjects } = await useProjects();
 const project = computed(() => projects.value.find((p) => p.id === projectId.value));
 
@@ -33,13 +34,13 @@ const commitEdit = async () => {
   if (field === 'name') {
     const trimmed = value.trim();
     if (trimmed && trimmed !== project.value.name) {
-      await updateProject(projectId.value, { name: trimmed });
+      await apiUpdateProject(api, projectId.value, { name: trimmed });
       await refreshProjects();
     }
   } else if (field === 'description') {
     const next = value.trim() || null;
     if (next !== project.value.description) {
-      await updateProject(projectId.value, { description: next });
+      await apiUpdateProject(api, projectId.value, { description: next });
       await refreshProjects();
     }
   }
@@ -58,7 +59,7 @@ const performArchive = async () => {
   if (!project.value) return;
   archiving.value = true;
   try {
-    await updateProject(projectId.value, { archivedAt: new Date().toISOString().slice(0, 19) });
+    await apiUpdateProject(api, projectId.value, { archived: true });
     await refreshProjects();
     archiveModalOpen.value = false;
     // app.vue の watchEffect で自動的に別の有効プロジェクトへ遷移

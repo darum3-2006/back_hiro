@@ -1,6 +1,5 @@
 import type { Department, MasterColor, Tag, TaskPriority, TaskStatus, User } from '~/types/master';
 import {
-  MOCK_DEPARTMENTS,
   MOCK_TAGS,
   MOCK_TASK_PRIORITIES,
   MOCK_TASK_STATUSES,
@@ -20,10 +19,9 @@ export const fetchUsers = async (): Promise<User[]> => {
 
 // ===== Departments (tenant) =====
 
-/** GET /tenants/me/departments */
-export const fetchDepartments = async (): Promise<Department[]> => {
-  return [...MOCK_DEPARTMENTS];
-};
+/** GET /api/departments */
+export const apiListDepartments = (api: typeof $fetch): Promise<Department[]> =>
+  api<Department[]>('/departments');
 
 // ===== Task Statuses (project) =====
 
