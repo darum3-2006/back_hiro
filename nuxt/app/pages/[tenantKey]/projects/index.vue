@@ -5,6 +5,7 @@ import type { Project } from '~/types/project';
 
 const { data: projects, refresh: refreshProjects } = await useProjects();
 const projectCreateModalOpen = useProjectCreateModalOpen();
+const currentTenantKey = useCurrentTenantKey();
 
 const showArchived = ref(false);
 
@@ -40,7 +41,7 @@ const buildActions = (project: Project): DropdownMenuItem[][] => {
       {
         label: '設定',
         icon: 'i-lucide-settings',
-        to: `/projects/${project.id}/settings`,
+        to: `/${currentTenantKey.value}/projects/${project.id}/settings`,
       },
     ],
     [
