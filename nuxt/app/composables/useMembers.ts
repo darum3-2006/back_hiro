@@ -1,8 +1,10 @@
-import { fetchMembers } from '~/api/members';
+import { apiListMembers } from '~/api/members';
 
-export const useMembers = (projectId: Ref<string>) =>
-  useAsyncData(
+export const useMembers = (projectId: Ref<string>) => {
+  const api = useApi();
+  return useAsyncData(
     () => `members:${projectId.value}`,
-    () => fetchMembers(projectId.value),
+    () => apiListMembers(api, projectId.value),
     { default: () => [], watch: [projectId] },
   );
+};

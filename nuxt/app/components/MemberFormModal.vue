@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { createMember, updateMember } from '~/api/members';
+import { apiCreateMember, apiUpdateMember } from '~/api/members';
 import type { Member, MemberRole } from '~/types/member';
 import type { User } from '~/types/master';
+
+const api = useApi();
+const toast = useToast();
 
 const props = defineProps<{
   open: boolean;
@@ -73,14 +76,18 @@ const submit = async () => {
       userId: draft.value.userId,
       role: draft.value.role,
     };
-    let result: Member;
-    if (props.member) {
-      result = await updateMember(props.projectId, props.member.id, payload);
-    } else {
-      result = await createMember(props.projectId, payload);
-    }
+    const result: Member = props.member
+      ? await apiUpdateMember(api, props.projectId, props.member.id, payload)
+      : await apiCreateMember(api, props.projectId, payload);
     emit('saved', result);
     emit('update:open', false);
+  } catch (e: unknown) {
+    const raw =
+      typeof e === 'object' && e !== null && 'data' in e
+        ? (e as { data?: { message?: string | string[] } }).data?.message
+        : undefined;
+    const message = Array.isArray(raw) ? raw.join(', ') : (raw ?? 'メンバーの保存に失敗しました');
+    toast.add({ title: message, color: 'error' });
   } finally {
     submitting.value = false;
   }

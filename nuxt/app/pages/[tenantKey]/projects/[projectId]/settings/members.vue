@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import type { TableColumn, DropdownMenuItem } from '@nuxt/ui';
-import { countMemberReferences, deleteMember } from '~/api/members';
+import { apiDeleteMember, countMemberReferences } from '~/api/members';
 import type { Member } from '~/types/member';
 
 const route = useRoute();
 const projectId = computed(() => route.params.projectId as string);
 
+const api = useApi();
 const { data: members, refresh: refreshMembers } = await useMembers(projectId);
 const { data: users } = await useUsers();
 
@@ -78,7 +79,7 @@ const performDelete = async () => {
   deleting.value = true;
   const name = deleteTarget.value.displayName;
   try {
-    await deleteMember(projectId.value, deleteTarget.value.id);
+    await apiDeleteMember(api, projectId.value, deleteTarget.value.id);
     await refreshMembers();
     deleteModalOpen.value = false;
     toast.add({
