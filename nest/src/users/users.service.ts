@@ -17,4 +17,11 @@ export class UsersService {
   findById(id: string): Promise<User | null> {
     return this.users.findOne({ where: { id } });
   }
+
+  listByTenant(tenantId: string): Promise<User[]> {
+    return this.users.find({
+      where: { tenantId },
+      order: { createdAt: 'ASC' },
+    });
+  }
 }

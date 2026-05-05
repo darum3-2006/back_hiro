@@ -3,10 +3,13 @@ import {
   apiListTags,
   apiListTaskPriorities,
   apiListTaskStatuses,
-  fetchUsers,
+  apiListUsers,
 } from '~/api/masters';
 
-export const useUsers = () => useAsyncData('users', fetchUsers, { default: () => [] });
+export const useUsers = () => {
+  const api = useApi();
+  return useAsyncData('users', () => apiListUsers(api), { default: () => [] });
+};
 
 export const useDepartments = () => {
   const api = useApi();

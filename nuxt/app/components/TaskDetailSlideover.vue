@@ -1,9 +1,16 @@
 <script setup lang="ts">
+import dayjs from 'dayjs';
 import { apiCreateComment, apiUpdateComment } from '~/api/comments';
 import type { Member } from '~/types/member';
 import type { Department, Tag, TaskPriority, TaskStatus } from '~/types/master';
 import type { Task, TaskLink } from '~/types/task';
 import { fmtDate, fmtDateTime } from '~/utils/date';
+
+/** 作成と更新の差が 1 秒以上なら「編集済み」とみなす（DB の updated_at は作成時にも入るため） */
+const isCommentEdited = (c: { createdAt: string; updatedAt: string | null }): boolean => {
+  if (!c.updatedAt) return false;
+  return dayjs(c.updatedAt).diff(c.createdAt, 'second') >= 1;
+};
 
 const api = useApi();
 
@@ -544,7 +551,7 @@ const tagsList = computed(() => Object.values(props.tagMap));
                     {{ memberMap[c.authorMemberId]?.displayName ?? '不明' }}
                   </span>
                   <span class="text-xs text-muted">{{ fmtDateTime(c.createdAt) }}</span>
-                  <span v-if="c.updatedAt" class="text-xs text-muted">
+                  <span v-if="isCommentEdited(c)" class="text-xs text-muted">
                     (編集済み {{ fmtDateTime(c.updatedAt) }})
                   </span>
                   <UButton
@@ -565,6 +572,8 @@ const tagsList = computed(() => Object.values(props.tagMap));
                     :rows="3"
                     autoresize
                     class="w-full"
+                    @keydown.ctrl.enter.exact.prevent="saveCommentEdit"
+                    @keydown.meta.enter.exact.prevent="saveCommentEdit"
                   />
                   <div class="flex gap-2">
                     <UButton
@@ -597,8 +606,10 @@ const tagsList = computed(() => Object.values(props.tagMap));
               v-model="commentBody"
               :rows="3"
               :disabled="!currentMemberId"
-              placeholder="コメントを入力…"
+              placeholder="コメントを入力（Cmd/Ctrl+Enter で投稿）…"
               class="w-full"
+              @keydown.ctrl.enter.exact.prevent="postComment"
+              @keydown.meta.enter.exact.prevent="postComment"
             />
             <div class="flex items-center justify-between">
               <span v-if="!currentMemberId" class="text-xs text-warning">

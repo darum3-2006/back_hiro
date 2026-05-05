@@ -1,20 +1,10 @@
-import type { Department, MasterColor, Tag, TaskPriority, TaskStatus, User } from '~/types/master';
-import { MOCK_USERS } from '~/utils/mock-masters';
-
-// ===== References (タスク参照件数) =====
-// Tasks API の /tasks/count に絞り込み条件を渡して件数を取得する。
-
 import { apiCountTasks } from '~/api/tasks';
+import type { Department, MasterColor, Tag, TaskPriority, TaskStatus, User } from '~/types/master';
 
 // ===== Users (tenant) =====
 
-/**
- * Users マスタは認証ユーザー一覧。専用 API がまだ無いので一時的に mock のまま。
- * NOTE: Step 5+ で /api/users（テナント内ユーザー一覧）を追加して差し替える予定。
- */
-export const fetchUsers = async (): Promise<User[]> => {
-  return [...MOCK_USERS];
-};
+/** GET /api/users */
+export const apiListUsers = (api: typeof $fetch): Promise<User[]> => api<User[]>('/users');
 
 // ===== Departments (tenant) =====
 

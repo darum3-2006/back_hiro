@@ -1,1 +1,7 @@
-export const useCurrentUserId = () => useState<string>('current-user-id', () => 'u1');
+/**
+ * 現在ログイン中ユーザーの id を返す computed。未ログインなら null。
+ */
+export const useCurrentUserId = () => {
+  const { me } = useAuth();
+  return computed<string | null>(() => me.value?.id ?? null);
+};

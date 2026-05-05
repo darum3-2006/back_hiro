@@ -22,9 +22,11 @@ const { data: tags } = await useTags(currentProjectId);
 const { data: members } = await useMembers(currentProjectId);
 const { data: departments } = await useDepartments();
 
-const currentMemberId = computed<string | null>(
-  () => members.value.find((m) => m.userId === currentUserId.value)?.id ?? null,
-);
+const currentMemberId = computed<string | null>(() => {
+  const userId = currentUserId.value;
+  if (!userId) return null;
+  return members.value.find((m) => m.userId === userId)?.id ?? null;
+});
 
 const statusMap = computed(() => Object.fromEntries(statuses.value.map((s) => [s.code, s])));
 const priorityMap = computed(() => Object.fromEntries(priorities.value.map((p) => [p.code, p])));
