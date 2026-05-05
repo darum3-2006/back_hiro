@@ -14,6 +14,11 @@ export interface LoginResponse {
     email: string;
     tenantId: string;
   };
+  tenant: {
+    id: string;
+    key: string;
+    name: string;
+  };
 }
 
 @Injectable()
@@ -40,6 +45,7 @@ export class AuthService {
     return {
       accessToken,
       user: { id: user.id, name: user.name, email: user.email, tenantId: user.tenantId },
+      tenant: { id: tenant.id, key: tenant.key, name: tenant.name },
     };
   }
 

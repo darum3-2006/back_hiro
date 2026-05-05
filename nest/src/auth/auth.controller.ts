@@ -1,5 +1,6 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, NotFoundException, Post, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
+import { TenantsService } from '../tenants/tenants.service';
 import { UsersService } from '../users/users.service';
 import { AuthService } from './auth.service';
 import { CurrentUser } from './current-user.decorator';
@@ -12,6 +13,7 @@ export class AuthController {
   constructor(
     private readonly auth: AuthService,
     private readonly users: UsersService,
+    private readonly tenants: TenantsService,
   ) {}
 
   // ログインは厳しく: 1分あたり 5 回まで（IP 単位）
@@ -25,7 +27,15 @@ export class AuthController {
   @Get('me')
   async me(@CurrentUser() user: AuthenticatedUser) {
     const u = await this.users.findById(user.userId);
-    if (!u) return null;
-    return { id: u.id, name: u.name, email: u.email, tenantId: u.tenantId };
+    if (!u) throw new NotFoundException();
+    const tenant = await this.tenants.findById(u.tenantId);
+    if (!tenant) throw new NotFoundException();
+    return {
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      tenantId: u.tenantId,
+      tenant: { id: tenant.id, key: tenant.key, name: tenant.name },
+    };
   }
 }

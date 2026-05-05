@@ -1,9 +1,24 @@
 <script setup lang="ts">
-// TODO(auth): 認証実装後はログイン状態 / 最後のテナント / ログイン画面のいずれかへ振り分ける。
-// 現在はモックの開発用テナントへリダイレクト。
-await navigateTo('/acme', { replace: true });
+// トップは「テナントキー入りURL」へ振り分けるだけのページ。
+// - ログイン済みなら自分のテナントへ
+// - 未ログインなら、テナントキーが分からないので案内表示
+const { token, me, fetchMe } = useAuth();
+
+if (token.value && !me.value) {
+  await fetchMe();
+}
+
+if (me.value) {
+  await navigateTo(`/${me.value.tenant.key}`, { replace: true });
+}
 </script>
 
 <template>
-  <div />
+  <div class="min-h-screen flex items-center justify-center px-4">
+    <UCard class="max-w-md text-center">
+      <p class="text-sm">
+        URL にテナントキーを含めてアクセスしてください（例: <code>/your-tenant</code>）。
+      </p>
+    </UCard>
+  </div>
 </template>
