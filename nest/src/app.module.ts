@@ -7,6 +7,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { buildDatabaseOptions } from './config/database.config';
+import { CommentsModule } from './comments/comments.module';
 import { DepartmentsModule } from './departments/departments.module';
 import { MastersModule } from './masters/masters.module';
 import { MembersModule } from './members/members.module';
@@ -34,6 +35,7 @@ import { UsersModule } from './users/users.module';
     MembersModule,
     MastersModule,
     TasksModule,
+    CommentsModule,
   ],
   controllers: [AppController],
   providers: [

@@ -1,44 +1,78 @@
-import dayjs from 'dayjs';
 import type { Comment } from '~/types/comment';
 
-// Step 6 で実装。当面は空配列を返すスタブ。
-// taskId / id は string (UUID) で揃えて、後で実 API に差し替えやすくしておく。
+export interface CreateCommentInput {
+  authorMemberId: string;
+  body: string;
+}
 
-const nowSec = (): string => dayjs().format('YYYY-MM-DDTHH:mm:ss');
+export interface UpdateCommentInput {
+  body: string;
+}
 
-/** GET /projects/:projectId/tasks/:taskId/comments */
-export const fetchComments = async (
-  _projectId: string,
-  _taskId: string,
-): Promise<Comment[]> => [];
+export interface CommentFilter {
+  authorMemberId?: string;
+  taskId?: string;
+}
 
-/** POST /projects/:projectId/tasks/:taskId/comments */
-export const createComment = async (
+const buildQuery = (filter: CommentFilter): string => {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filter)) {
+    if (value !== undefined && value !== '') params.set(key, String(value));
+  }
+  const qs = params.toString();
+  return qs ? `?${qs}` : '';
+};
+
+/** GET /api/projects/:projectId/tasks/:taskId/comments */
+export const apiListComments = (
+  api: typeof $fetch,
   projectId: string,
   taskId: string,
-  input: { authorMemberId: string; body: string },
-): Promise<Comment> => ({
-  id: 'stub',
-  projectId,
-  taskId,
-  authorMemberId: input.authorMemberId,
-  body: input.body,
-  createdAt: nowSec(),
-  updatedAt: null,
-});
+): Promise<Comment[]> => api<Comment[]>(`/projects/${projectId}/tasks/${taskId}/comments`);
 
-/** PATCH /projects/:projectId/tasks/:taskId/comments/:commentId */
-export const updateComment = async (
+/** GET /api/projects/:projectId/comments/count */
+export const apiCountComments = async (
+  api: typeof $fetch,
+  projectId: string,
+  filter: CommentFilter = {},
+): Promise<number> => {
+  const res = await api<{ count: number }>(
+    `/projects/${projectId}/comments/count${buildQuery(filter)}`,
+  );
+  return res.count;
+};
+
+/** POST /api/projects/:projectId/tasks/:taskId/comments */
+export const apiCreateComment = (
+  api: typeof $fetch,
   projectId: string,
   taskId: string,
-  commentId: string,
-  patch: { body: string },
-): Promise<Comment> => ({
-  id: commentId,
-  projectId,
-  taskId,
-  authorMemberId: '',
-  body: patch.body,
-  createdAt: nowSec(),
-  updatedAt: nowSec(),
-});
+  input: CreateCommentInput,
+): Promise<Comment> =>
+  api<Comment>(`/projects/${projectId}/tasks/${taskId}/comments`, {
+    method: 'POST',
+    body: input,
+  });
+
+/** PATCH /api/projects/:projectId/tasks/:taskId/comments/:id */
+export const apiUpdateComment = (
+  api: typeof $fetch,
+  projectId: string,
+  taskId: string,
+  id: string,
+  patch: UpdateCommentInput,
+): Promise<Comment> =>
+  api<Comment>(`/projects/${projectId}/tasks/${taskId}/comments/${id}`, {
+    method: 'PATCH',
+    body: patch,
+  });
+
+/** DELETE /api/projects/:projectId/tasks/:taskId/comments/:id */
+export const apiDeleteComment = async (
+  api: typeof $fetch,
+  projectId: string,
+  taskId: string,
+  id: string,
+): Promise<void> => {
+  await api(`/projects/${projectId}/tasks/${taskId}/comments/${id}`, { method: 'DELETE' });
+};

@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { createComment, updateComment } from '~/api/comments';
+import { apiCreateComment, apiUpdateComment } from '~/api/comments';
 import type { Member } from '~/types/member';
 import type { Department, Tag, TaskPriority, TaskStatus } from '~/types/master';
 import type { Task, TaskLink } from '~/types/task';
 import { fmtDate, fmtDateTime } from '~/utils/date';
+
+const api = useApi();
 
 const props = defineProps<{
   task: Task | null;
@@ -37,7 +39,7 @@ const postComment = async () => {
   if (!task || !memberId || !body) return;
   posting.value = true;
   try {
-    await createComment(task.projectId, task.id, { authorMemberId: memberId, body });
+    await apiCreateComment(api, task.projectId, task.id, { authorMemberId: memberId, body });
     commentBody.value = '';
     await refreshComments();
   } finally {
@@ -66,7 +68,7 @@ const saveCommentEdit = async () => {
   if (!task || id === null || !body) return;
   savingEdit.value = true;
   try {
-    await updateComment(task.projectId, task.id, id, { body });
+    await apiUpdateComment(api, task.projectId, task.id, id, { body });
     editingCommentId.value = null;
     commentEditBuffer.value = '';
     await refreshComments();
