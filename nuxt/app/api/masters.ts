@@ -1,10 +1,5 @@
 import { apiCountTasks } from '~/api/tasks';
-import type { Department, MasterColor, Tag, TaskPriority, TaskStatus, User } from '~/types/master';
-
-// ===== Users (tenant) =====
-
-/** GET /api/users */
-export const apiListUsers = (api: typeof $fetch): Promise<User[]> => api<User[]>('/users');
+import type { Department, MasterColor, Tag, TaskPriority, TaskStatus } from '~/types/master';
 
 // ===== Departments (tenant) =====
 

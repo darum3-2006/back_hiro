@@ -1,3 +1,5 @@
+export type UserRole = 'admin' | 'member';
+
 export interface AuthTenant {
   id: string;
   key: string;
@@ -9,6 +11,7 @@ export interface AuthUser {
   name: string;
   email: string;
   tenantId: string;
+  role: UserRole;
 }
 
 export interface AuthMe extends AuthUser {

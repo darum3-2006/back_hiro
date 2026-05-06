@@ -4,6 +4,7 @@ import * as bcrypt from 'bcrypt';
 import { TenantsService } from '../tenants/tenants.service';
 import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login.dto';
+import type { UserRole } from '../users/user.entity';
 import { JwtPayload } from './jwt.strategy';
 
 export interface LoginResponse {
@@ -13,6 +14,7 @@ export interface LoginResponse {
     name: string;
     email: string;
     tenantId: string;
+    role: UserRole;
   };
   tenant: {
     id: string;
@@ -44,7 +46,13 @@ export class AuthService {
 
     return {
       accessToken,
-      user: { id: user.id, name: user.name, email: user.email, tenantId: user.tenantId },
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        tenantId: user.tenantId,
+        role: user.role,
+      },
       tenant: { id: tenant.id, key: tenant.key, name: tenant.name },
     };
   }

@@ -35,6 +35,7 @@ export class AuthController {
       name: u.name,
       email: u.email,
       tenantId: u.tenantId,
+      role: u.role,
       tenant: { id: tenant.id, key: tenant.key, name: tenant.name },
     };
   }

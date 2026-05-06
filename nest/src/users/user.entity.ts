@@ -23,4 +23,14 @@ export class User extends BaseEntity {
 
   @Column({ length: 100, comment: '表示名' })
   name!: string;
+
+  @Column({
+    type: 'varchar',
+    length: 16,
+    default: 'member',
+    comment: 'テナント内ロール (admin = テナント管理者 / member = 通常)',
+  })
+  role!: UserRole;
 }
+
+export type UserRole = 'admin' | 'member';

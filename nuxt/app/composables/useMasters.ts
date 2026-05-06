@@ -3,8 +3,8 @@ import {
   apiListTags,
   apiListTaskPriorities,
   apiListTaskStatuses,
-  apiListUsers,
 } from '~/api/masters';
+import { apiListUsers } from '~/api/users';
 
 export const useUsers = () => {
   const api = useApi();

@@ -52,7 +52,7 @@ const projectMenuItems = computed(() => [
 const navItems = computed(() => {
   const tk = currentTenantKey.value;
   if (!tk) return [];
-  return [
+  const groups = [
     [
       {
         label: 'タスク一覧',
@@ -64,6 +64,13 @@ const navItems = computed(() => {
     ],
     [{ label: 'プロジェクト', icon: 'i-lucide-folders', to: `/${tk}/projects` }],
   ];
+  // admin だけテナント設定（ユーザー管理など）を表示
+  if (me.value?.role === 'admin') {
+    groups.push([
+      { label: 'ユーザー管理', icon: 'i-lucide-users', to: `/${tk}/settings/users` },
+    ]);
+  }
+  return groups;
 });
 
 const onProjectCreated = async (project: Project) => {
