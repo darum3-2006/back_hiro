@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { h, resolveComponent } from 'vue';
 import type { ColumnSizingInfoState, Row } from '@tanstack/vue-table';
-import type { TableColumn } from '@nuxt/ui';
+import type { DropdownMenuItem, TableColumn } from '@nuxt/ui';
 import { apiUpdateTask } from '~/api/tasks';
 import type { Task } from '~/types/task';
+import { fmtDateTime } from '~/utils/date';
 
 const api = useApi();
 
@@ -306,6 +307,65 @@ const columns: TableColumn<Task>[] = [
       return da.localeCompare(db);
     },
   },
+  {
+    accessorKey: 'plannedCompletionDate',
+    header: sortHeader('完了予定日'),
+    size: 120,
+    minSize: 80,
+    meta: RESIZABLE_META,
+    sortingFn: (a: Row<Task>, b: Row<Task>) => {
+      const da = a.original.plannedCompletionDate ?? '9999-12-31';
+      const db = b.original.plannedCompletionDate ?? '9999-12-31';
+      return da.localeCompare(db);
+    },
+  },
+  {
+    accessorKey: 'requesterMemberId',
+    header: sortHeader('起票者'),
+    size: 140,
+    minSize: 80,
+    meta: RESIZABLE_META,
+    sortingFn: (a: Row<Task>, b: Row<Task>) => {
+      const na = memberMap.value[a.original.requesterMemberId ?? '']?.displayName ?? '';
+      const nb = memberMap.value[b.original.requesterMemberId ?? '']?.displayName ?? '';
+      return na.localeCompare(nb, 'ja');
+    },
+  },
+  {
+    accessorKey: 'requestingDeptCode',
+    header: sortHeader('依頼部署'),
+    size: 120,
+    minSize: 80,
+    meta: RESIZABLE_META,
+    sortingFn: (a: Row<Task>, b: Row<Task>) => {
+      const na = departmentMap.value[a.original.requestingDeptCode ?? '']?.name ?? '';
+      const nb = departmentMap.value[b.original.requestingDeptCode ?? '']?.name ?? '';
+      return na.localeCompare(nb, 'ja');
+    },
+  },
+  {
+    accessorKey: 'description',
+    header: plainHeader('説明'),
+    size: 280,
+    minSize: 80,
+    enableSorting: false,
+    meta: RESIZABLE_META,
+  },
+  {
+    accessorKey: 'links',
+    header: plainHeader('リンク'),
+    size: 120,
+    minSize: 60,
+    enableSorting: false,
+    meta: RESIZABLE_META,
+  },
+  {
+    accessorKey: 'createdAt',
+    header: sortHeader('作成日時'),
+    size: 140,
+    minSize: 100,
+    meta: RESIZABLE_META,
+  },
 ];
 
 // 列幅は localStorage に永続化（プロジェクトごと）
@@ -322,6 +382,51 @@ const columnSizingInfo = ref<ColumnSizingInfoState>({
   columnSizingStart: [],
 });
 
+// 列の表示/非表示もプロジェクトごとに localStorage 永続化
+const columnVisibilityKey = computed(
+  () => `tasks:column-visibility:${currentProjectId.value}`,
+);
+const columnVisibility = ref<Record<string, boolean>>({});
+
+// ドロップダウンに出す日本語ラベル
+const COLUMN_LABELS: Record<string, string> = {
+  seq: 'No',
+  content: '内容',
+  assigneeMemberId: '担当者',
+  statusCode: 'ステータス',
+  priorityCode: '優先度',
+  tagCodes: 'タグ',
+  deadline: '期限',
+  plannedCompletionDate: '完了予定日',
+  requesterMemberId: '起票者',
+  requestingDeptCode: '依頼部署',
+  description: '説明',
+  links: 'リンク',
+  createdAt: '作成日時',
+};
+
+/** デフォルトで非表示にする列（ユーザーが切り替えれば永続化） */
+const DEFAULT_HIDDEN_COLUMNS: Record<string, boolean> = {
+  plannedCompletionDate: false,
+  requesterMemberId: false,
+  requestingDeptCode: false,
+  description: false,
+  links: false,
+  createdAt: false,
+};
+
+const columnVisibilityItems = computed<DropdownMenuItem[]>(() =>
+  Object.entries(COLUMN_LABELS).map(([key, label]) => ({
+    label,
+    type: 'checkbox',
+    checked: columnVisibility.value[key] !== false,
+    onUpdateChecked: (checked: boolean) => {
+      columnVisibility.value = { ...columnVisibility.value, [key]: checked };
+    },
+    onSelect: (e: Event) => e.preventDefault(),
+  })),
+);
+
 onMounted(() => {
   if (!import.meta.client) return;
   try {
@@ -330,6 +435,17 @@ onMounted(() => {
   } catch {
     // ignore
   }
+  try {
+    const raw = localStorage.getItem(columnVisibilityKey.value);
+    if (raw) {
+      columnVisibility.value = JSON.parse(raw) as Record<string, boolean>;
+    } else {
+      // 初回はデフォルト非表示の列を反映
+      columnVisibility.value = { ...DEFAULT_HIDDEN_COLUMNS };
+    }
+  } catch {
+    columnVisibility.value = { ...DEFAULT_HIDDEN_COLUMNS };
+  }
 });
 
 watch(
@@ -337,6 +453,15 @@ watch(
   (v) => {
     if (!import.meta.client) return;
     localStorage.setItem(columnSizingKey.value, JSON.stringify(v));
+  },
+  { deep: true },
+);
+
+watch(
+  columnVisibility,
+  (v) => {
+    if (!import.meta.client) return;
+    localStorage.setItem(columnVisibilityKey.value, JSON.stringify(v));
   },
   { deep: true },
 );
@@ -355,6 +480,15 @@ const updateTaskField = async (
     <template #header>
       <UDashboardNavbar title="タスク一覧" icon="i-lucide-list-checks">
         <template #right>
+          <UDropdownMenu :items="columnVisibilityItems" :ui="{ content: 'min-w-40' }">
+            <UButton
+              color="neutral"
+              variant="outline"
+              icon="i-lucide-columns-3"
+              label="表示列"
+              trailing-icon="i-lucide-chevron-down"
+            />
+          </UDropdownMenu>
           <UButton
             color="primary"
             icon="i-lucide-plus"
@@ -479,6 +613,7 @@ const updateTaskField = async (
           v-model:sorting="sorting"
           v-model:column-sizing="columnSizing"
           v-model:column-sizing-info="columnSizingInfo"
+          v-model:column-visibility="columnVisibility"
           :data="filteredTasks"
           :columns="columns"
           :column-sizing-options="{ enableColumnResizing: true, columnResizeMode: 'onChange' }"
@@ -609,6 +744,72 @@ const updateTaskField = async (
                 {{ row.original.deadline ?? '—' }}
               </button>
             </DatePopover>
+          </template>
+
+          <template #plannedCompletionDate-cell="{ row }">
+            <DatePopover
+              :model-value="row.original.plannedCompletionDate"
+              @update:model-value="
+                (v: string | null) =>
+                  updateTaskField(row.original.id, { plannedCompletionDate: v })
+              "
+            >
+              <button
+                class="text-sm tabular-nums hover:underline cursor-pointer min-w-16 text-left"
+              >
+                {{ row.original.plannedCompletionDate ?? '—' }}
+              </button>
+            </DatePopover>
+          </template>
+
+          <template #requesterMemberId-cell="{ row }">
+            <span class="text-sm">
+              {{ memberMap[row.original.requesterMemberId ?? '']?.displayName ?? '—' }}
+            </span>
+          </template>
+
+          <template #requestingDeptCode-cell="{ row }">
+            <span class="text-sm">
+              {{ departmentMap[row.original.requestingDeptCode ?? '']?.name ?? '—' }}
+            </span>
+          </template>
+
+          <template #description-cell="{ row }">
+            <span
+              class="text-xs text-muted block truncate"
+              :title="row.original.description"
+            >
+              {{ row.original.description || '—' }}
+            </span>
+          </template>
+
+          <template #links-cell="{ row }">
+            <div class="flex flex-wrap gap-1">
+              <a
+                v-for="(link, i) in row.original.links"
+                :key="i"
+                :href="link.url"
+                target="_blank"
+                rel="noopener"
+                class="text-xs text-primary hover:underline"
+                :title="link.url"
+                @click.stop
+              >
+                {{ link.label || 'link' }}
+              </a>
+              <span
+                v-if="row.original.links.length === 0"
+                class="text-xs text-muted"
+              >
+                —
+              </span>
+            </div>
+          </template>
+
+          <template #createdAt-cell="{ row }">
+            <span class="text-xs text-muted tabular-nums">
+              {{ fmtDateTime(row.original.createdAt) }}
+            </span>
           </template>
         </UTable>
       </template>
