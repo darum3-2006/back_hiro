@@ -73,6 +73,10 @@ const normalizeKaishuRow = (raw: Record<string, unknown>): NormalizedTaskRow | n
   const content = asString(raw['内容']);
   if (!content) return null; // 内容空はスキップ
 
+  // L 列「ステータス_1」が「〇」「○」なら完了扱い（J 列の自由文言より優先）
+  const statusOne = asString(raw['ステータス_1']);
+  const isMarkedDone = statusOne === '〇' || statusOne === '○';
+
   // description には「グループ・日時・発言者・期限テキスト・メモ」を集約
   const descParts: string[] = [];
   const group = asString(raw['グループ']);
@@ -94,7 +98,7 @@ const normalizeKaishuRow = (raw: Record<string, unknown>): NormalizedTaskRow | n
     content,
     description: descParts.join('\n'),
     links: buildLinks(raw),
-    statusLabel: normalizeStatusLabel(raw['ステータス']),
+    statusLabel: isMarkedDone ? '完了' : normalizeStatusLabel(raw['ステータス']),
     priorityLabel: normalizePriorityLabel(raw['優先度']),
     assigneeName: cleanPersonName(asString(raw['担当者'])),
     requesterName: cleanPersonName(asString(raw['発言者'])),

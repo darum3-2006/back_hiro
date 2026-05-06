@@ -139,7 +139,9 @@ const run = async (): Promise<void> => {
     const tenant = await tenants.findByKey(args.tenantKey);
     if (!tenant) throw new Error(`tenant not found: ${args.tenantKey}`);
 
-    let project = (await projects.listByTenant(tenant.id)).find((p) => p.key === args.projectKey);
+    // ProjectsService.create が key を大文字化するため、検索側も合わせる
+    const projectKey = args.projectKey.toUpperCase();
+    let project = (await projects.listByTenant(tenant.id)).find((p) => p.key === projectKey);
 
     // --clear: 既存プロジェクトを削除して作り直す（CASCADE で task/member/master/comment も消える）
     if (project && args.clear) {
