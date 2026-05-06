@@ -20,6 +20,7 @@
     "migration:run": "pnpm typeorm migration:run",
     "migration:revert": "pnpm typeorm migration:revert",
     "seed": "ts-node -r tsconfig-paths/register src/seed/seed.ts",
+    "migrate:xlsx": "ts-node -r tsconfig-paths/register scripts/migrate-xlsx/index.ts",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
@@ -74,7 +75,8 @@
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.7.3",
-    "typescript-eslint": "^8.20.0"
+    "typescript-eslint": "^8.20.0",
+    "xlsx": "^0.18.5"
   },
   "jest": {
     "moduleFileExtensions": [
