@@ -21,6 +21,7 @@
     "migration:revert": "pnpm typeorm migration:revert",
     "seed": "ts-node -r tsconfig-paths/register src/seed/seed.ts",
     "migrate:xlsx": "ts-node -r tsconfig-paths/register scripts/migrate-xlsx/index.ts",
+    "admin:create-tenant": "ts-node -r tsconfig-paths/register scripts/admin/create-tenant.ts",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
