@@ -12,6 +12,14 @@ const isCommentEdited = (c: { createdAt: string; updatedAt: string | null }): bo
   return dayjs(c.updatedAt).diff(c.createdAt, 'second') >= 1;
 };
 
+/** 期限超過判定: 今日より前 かつ 完了系ステータスでない */
+const isOverdue = computed(() => {
+  const t = props.task;
+  if (!t || !t.deadline) return false;
+  if (props.statusMap[t.statusCode]?.isTerminal) return false;
+  return dayjs(t.deadline).isBefore(dayjs(), 'day');
+});
+
 const api = useApi();
 
 const props = defineProps<{
@@ -330,7 +338,10 @@ const tagsList = computed(() => Object.values(props.tagMap));
               :model-value="task.deadline"
               @update:model-value="(v: string | null) => emit('change-field', { deadline: v })"
             >
-              <button class="text-sm tabular-nums hover:underline cursor-pointer text-left">
+              <button
+                class="text-sm tabular-nums hover:underline cursor-pointer text-left"
+                :class="isOverdue ? 'text-error font-medium' : ''"
+              >
                 {{ fmtDate(task.deadline) }}
               </button>
             </DatePopover>

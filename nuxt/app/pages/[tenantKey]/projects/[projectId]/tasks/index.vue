@@ -2,6 +2,7 @@
 import { h, resolveComponent } from 'vue';
 import type { ColumnSizingInfoState, Row } from '@tanstack/vue-table';
 import type { DropdownMenuItem, TableColumn } from '@nuxt/ui';
+import dayjs from 'dayjs';
 import { apiUpdateTask } from '~/api/tasks';
 import type { Task } from '~/types/task';
 import { fmtDateTime } from '~/utils/date';
@@ -473,6 +474,13 @@ const updateTaskField = async (
   await apiUpdateTask(api, currentProjectId.value, taskId, patch);
   await refreshTasks();
 };
+
+/** 期限超過判定: 今日より前 かつ 完了系ステータスでない */
+const isOverdue = (task: Task): boolean => {
+  if (!task.deadline) return false;
+  if (statusMap.value[task.statusCode]?.isTerminal) return false;
+  return dayjs(task.deadline).isBefore(dayjs(), 'day');
+};
 </script>
 
 <template>
@@ -740,6 +748,7 @@ const updateTaskField = async (
             >
               <button
                 class="text-sm tabular-nums hover:underline cursor-pointer min-w-16 text-left"
+                :class="isOverdue(row.original) ? 'text-error font-medium' : ''"
               >
                 {{ row.original.deadline ?? '—' }}
               </button>
