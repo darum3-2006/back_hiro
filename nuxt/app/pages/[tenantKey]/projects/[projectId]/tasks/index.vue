@@ -151,7 +151,8 @@ const sorting = computed<{ id: string; desc: boolean }[]>({
 
 interface SortColumn {
   getIsSorted: () => false | 'asc' | 'desc';
-  toggleSorting: (desc: boolean) => void;
+  /** 引数なしで呼ぶと 3-state 循環: 未ソート → asc → desc → 未ソート */
+  toggleSorting: () => void;
   getCanResize: () => boolean;
   getIsResizing: () => boolean;
 }
@@ -196,7 +197,7 @@ const sortHeader = (label: string) => {
               : sorted === 'desc'
                 ? 'i-lucide-arrow-down'
                 : 'i-lucide-arrow-up-down',
-          onClick: () => column.toggleSorting(sorted === 'asc'),
+          onClick: () => column.toggleSorting(),
         }),
       ],
       header,
