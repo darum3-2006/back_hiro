@@ -425,11 +425,14 @@ const updateTaskField = async (
             />
           </div>
           <div class="flex items-center gap-1">
-            <USelect
+            <USelectMenu
               v-model="assigneeFilter"
               :items="assigneeFilterItems"
               value-key="value"
               placeholder="すべての担当者"
+              icon="i-lucide-user"
+              searchable
+              search-placeholder="名前で検索…"
               class="w-44"
             />
             <UButton
