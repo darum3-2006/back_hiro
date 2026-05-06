@@ -75,6 +75,18 @@ const memberSelectItems = computed(() =>
   members.value.map((m) => ({ label: m.displayName, value: m.id })),
 );
 
+/** 担当者フィルタ用: 実際に誰かに割り当たっているメンバーのみ */
+const assigneeFilterItems = computed(() => {
+  const ids = new Set(
+    tasks.value
+      .map((t) => t.assigneeMemberId)
+      .filter((id): id is string => Boolean(id)),
+  );
+  return members.value
+    .filter((m) => ids.has(m.id))
+    .map((m) => ({ label: m.displayName, value: m.id }));
+});
+
 const hasActiveFilter = computed(() =>
   Boolean(search.value || statusFilter.value || priorityFilter.value || assigneeFilter.value),
 );
@@ -415,7 +427,7 @@ const updateTaskField = async (
           <div class="flex items-center gap-1">
             <USelect
               v-model="assigneeFilter"
-              :items="memberSelectItems"
+              :items="assigneeFilterItems"
               value-key="value"
               placeholder="すべての担当者"
               class="w-44"
