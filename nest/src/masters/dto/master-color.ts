@@ -1,8 +1,15 @@
 export const MASTER_COLORS = [
   'neutral',
   'primary',
+  'secondary',
   'info',
   'success',
   'warning',
   'error',
+  'rose',
+  'sky',
+  'amber',
+  'fuchsia',
+  'emerald',
+  'violet',
 ] as const;

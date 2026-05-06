@@ -2,7 +2,20 @@ import { Column, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } 
 import { BaseEntity } from '../common/entities/base.entity';
 import { Project } from '../projects/project.entity';
 
-export type MasterColor = 'neutral' | 'primary' | 'info' | 'success' | 'warning' | 'error';
+export type MasterColor =
+  | 'neutral'
+  | 'primary'
+  | 'secondary'
+  | 'info'
+  | 'success'
+  | 'warning'
+  | 'error'
+  | 'rose'
+  | 'sky'
+  | 'amber'
+  | 'fuchsia'
+  | 'emerald'
+  | 'violet';
 
 @Entity({ name: 'task_statuses', comment: 'タスクステータス（プロジェクト単位）' })
 @Index('uq_task_statuses_project_code', ['projectId', 'code'], { unique: true })

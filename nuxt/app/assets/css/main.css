@@ -1,8 +1,23 @@
 @import 'tailwindcss';
 @import '@nuxt/ui';
 
+/* マスタの色 (rose/sky/amber/fuchsia/emerald/violet) は Nuxt UI 4 が
+   テーマで利用するが、Tailwind v4 の JIT は実際に書かれていないクラスを
+   生成しないため、ここで bundle に含めるよう明示する。 */
+@source inline("{bg,text,border,ring,divide,outline,decoration,from,via,to}-{rose,sky,amber,fuchsia,emerald,violet}-{50,100,200,300,400,500,600,700,800,900,950}");
+
 @theme static {
   --font-sans: 'Public Sans', sans-serif;
+
+  /* Nuxt UI 4 の Badge / Button variants は `bg-rose` のような shade なしクラスを生成する。
+     Tailwind v4 はこれを `var(--color-rose)` として解決するが、palette には rose-500 等の
+     階調変数しかないため、ここで階調なしのエイリアスを定義する。 */
+  --color-rose: var(--color-rose-500);
+  --color-sky: var(--color-sky-500);
+  --color-amber: var(--color-amber-500);
+  --color-fuchsia: var(--color-fuchsia-500);
+  --color-emerald: var(--color-emerald-500);
+  --color-violet: var(--color-violet-500);
 
   --color-green-50: #effdf5;
   --color-green-100: #d9fbe8;

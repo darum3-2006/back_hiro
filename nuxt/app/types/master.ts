@@ -1,4 +1,17 @@
-export type MasterColor = 'neutral' | 'primary' | 'info' | 'success' | 'warning' | 'error';
+export type MasterColor =
+  | 'neutral'
+  | 'primary'
+  | 'secondary'
+  | 'info'
+  | 'success'
+  | 'warning'
+  | 'error'
+  | 'rose'
+  | 'sky'
+  | 'amber'
+  | 'fuchsia'
+  | 'emerald'
+  | 'violet';
 
 export interface TaskStatus {
   projectId: string;

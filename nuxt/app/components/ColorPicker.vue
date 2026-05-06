@@ -9,13 +9,19 @@ const emit = defineEmits<{
   'update:modelValue': [value: MasterColor];
 }>();
 
+// primary/secondary はテナント既定色のエイリアス（green/blue と被る）ため選択肢からは外す
 const colors: { value: MasterColor; label: string }[] = [
   { value: 'neutral', label: 'グレー' },
-  { value: 'primary', label: 'プライマリ' },
   { value: 'info', label: 'ブルー' },
   { value: 'success', label: 'グリーン' },
   { value: 'warning', label: 'イエロー' },
   { value: 'error', label: 'レッド' },
+  { value: 'rose', label: 'ローズ' },
+  { value: 'sky', label: 'スカイ' },
+  { value: 'amber', label: 'アンバー' },
+  { value: 'emerald', label: 'エメラルド' },
+  { value: 'violet', label: 'バイオレット' },
+  { value: 'fuchsia', label: 'フューシャ' },
 ];
 </script>
 

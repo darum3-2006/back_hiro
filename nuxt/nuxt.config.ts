@@ -12,6 +12,27 @@ export default defineNuxtConfig({
 
   css: ['~/assets/css/main.css'],
 
+  // マスタ（ステータス/優先度/タグ）で選択可能な色を拡張。
+  // Tailwind パレット名と一致する色は自動的に palette が解決される。
+  ui: {
+    theme: {
+      colors: [
+        'primary',
+        'secondary',
+        'success',
+        'info',
+        'warning',
+        'error',
+        'rose',
+        'sky',
+        'amber',
+        'fuchsia',
+        'emerald',
+        'violet',
+      ],
+    },
+  },
+
   compatibilityDate: '2025-01-15',
 
   eslint: {
