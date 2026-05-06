@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { h, resolveComponent } from 'vue';
-import type { Row } from '@tanstack/vue-table';
+import type { ColumnSizingInfoState, Row } from '@tanstack/vue-table';
 import type { TableColumn } from '@nuxt/ui';
 import { apiUpdateTask } from '~/api/tasks';
 import type { Task } from '~/types/task';
@@ -149,35 +149,96 @@ const sorting = computed<{ id: string; desc: boolean }[]>({
   },
 });
 
+interface SortColumn {
+  getIsSorted: () => false | 'asc' | 'desc';
+  toggleSorting: (desc: boolean) => void;
+  getCanResize: () => boolean;
+  getIsResizing: () => boolean;
+}
+interface ResizeHeader {
+  getResizeHandler: () => (e: unknown) => void;
+  column: { getIsResizing: () => boolean };
+}
+
+/** th 全幅をカバーする wrapper。右端にリサイズハンドルを絶対配置 */
+const wrapHeader = (children: unknown[], header: ResizeHeader) => {
+  const isResizing = header.column.getIsResizing();
+  return h('div', { class: 'relative flex items-center w-full pr-2' }, [
+    ...(children as never[]),
+    h('div', {
+      class: [
+        'absolute top-0 right-0 h-full w-1.5 cursor-col-resize select-none touch-none transition-colors',
+        isResizing ? 'bg-primary' : 'bg-default hover:bg-primary/60',
+      ].join(' '),
+      onMousedown: (e: MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        header.getResizeHandler()(e);
+      },
+      onTouchstart: header.getResizeHandler(),
+    }),
+  ]);
+};
+
 const sortHeader = (label: string) => {
-  return ({
-    column,
-  }: {
-    column: { getIsSorted: () => false | 'asc' | 'desc'; toggleSorting: (desc: boolean) => void };
-  }) => {
+  return ({ column, header }: { column: SortColumn; header: ResizeHeader }) => {
     const sorted = column.getIsSorted();
-    return h(UButton, {
-      color: 'neutral',
-      variant: 'ghost',
-      label,
-      class: '-mx-2.5 data-[state=open]:bg-elevated',
-      icon:
-        sorted === 'asc'
-          ? 'i-lucide-arrow-up'
-          : sorted === 'desc'
-            ? 'i-lucide-arrow-down'
-            : 'i-lucide-arrow-up-down',
-      onClick: () => column.toggleSorting(sorted === 'asc'),
-    });
+    return wrapHeader(
+      [
+        h(UButton, {
+          color: 'neutral',
+          variant: 'ghost',
+          label,
+          class: '-mx-2.5 data-[state=open]:bg-elevated',
+          icon:
+            sorted === 'asc'
+              ? 'i-lucide-arrow-up'
+              : sorted === 'desc'
+                ? 'i-lucide-arrow-down'
+                : 'i-lucide-arrow-up-down',
+          onClick: () => column.toggleSorting(sorted === 'asc'),
+        }),
+      ],
+      header,
+    );
   };
 };
 
+const plainHeader = (label: string) => {
+  return ({ header }: { header: ResizeHeader }) =>
+    wrapHeader([h('span', { class: 'text-sm' }, label)], header);
+};
+
+/** リサイズハンドル配置用 + 列幅を th/td の style に反映する meta */
+const RESIZABLE_META = {
+  class: { th: 'relative' },
+  style: {
+    th: (header: { column: { getSize: () => number } }) => {
+      const w = header.column.getSize();
+      return { width: `${w}px`, minWidth: `${w}px`, maxWidth: `${w}px` };
+    },
+    td: (cell: { column: { getSize: () => number } }) => {
+      const w = cell.column.getSize();
+      return { width: `${w}px`, minWidth: `${w}px`, maxWidth: `${w}px` };
+    },
+  },
+} as const;
+
 const columns: TableColumn<Task>[] = [
-  { accessorKey: 'seq', header: sortHeader('No') },
-  { accessorKey: 'content', header: sortHeader('内容') },
+  { accessorKey: 'seq', header: sortHeader('No'), size: 64, minSize: 48, meta: RESIZABLE_META },
+  {
+    accessorKey: 'content',
+    header: sortHeader('内容'),
+    size: 360,
+    minSize: 120,
+    meta: RESIZABLE_META,
+  },
   {
     accessorKey: 'assigneeMemberId',
     header: sortHeader('担当者'),
+    size: 140,
+    minSize: 80,
+    meta: RESIZABLE_META,
     sortingFn: (a: Row<Task>, b: Row<Task>) => {
       const na = memberMap.value[a.original.assigneeMemberId ?? '']?.displayName ?? '';
       const nb = memberMap.value[b.original.assigneeMemberId ?? '']?.displayName ?? '';
@@ -187,6 +248,9 @@ const columns: TableColumn<Task>[] = [
   {
     accessorKey: 'statusCode',
     header: sortHeader('ステータス'),
+    size: 140,
+    minSize: 80,
+    meta: RESIZABLE_META,
     sortingFn: (a: Row<Task>, b: Row<Task>) => {
       const oa = statusMap.value[a.original.statusCode]?.order ?? 999;
       const ob = statusMap.value[b.original.statusCode]?.order ?? 999;
@@ -196,6 +260,9 @@ const columns: TableColumn<Task>[] = [
   {
     accessorKey: 'priorityCode',
     header: sortHeader('優先度'),
+    size: 100,
+    minSize: 60,
+    meta: RESIZABLE_META,
     sortingFn: (a: Row<Task>, b: Row<Task>) => {
       const oa = a.original.priorityCode
         ? (priorityMap.value[a.original.priorityCode]?.order ?? 999)
@@ -206,10 +273,20 @@ const columns: TableColumn<Task>[] = [
       return oa - ob;
     },
   },
-  { accessorKey: 'tagCodes', header: 'タグ', enableSorting: false },
+  {
+    accessorKey: 'tagCodes',
+    header: plainHeader('タグ'),
+    enableSorting: false,
+    size: 200,
+    minSize: 80,
+    meta: RESIZABLE_META,
+  },
   {
     accessorKey: 'deadline',
     header: sortHeader('期限'),
+    size: 120,
+    minSize: 80,
+    meta: RESIZABLE_META,
     sortingFn: (a: Row<Task>, b: Row<Task>) => {
       const da = a.original.deadline ?? '9999-12-31';
       const db = b.original.deadline ?? '9999-12-31';
@@ -217,6 +294,39 @@ const columns: TableColumn<Task>[] = [
     },
   },
 ];
+
+// 列幅は localStorage に永続化（プロジェクトごと）
+const columnSizingKey = computed(() => `tasks:column-sizing:${currentProjectId.value}`);
+const columnSizing = ref<Record<string, number>>({});
+// columnSizingInfo はドラッグ中の状態。永続化は不要だが v-model に渡さないと
+// onColumnSizingInfoChange が hook されず、ドラッグ中の更新が反映されない。
+const columnSizingInfo = ref<ColumnSizingInfoState>({
+  startOffset: null,
+  startSize: null,
+  deltaOffset: null,
+  deltaPercentage: null,
+  isResizingColumn: false,
+  columnSizingStart: [],
+});
+
+onMounted(() => {
+  if (!import.meta.client) return;
+  try {
+    const raw = localStorage.getItem(columnSizingKey.value);
+    if (raw) columnSizing.value = JSON.parse(raw) as Record<string, number>;
+  } catch {
+    // ignore
+  }
+});
+
+watch(
+  columnSizing,
+  (v) => {
+    if (!import.meta.client) return;
+    localStorage.setItem(columnSizingKey.value, JSON.stringify(v));
+  },
+  { deep: true },
+);
 
 const updateTaskField = async (
   taskId: string,
@@ -351,9 +461,16 @@ const updateTaskField = async (
         <UTable
           v-else
           v-model:sorting="sorting"
+          v-model:column-sizing="columnSizing"
+          v-model:column-sizing-info="columnSizingInfo"
           :data="filteredTasks"
           :columns="columns"
-          :ui="{ td: 'align-top py-2' }"
+          :column-sizing-options="{ enableColumnResizing: true, columnResizeMode: 'onChange' }"
+          :ui="{
+            base: 'table-fixed',
+            th: 'relative group',
+            td: 'align-top py-2 truncate',
+          }"
         >
           <template #seq-cell="{ row }">
             <button
@@ -365,7 +482,11 @@ const updateTaskField = async (
           </template>
 
           <template #content-cell="{ row }">
-            <button class="text-left hover:underline" @click="openTask(row.original)">
+            <button
+              class="text-left hover:underline block w-full truncate"
+              :title="row.original.content"
+              @click="openTask(row.original)"
+            >
               {{ row.original.content }}
             </button>
           </template>
