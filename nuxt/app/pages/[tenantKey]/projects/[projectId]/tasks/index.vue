@@ -67,6 +67,11 @@ const assigneeFilter = computed<string>({
   set: (v) => updateQuery({ assignee: v || undefined }),
 });
 
+const tagFilter = computed<string>({
+  get: () => queryString('tag'),
+  set: (v) => updateQuery({ tag: v || undefined }),
+});
+
 const statusSelectItems = computed(() =>
   statuses.value.map((s) => ({ label: s.label, value: s.code })),
 );
@@ -89,6 +94,14 @@ const assigneeFilterItems = computed(() => {
     .map((m) => ({ label: m.displayName, value: m.id }));
 });
 
+/** タグフィルタ用: 実際にタスクに付いているタグのみ */
+const tagFilterItems = computed(() => {
+  const codes = new Set(tasks.value.flatMap((t) => t.tagCodes));
+  return tags.value
+    .filter((t) => codes.has(t.code))
+    .map((t) => ({ label: t.name, value: t.code }));
+});
+
 /** 完了系ステータスを表示するか（既定 false）。URL クエリで保持 */
 const showCompleted = computed<boolean>({
   get: () => queryString('showCompleted') === '1',
@@ -101,6 +114,7 @@ const hasActiveFilter = computed(() =>
       statusFilter.value ||
       priorityFilter.value ||
       assigneeFilter.value ||
+      tagFilter.value ||
       showCompleted.value,
   ),
 );
@@ -111,6 +125,7 @@ const resetFilters = () => {
     status: undefined,
     priority: undefined,
     assignee: undefined,
+    tag: undefined,
     showCompleted: undefined,
   });
 };
@@ -163,6 +178,7 @@ const filteredTasks = computed(() => {
     if (search.value && !t.content.toLowerCase().includes(search.value.toLowerCase())) return false;
     if (priorityFilter.value && t.priorityCode !== priorityFilter.value) return false;
     if (assigneeFilter.value && t.assigneeMemberId !== assigneeFilter.value) return false;
+    if (tagFilter.value && !t.tagCodes.includes(tagFilter.value)) return false;
     return true;
   });
 });
@@ -604,6 +620,27 @@ const isOverdue = (task: Task): boolean => {
               variant="ghost"
               aria-label="担当者フィルタをクリア"
               @click="assigneeFilter = ''"
+            />
+          </div>
+          <div class="flex items-center gap-1">
+            <USelectMenu
+              v-model="tagFilter"
+              :items="tagFilterItems"
+              value-key="value"
+              placeholder="すべてのタグ"
+              icon="i-lucide-tag"
+              searchable
+              search-placeholder="タグ名で検索…"
+              class="w-44"
+            />
+            <UButton
+              v-if="tagFilter"
+              icon="i-lucide-x"
+              size="xs"
+              color="neutral"
+              variant="ghost"
+              aria-label="タグフィルタをクリア"
+              @click="tagFilter = ''"
             />
           </div>
           <UCheckbox
