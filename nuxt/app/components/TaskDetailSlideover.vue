@@ -176,6 +176,17 @@ const deleteLink = (index: number) => {
   emit('change-field', { links: next });
 };
 
+const toast = useToast();
+
+const copyLink = async (url: string) => {
+  try {
+    await navigator.clipboard.writeText(url);
+    toast.add({ title: 'リンクをコピーしました', color: 'success', icon: 'i-lucide-check' });
+  } catch {
+    toast.add({ title: 'コピーに失敗しました', color: 'error' });
+  }
+};
+
 watch(
   () => props.task?.id,
   () => {
@@ -480,6 +491,15 @@ const tagsList = computed(() => Object.values(props.tagMap));
                 <ULink :to="link.url" target="_blank" class="text-sm flex-1 truncate">
                   {{ link.url }}
                 </ULink>
+                <UButton
+                  size="xs"
+                  color="neutral"
+                  variant="ghost"
+                  icon="i-lucide-copy"
+                  aria-label="URL をコピー"
+                  class="opacity-0 group-hover:opacity-100 transition"
+                  @click="copyLink(link.url)"
+                />
                 <UButton
                   size="xs"
                   color="neutral"
