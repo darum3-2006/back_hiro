@@ -175,7 +175,14 @@ const filteredTasks = computed(() => {
       // ステータスフィルタなし & 「完了も表示」OFF のときは完了系を除外
       return false;
     }
-    if (search.value && !t.content.toLowerCase().includes(search.value.toLowerCase())) return false;
+    if (search.value) {
+      const q = search.value.toLowerCase();
+      const matched =
+        t.content.toLowerCase().includes(q) ||
+        t.description.toLowerCase().includes(q) ||
+        t.links.some((l) => l.url.toLowerCase().includes(q));
+      if (!matched) return false;
+    }
     if (priorityFilter.value && t.priorityCode !== priorityFilter.value) return false;
     if (assigneeFilter.value && t.assigneeMemberId !== assigneeFilter.value) return false;
     if (tagFilter.value && !t.tagCodes.includes(tagFilter.value)) return false;
