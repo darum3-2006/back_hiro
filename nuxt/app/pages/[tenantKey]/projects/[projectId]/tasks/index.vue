@@ -89,8 +89,20 @@ const assigneeFilterItems = computed(() => {
     .map((m) => ({ label: m.displayName, value: m.id }));
 });
 
+/** 完了系ステータスを表示するか（既定 false）。URL クエリで保持 */
+const showCompleted = computed<boolean>({
+  get: () => queryString('showCompleted') === '1',
+  set: (v) => updateQuery({ showCompleted: v ? '1' : undefined }),
+});
+
 const hasActiveFilter = computed(() =>
-  Boolean(search.value || statusFilter.value || priorityFilter.value || assigneeFilter.value),
+  Boolean(
+    search.value ||
+      statusFilter.value ||
+      priorityFilter.value ||
+      assigneeFilter.value ||
+      showCompleted.value,
+  ),
 );
 
 const resetFilters = () => {
@@ -99,6 +111,7 @@ const resetFilters = () => {
     status: undefined,
     priority: undefined,
     assignee: undefined,
+    showCompleted: undefined,
   });
 };
 
@@ -140,8 +153,14 @@ const onTaskCreated = async (task: Task) => {
 
 const filteredTasks = computed(() => {
   return tasks.value.filter((t) => {
+    // ステータスフィルタが選択されていればそれを最優先（完了系も含めて表示）
+    if (statusFilter.value) {
+      if (t.statusCode !== statusFilter.value) return false;
+    } else if (!showCompleted.value && statusMap.value[t.statusCode]?.isTerminal) {
+      // ステータスフィルタなし & 「完了も表示」OFF のときは完了系を除外
+      return false;
+    }
     if (search.value && !t.content.toLowerCase().includes(search.value.toLowerCase())) return false;
-    if (statusFilter.value && t.statusCode !== statusFilter.value) return false;
     if (priorityFilter.value && t.priorityCode !== priorityFilter.value) return false;
     if (assigneeFilter.value && t.assigneeMemberId !== assigneeFilter.value) return false;
     return true;
@@ -587,6 +606,11 @@ const isOverdue = (task: Task): boolean => {
               @click="assigneeFilter = ''"
             />
           </div>
+          <UCheckbox
+            v-model="showCompleted"
+            label="完了も表示"
+            :disabled="!!statusFilter"
+          />
           <UButton
             v-if="hasActiveFilter"
             color="neutral"
