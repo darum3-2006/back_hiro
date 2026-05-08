@@ -51,7 +51,7 @@ const menuItems = computed<DropdownMenuItem[][]>(() => {
 </script>
 
 <template>
-  <UDropdownMenu :items="menuItems">
+  <UDropdownMenu :items="menuItems" :ui="{ content: 'max-h-80 overflow-y-auto' }">
     <slot />
   </UDropdownMenu>
 </template>
