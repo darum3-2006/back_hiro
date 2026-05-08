@@ -828,6 +828,7 @@ const isOverdue = (task: Task): boolean => {
   <TaskDetailSlideover
     :open="slideoverOpen"
     :task="selectedTask"
+    :tasks="tasks"
     :current-member-id="currentMemberId"
     :status-map="statusMap"
     :priority-map="priorityMap"

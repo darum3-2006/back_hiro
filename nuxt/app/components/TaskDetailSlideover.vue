@@ -24,6 +24,8 @@ const api = useApi();
 
 const props = defineProps<{
   task: Task | null;
+  /** 同プロジェクトの全タスク（#番号 リンク解決用） */
+  tasks: Task[];
   open: boolean;
   currentMemberId: string | null;
   statusMap: Record<string, TaskStatus>;
@@ -251,14 +253,14 @@ const tagsList = computed(() => Object.values(props.tagMap));
             @blur="commitEdit"
             @keydown.escape.prevent="cancelEdit"
           />
-          <button
+          <div
             v-else
-            class="text-sm whitespace-pre-wrap text-left w-full hover:bg-elevated/40 rounded px-1 -mx-1 min-h-6"
+            class="text-sm text-left w-full hover:bg-elevated/40 rounded px-1 -mx-1 min-h-6 cursor-text"
             @click="startEdit('description', task.description)"
           >
-            <span v-if="task.description">{{ task.description }}</span>
+            <LinkedText v-if="task.description" :text="task.description" :tasks="tasks" />
             <span v-else class="text-muted">クリックして説明を追加</span>
-          </button>
+          </div>
         </div>
 
         <USeparator />
@@ -605,8 +607,8 @@ const tagsList = computed(() => Object.values(props.tagMap));
                   </div>
                 </div>
 
-                <p v-else class="text-sm whitespace-pre-wrap mt-0.5">
-                  {{ c.body }}
+                <p v-else class="text-sm mt-0.5">
+                  <LinkedText :text="c.body" :tasks="tasks" />
                 </p>
               </div>
             </div>

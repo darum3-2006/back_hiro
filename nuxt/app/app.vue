@@ -5,7 +5,7 @@ useHead({
   link: [{ rel: 'icon', href: '/favicon.ico' }],
 });
 
-useSeoMeta({ title: 'プロジェクト管理' });
+useSeoMeta({ title: 'プロジェクト管理【Backひろ】' });
 </script>
 
 <template>
