@@ -83,15 +83,23 @@ const memberSelectItems = computed(() =>
 );
 
 /** 担当者フィルタ用: 実際に誰かに割り当たっているメンバーのみ */
+/** 「担当者なし」を表す sentinel（実 ID と衝突しない値） */
+const NO_ASSIGNEE = '__none__';
+
 const assigneeFilterItems = computed(() => {
   const ids = new Set(
     tasks.value
       .map((t) => t.assigneeMemberId)
       .filter((id): id is string => Boolean(id)),
   );
-  return members.value
+  const items: { label: string; value: string }[] = members.value
     .filter((m) => ids.has(m.id))
     .map((m) => ({ label: m.displayName, value: m.id }));
+  // タスクに担当者なしが含まれていれば先頭に追加
+  if (tasks.value.some((t) => !t.assigneeMemberId)) {
+    items.unshift({ label: '(担当者なし)', value: NO_ASSIGNEE });
+  }
+  return items;
 });
 
 /** タグフィルタ用: 実際にタスクに付いているタグのみ */
@@ -184,7 +192,13 @@ const filteredTasks = computed(() => {
       if (!matched) return false;
     }
     if (priorityFilter.value && t.priorityCode !== priorityFilter.value) return false;
-    if (assigneeFilter.value && t.assigneeMemberId !== assigneeFilter.value) return false;
+    if (assigneeFilter.value) {
+      if (assigneeFilter.value === NO_ASSIGNEE) {
+        if (t.assigneeMemberId) return false;
+      } else if (t.assigneeMemberId !== assigneeFilter.value) {
+        return false;
+      }
+    }
     if (tagFilter.value && !t.tagCodes.includes(tagFilter.value)) return false;
     return true;
   });
