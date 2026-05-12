@@ -178,14 +178,17 @@ const deleteLink = (index: number) => {
 
 const toast = useToast();
 
-const copyLink = async (url: string) => {
+const copyToClipboard = async (text: string, successTitle: string) => {
   try {
-    await navigator.clipboard.writeText(url);
-    toast.add({ title: 'リンクをコピーしました', color: 'success', icon: 'i-lucide-check' });
+    await navigator.clipboard.writeText(text);
+    toast.add({ title: successTitle, color: 'success', icon: 'i-lucide-check' });
   } catch {
     toast.add({ title: 'コピーに失敗しました', color: 'error' });
   }
 };
+
+const copyLink = (url: string) => copyToClipboard(url, 'リンクをコピーしました');
+const copyContent = (content: string) => copyToClipboard(content, '内容をコピーしました');
 
 watch(
   () => props.task?.id,
@@ -228,6 +231,21 @@ const tagsList = computed(() => Object.values(props.tagMap));
     :ui="{ content: 'sm:max-w-xl' }"
     @update:open="(v: boolean) => $emit('update:open', v)"
   >
+    <template #description>
+      <div class="flex items-start gap-2">
+        <span class="flex-1">{{ task?.content }}</span>
+        <UButton
+          v-if="task"
+          size="xs"
+          color="neutral"
+          variant="ghost"
+          icon="i-lucide-copy"
+          aria-label="内容をコピー"
+          @click="copyContent(task.content)"
+        />
+      </div>
+    </template>
+
     <template #body>
       <div v-if="task" class="space-y-4 p-1">
         <!-- 内容 (editable) -->
