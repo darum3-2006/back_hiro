@@ -30,7 +30,7 @@ const makeInitialDraft = (): Draft => ({
   links: [],
   requesterMemberId: props.currentMemberId,
   requestingDeptCode: null,
-  assigneeMemberId: props.currentMemberId,
+  assigneeMemberId: null,
   priorityCode: null,
   statusCode: props.statuses[0]?.code ?? '',
   deadline: null,
