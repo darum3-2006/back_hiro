@@ -423,6 +423,13 @@ const columns: TableColumn<Task>[] = [
     minSize: 100,
     meta: RESIZABLE_META,
   },
+  {
+    accessorKey: 'updatedAt',
+    header: sortHeader('更新日時'),
+    size: 140,
+    minSize: 100,
+    meta: RESIZABLE_META,
+  },
 ];
 
 // 列幅は localStorage に永続化（プロジェクトごと）
@@ -460,6 +467,7 @@ const COLUMN_LABELS: Record<string, string> = {
   description: '説明',
   links: 'リンク',
   createdAt: '作成日時',
+  updatedAt: '更新日時',
 };
 
 /** デフォルトで非表示にする列（ユーザーが切り替えれば永続化） */
@@ -470,6 +478,7 @@ const DEFAULT_HIDDEN_COLUMNS: Record<string, boolean> = {
   description: false,
   links: false,
   createdAt: false,
+  updatedAt: false,
 };
 
 const columnVisibilityItems = computed<DropdownMenuItem[]>(() =>
@@ -900,6 +909,12 @@ const isOverdue = (task: Task): boolean => {
           <template #createdAt-cell="{ row }">
             <span class="text-xs text-muted tabular-nums">
               {{ fmtDateTime(row.original.createdAt) }}
+            </span>
+          </template>
+
+          <template #updatedAt-cell="{ row }">
+            <span class="text-xs text-muted tabular-nums">
+              {{ fmtDateTime(row.original.updatedAt) }}
             </span>
           </template>
         </UTable>

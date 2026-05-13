@@ -20,4 +20,5 @@ export interface Task {
   tagCodes: string[];
   description: string;
   createdAt: string;
+  updatedAt: string;
 }
