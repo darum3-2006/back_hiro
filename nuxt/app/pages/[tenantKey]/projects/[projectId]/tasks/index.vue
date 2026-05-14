@@ -594,7 +594,18 @@ const isOverdue = (task: Task): boolean => {
             placeholder="内容を検索"
             icon="i-lucide-search"
             class="min-w-64"
-          />
+          >
+            <template v-if="search" #trailing>
+              <UButton
+                icon="i-lucide-x"
+                size="xs"
+                color="neutral"
+                variant="link"
+                aria-label="検索内容をクリア"
+                @click="search = ''"
+              />
+            </template>
+          </UInput>
           <div class="flex items-center gap-1">
             <USelect
               v-model="statusFilter"
