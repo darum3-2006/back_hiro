@@ -239,6 +239,8 @@ const departmentSelectItems = computed(() =>
               allow-none
               none-label="担当者なし"
               default-icon="i-lucide-user"
+              searchable
+              search-placeholder="名前で検索…"
               @select="(c: string | null) => (draft.assigneeMemberId = c)"
             >
               <button class="text-sm hover:underline cursor-pointer text-left">
@@ -286,6 +288,8 @@ const departmentSelectItems = computed(() =>
               :current="draft.requesterMemberId"
               allow-none
               default-icon="i-lucide-user"
+              searchable
+              search-placeholder="名前で検索…"
               @select="(c: string | null) => (draft.requesterMemberId = c)"
             >
               <button class="text-sm hover:underline cursor-pointer text-left">

@@ -345,6 +345,8 @@ const tagsList = computed(() => Object.values(props.tagMap));
               allow-none
               none-label="担当者なし"
               default-icon="i-lucide-user"
+              searchable
+              search-placeholder="名前で検索…"
               @select="(c: string | null) => emit('change-field', { assigneeMemberId: c })"
             >
               <button class="text-sm hover:underline cursor-pointer text-left">
@@ -402,6 +404,8 @@ const tagsList = computed(() => Object.values(props.tagMap));
               :current="task.requesterMemberId"
               allow-none
               default-icon="i-lucide-user"
+              searchable
+              search-placeholder="名前で検索…"
               @select="(c: string | null) => emit('change-field', { requesterMemberId: c })"
             >
               <button class="text-sm hover:underline cursor-pointer text-left">

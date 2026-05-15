@@ -770,6 +770,8 @@ const isOverdue = (task: Task): boolean => {
               allow-none
               none-label="担当者なし"
               default-icon="i-lucide-user"
+              searchable
+              search-placeholder="名前で検索…"
               @select="
                 (c: string | null) => updateTaskField(row.original.id, { assigneeMemberId: c })
               "
