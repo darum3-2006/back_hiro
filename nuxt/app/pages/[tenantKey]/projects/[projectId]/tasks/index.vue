@@ -99,6 +99,17 @@ const assigneeFilterItems = computed(() => {
   if (tasks.value.some((t) => !t.assigneeMemberId)) {
     items.unshift({ label: '(担当者なし)', value: NO_ASSIGNEE });
   }
+  // 選択中の担当者が items に無い場合（全タスクが完了して非表示になった等）でも
+  // ラベルが ID に化けないように補う
+  const current = assigneeFilter.value;
+  if (current && !items.some((i) => i.value === current)) {
+    if (current === NO_ASSIGNEE) {
+      items.unshift({ label: '(担当者なし)', value: NO_ASSIGNEE });
+    } else {
+      const member = members.value.find((m) => m.id === current);
+      if (member) items.push({ label: member.displayName, value: current });
+    }
+  }
   return items;
 });
 
