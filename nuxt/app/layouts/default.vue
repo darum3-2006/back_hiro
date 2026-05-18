@@ -83,6 +83,27 @@ const onLogout = () => {
   document.cookie = 'auth_token=; Path=/; Max-Age=0; SameSite=Lax';
   window.location.href = tk ? `/${tk}/login` : '/';
 };
+
+const passwordModalOpen = ref(false);
+
+const accountMenuItems = computed(() => [
+  [
+    {
+      label: 'パスワード変更',
+      icon: 'i-lucide-key-round',
+      onSelect: () => {
+        passwordModalOpen.value = true;
+      },
+    },
+  ],
+  [
+    {
+      label: 'ログアウト',
+      icon: 'i-lucide-log-out',
+      onSelect: onLogout,
+    },
+  ],
+]);
 </script>
 
 <template>
@@ -118,18 +139,22 @@ const onLogout = () => {
       <UNavigationMenu :items="navItems" orientation="vertical" />
 
       <template #footer>
-        <div class="flex items-center gap-2 px-2">
-          <UIcon name="i-lucide-circle-user-round" class="size-5 text-muted shrink-0" />
-          <span class="text-sm truncate flex-1">{{ me?.name ?? '' }}</span>
+        <UDropdownMenu
+          :items="accountMenuItems"
+          :ui="{ content: 'w-(--reka-dropdown-menu-trigger-width)' }"
+        >
           <UButton
-            icon="i-lucide-log-out"
             color="neutral"
             variant="ghost"
-            size="xs"
-            aria-label="ログアウト"
-            @click="onLogout"
-          />
-        </div>
+            block
+            class="justify-start gap-2"
+            :aria-label="`アカウントメニュー: ${me?.name ?? ''}`"
+          >
+            <UIcon name="i-lucide-circle-user-round" class="size-5 text-muted shrink-0" />
+            <span class="text-sm truncate flex-1 text-left">{{ me?.name ?? '' }}</span>
+            <UIcon name="i-lucide-chevrons-up-down" class="size-4 text-muted shrink-0" />
+          </UButton>
+        </UDropdownMenu>
       </template>
     </UDashboardSidebar>
 
@@ -137,4 +162,5 @@ const onLogout = () => {
   </UDashboardGroup>
 
   <ProjectCreateModal v-model:open="projectCreateModalOpen" @created="onProjectCreated" />
+  <PasswordChangeModal v-model:open="passwordModalOpen" />
 </template>

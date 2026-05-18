@@ -1,9 +1,19 @@
-import { Body, Controller, Get, NotFoundException, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  NotFoundException,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { TenantsService } from '../tenants/tenants.service';
 import { UsersService } from '../users/users.service';
 import { AuthService } from './auth.service';
 import { CurrentUser } from './current-user.decorator';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import type { AuthenticatedUser } from './jwt.strategy';
@@ -38,5 +48,17 @@ export class AuthController {
       role: u.role,
       tenant: { id: tenant.id, key: tenant.key, name: tenant.name },
     };
+  }
+
+  // 本人によるパスワード変更。総当たり対策で 1 分 5 回まで。
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
+  @UseGuards(JwtAuthGuard)
+  @Patch('password')
+  @HttpCode(204)
+  async changePassword(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: ChangePasswordDto,
+  ): Promise<void> {
+    await this.auth.changeOwnPassword(user.userId, dto.currentPassword, dto.newPassword);
   }
 }

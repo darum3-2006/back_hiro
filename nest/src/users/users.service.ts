@@ -78,6 +78,17 @@ export class UsersService {
     return this.users.save(user);
   }
 
+  /**
+   * パスワードを上書きする（本人による変更用）。
+   * 呼び出し側で現在パスワードの検証を済ませている前提。
+   */
+  async setPassword(userId: string, newPassword: string): Promise<void> {
+    const user = await this.users.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException('ユーザーが見つかりません');
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
+    await this.users.save(user);
+  }
+
   async remove(tenantId: string, actingUserId: string, targetId: string): Promise<void> {
     const user = await this.findInTenant(tenantId, targetId);
     // 自己削除禁止
