@@ -60,4 +60,22 @@ export class AuthService {
   hashPassword(plain: string): Promise<string> {
     return bcrypt.hash(plain, 10);
   }
+
+  /**
+   * 本人によるパスワード変更。
+   * 現在パスワードを照合してから新しいパスワードに上書きする。
+   */
+  async changeOwnPassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void> {
+    const user = await this.users.findById(userId);
+    if (!user) throw new UnauthorizedException('認証に失敗しました');
+
+    const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!valid) throw new UnauthorizedException('現在のパスワードが正しくありません');
+
+    await this.users.setPassword(user.id, newPassword);
+  }
 }

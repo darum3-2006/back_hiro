@@ -1,4 +1,4 @@
-import type { AuthMe, LoginInput, LoginResponse } from '~/types/auth';
+import type { AuthMe, ChangePasswordInput, LoginInput, LoginResponse } from '~/types/auth';
 
 /** POST /api/auth/login */
 export const apiLogin = async (
@@ -14,4 +14,12 @@ export const apiLogin = async (
 /** GET /api/auth/me */
 export const apiFetchMe = async (api: typeof $fetch): Promise<AuthMe> => {
   return api<AuthMe>('/auth/me');
+};
+
+/** PATCH /api/auth/password — 本人のパスワード変更 */
+export const apiChangePassword = async (
+  api: typeof $fetch,
+  input: ChangePasswordInput,
+): Promise<void> => {
+  await api('/auth/password', { method: 'PATCH', body: input });
 };
