@@ -1,6 +1,12 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
+import type { AuthenticatedUser } from '../auth/jwt.strategy';
 import { ProjectsService } from '../projects/projects.service';
 import { CreateMemberDto } from './dto/create-member.dto';
 import { UpdateMemberDto } from './dto/update-member.dto';
@@ -20,6 +26,28 @@ export class MembersService {
       where: { projectId },
       order: { createdAt: 'ASC' },
     });
+  }
+
+  /**
+   * プロジェクトメンバーの管理操作を許可してよいかチェックする。
+   * - テナント admin（User.role=admin）は常に許可（締め出し防止のエスケープハッチ）
+   * - それ以外は、当該プロジェクトに自分の ProjectMember があり role=admin のときだけ許可
+   */
+  async assertProjectAdmin(
+    tenantId: string,
+    projectId: string,
+    actingUser: AuthenticatedUser,
+  ): Promise<void> {
+    await this.projects.findByIdInTenant(tenantId, projectId);
+    if (actingUser.role === 'admin') return;
+    const own = await this.members.findOne({
+      where: { projectId, userId: actingUser.userId },
+    });
+    if (!own || own.role !== 'admin') {
+      throw new ForbiddenException(
+        'プロジェクトメンバーの管理はプロジェクト管理者のみ実行できます',
+      );
+    }
   }
 
   async create(
