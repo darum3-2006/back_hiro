@@ -7,6 +7,8 @@ const projectId = computed(() => route.params.projectId as string);
 const api = useApi();
 const { data: projects, refresh: refreshProjects } = await useProjects();
 const project = computed(() => projects.value.find((p) => p.id === projectId.value));
+const { me } = useAuth();
+const isAdmin = computed(() => me.value?.role === 'admin');
 
 type EditableField = 'name' | 'description';
 const editingField = ref<EditableField | null>(null);
@@ -118,21 +120,23 @@ const performArchive = async () => {
       </button>
     </div>
 
-    <USeparator />
+    <template v-if="isAdmin">
+      <USeparator />
 
-    <div>
-      <h3 class="text-sm font-medium mb-2">アーカイブ</h3>
-      <p class="text-sm text-muted mb-3">
-        アーカイブするとサイドバーから非表示になり、新規タスクの作成もできなくなります。プロジェクト一覧から復元できます。
-      </p>
-      <UButton
-        color="error"
-        variant="soft"
-        icon="i-lucide-archive"
-        label="アーカイブする"
-        @click="archiveModalOpen = true"
-      />
-    </div>
+      <div>
+        <h3 class="text-sm font-medium mb-2">アーカイブ</h3>
+        <p class="text-sm text-muted mb-3">
+          アーカイブするとサイドバーから非表示になり、新規タスクの作成もできなくなります。プロジェクト一覧から復元できます。
+        </p>
+        <UButton
+          color="error"
+          variant="soft"
+          icon="i-lucide-archive"
+          label="アーカイブする"
+          @click="archiveModalOpen = true"
+        />
+      </div>
+    </template>
 
     <UModal
       v-model:open="archiveModalOpen"

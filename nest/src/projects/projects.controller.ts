@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  ForbiddenException,
+  Get,
+  Param,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
@@ -27,6 +36,10 @@ export class ProjectsController {
     @Param('id') id: string,
     @Body() dto: UpdateProjectDto,
   ) {
+    // アーカイブ/復元 (archived の切替) は admin のみ許可
+    if (dto.archived !== undefined && user.role !== 'admin') {
+      throw new ForbiddenException('プロジェクトのアーカイブ/復元は管理者のみ実行できます');
+    }
     return this.projects.update(user.tenantId, id, dto);
   }
 }

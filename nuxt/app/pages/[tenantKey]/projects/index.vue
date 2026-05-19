@@ -7,6 +7,8 @@ const api = useApi();
 const { data: projects, refresh: refreshProjects } = await useProjects();
 const projectCreateModalOpen = useProjectCreateModalOpen();
 const currentTenantKey = useCurrentTenantKey();
+const { me } = useAuth();
+const isAdmin = computed(() => me.value?.role === 'admin');
 
 const showArchived = ref(false);
 
@@ -27,6 +29,8 @@ const unarchiveProject = async (id: string) => {
 
 const buildActions = (project: Project): DropdownMenuItem[][] => {
   if (project.archivedAt) {
+    // 復元は admin のみ
+    if (!isAdmin.value) return [];
     return [
       [
         {
@@ -37,7 +41,7 @@ const buildActions = (project: Project): DropdownMenuItem[][] => {
       ],
     ];
   }
-  return [
+  const groups: DropdownMenuItem[][] = [
     [
       {
         label: '設定',
@@ -45,14 +49,18 @@ const buildActions = (project: Project): DropdownMenuItem[][] => {
         to: `/${currentTenantKey.value}/projects/${project.id}/settings`,
       },
     ],
-    [
+  ];
+  // アーカイブは admin のみ
+  if (isAdmin.value) {
+    groups.push([
       {
         label: 'アーカイブ',
         icon: 'i-lucide-archive',
         onSelect: () => archiveProject(project.id),
       },
-    ],
-  ];
+    ]);
+  }
+  return groups;
 };
 
 const columns: TableColumn<Project>[] = [
@@ -115,7 +123,10 @@ const columns: TableColumn<Project>[] = [
         </template>
         <template #actions-cell="{ row }">
           <div class="flex justify-end">
-            <UDropdownMenu :items="buildActions(row.original)">
+            <UDropdownMenu
+              v-if="buildActions(row.original).length > 0"
+              :items="buildActions(row.original)"
+            >
               <UButton icon="i-lucide-more-horizontal" color="neutral" variant="ghost" size="sm" />
             </UDropdownMenu>
           </div>
