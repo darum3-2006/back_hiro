@@ -28,7 +28,7 @@ const toggleTag = (code: string, enabled: boolean) => {
         >
           <UCheckbox
             :model-value="selected.includes(t.code)"
-            @update:model-value="(v: boolean) => toggleTag(t.code, v)"
+            @update:model-value="(v: boolean | 'indeterminate') => toggleTag(t.code, v === true)"
           />
           <UBadge :color="t.color" variant="soft" size="sm" :label="t.name" />
         </label>
