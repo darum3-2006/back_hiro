@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   nuxt:
-    name: nuxt (lint / format)
+    name: nuxt (lint / format / typecheck)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -40,6 +40,9 @@ jobs:
 
       - name: Format check
         run: pnpm format:check
+
+      - name: Typecheck
+        run: pnpm typecheck
 
   nest:
     name: nest (lint / format / test)

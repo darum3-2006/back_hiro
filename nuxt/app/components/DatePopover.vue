@@ -9,6 +9,20 @@ defineProps<{
 const emit = defineEmits<{
   'update:modelValue': [value: string | null];
 }>();
+
+// UCalendar の update:model-value は range / multi モードを含むため
+// DateValue | DateRange | DateValue[] | null | undefined の union を要求する。
+// reka-ui の DateRange は @nuxt/ui の型再エクスポートに含まれないので、
+// 互換のある構造をローカルで宣言してそれにマッチさせる。
+type DateRangeLike = { start: DateValue | undefined; end: DateValue | undefined };
+
+const onCalendarUpdate = (d: DateValue | DateRangeLike | DateValue[] | null | undefined): void => {
+  if (!d || Array.isArray(d) || 'start' in d) {
+    emit('update:modelValue', null);
+    return;
+  }
+  emit('update:modelValue', calendarDateToIso(d));
+};
 </script>
 
 <template>
@@ -19,9 +33,7 @@ const emit = defineEmits<{
         <UCalendar
           :model-value="isoToCalendarDate(modelValue)"
           locale="ja"
-          @update:model-value="
-            (d: DateValue | null) => emit('update:modelValue', calendarDateToIso(d))
-          "
+          @update:model-value="onCalendarUpdate"
         />
         <UButton
           v-if="modelValue"
