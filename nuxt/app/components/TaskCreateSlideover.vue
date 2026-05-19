@@ -2,7 +2,8 @@
 import { apiCreateTask } from '~/api/tasks';
 import type { Member } from '~/types/member';
 import type { Department, Tag, TaskPriority, TaskStatus } from '~/types/master';
-import type { Task } from '~/types/task';
+import type { Task, TaskLink } from '~/types/task';
+import { resolveLinkLabelFromUrl } from '~/utils/link-label';
 
 const api = useApi();
 
@@ -65,6 +66,14 @@ const addLink = () => {
 const removeLink = (index: number) => {
   draft.value.links.splice(index, 1);
   clearErrors();
+};
+
+// URL 貼り付け時、その行のラベルが空かつ既知ドメインなら自動でラベルをセットする
+const onLinkUrlPaste = (e: ClipboardEvent, link: TaskLink) => {
+  if (link.label.trim()) return;
+  const text = e.clipboardData?.getData('text') ?? '';
+  const label = resolveLinkLabelFromUrl(text);
+  if (label) link.label = label;
 };
 
 watch(
@@ -351,7 +360,12 @@ const departmentSelectItems = computed(() =>
                 <UInput v-model="link.label" placeholder="ラベル" class="w-full" />
               </UFormField>
               <UFormField :error="linkError(i, 'url')" class="flex-1">
-                <UInput v-model="link.url" placeholder="https://..." class="w-full" />
+                <UInput
+                  v-model="link.url"
+                  placeholder="https://..."
+                  class="w-full"
+                  @paste="(e: ClipboardEvent) => onLinkUrlPaste(e, link)"
+                />
               </UFormField>
               <UButton
                 size="xs"

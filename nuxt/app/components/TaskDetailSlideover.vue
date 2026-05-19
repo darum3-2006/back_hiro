@@ -5,6 +5,7 @@ import type { Member } from '~/types/member';
 import type { Department, Tag, TaskPriority, TaskStatus } from '~/types/master';
 import type { Task, TaskLink } from '~/types/task';
 import { fmtDate, fmtDateTime } from '~/utils/date';
+import { resolveLinkLabelFromUrl } from '~/utils/link-label';
 
 /** 作成と更新の差が 1 秒以上なら「編集済み」とみなす（DB の updated_at は作成時にも入るため） */
 const isCommentEdited = (c: { createdAt: string; updatedAt: string | null }): boolean => {
@@ -139,6 +140,14 @@ const cancelEdit = () => {
 // ===== Links inline edit =====
 const editingLinkIndex = ref<number | null>(null);
 const linkEditBuffer = ref<TaskLink>({ label: '', url: '' });
+
+// URL 貼り付け時、ラベルが空かつ既知ドメインなら自動でラベルをセットする
+const onLinkUrlPaste = (e: ClipboardEvent) => {
+  if (linkEditBuffer.value.label.trim()) return;
+  const text = e.clipboardData?.getData('text') ?? '';
+  const label = resolveLinkLabelFromUrl(text);
+  if (label) linkEditBuffer.value.label = label;
+};
 
 const startAddLink = () => {
   editingLinkIndex.value = -1;
@@ -490,6 +499,7 @@ const tagsList = computed(() => Object.values(props.tagMap));
                   v-model="linkEditBuffer.url"
                   placeholder="https://..."
                   class="flex-1"
+                  @paste="onLinkUrlPaste"
                   @keydown.enter.prevent="saveLink"
                   @keydown.escape.prevent="cancelLinkEdit"
                 />
@@ -542,18 +552,21 @@ const tagsList = computed(() => Object.values(props.tagMap));
             </div>
 
             <div v-if="editingLinkIndex === -1" class="flex items-center gap-2">
+              <!-- Tab 順を URL → ラベル → ボタン にするため、DOM 上は URL を先に置き、
+                   ラベルは order-first で視覚的に先頭へ戻している。 -->
               <UInput
-                v-model="linkEditBuffer.label"
+                v-model="linkEditBuffer.url"
                 autofocus
-                placeholder="ラベル"
-                class="w-32"
+                placeholder="https://..."
+                class="flex-1"
+                @paste="onLinkUrlPaste"
                 @keydown.enter.prevent="saveLink"
                 @keydown.escape.prevent="cancelLinkEdit"
               />
               <UInput
-                v-model="linkEditBuffer.url"
-                placeholder="https://..."
-                class="flex-1"
+                v-model="linkEditBuffer.label"
+                placeholder="ラベル"
+                class="w-32 order-first"
                 @keydown.enter.prevent="saveLink"
                 @keydown.escape.prevent="cancelLinkEdit"
               />
