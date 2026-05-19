@@ -123,9 +123,9 @@ describe('UsersService', () => {
     it('存在しない id は NotFound', async () => {
       repo.findOne.mockResolvedValue(null);
 
-      await expect(
-        service.update(tenantId, 'someone', 'unknown', { name: 'x' }),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.update(tenantId, 'someone', 'unknown', { name: 'x' })).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 

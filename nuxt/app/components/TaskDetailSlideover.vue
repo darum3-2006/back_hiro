@@ -361,10 +361,7 @@ const tagsList = computed(() => Object.values(props.tagMap));
               <button class="text-sm hover:underline cursor-pointer text-left">
                 {{ memberMap[task.assigneeMemberId ?? '']?.displayName ?? '担当者なし' }}
                 <UBadge
-                  v-if="
-                    task.assigneeMemberId &&
-                    memberMap[task.assigneeMemberId]?.userId === null
-                  "
+                  v-if="task.assigneeMemberId && memberMap[task.assigneeMemberId]?.userId === null"
                   color="neutral"
                   size="sm"
                   variant="soft"

@@ -66,8 +66,8 @@ const parseArgs = (argv: string[]): CliArgs => {
 
 /** シート名 → タグの色（任意） */
 const SHEET_TAG_COLOR: Record<string, MasterColor> = {
-  'システム改修対応一覧': 'error',
-  '改修要望対応状況': 'info',
+  システム改修対応一覧: 'error',
+  改修要望対応状況: 'info',
   '■安定期 最優先タスク': 'warning',
 };
 
@@ -84,7 +84,8 @@ const summarize = (rows: NormalizedTaskRow[]): void => {
   for (const r of rows) {
     bySheet.set(r.sourceSheet, (bySheet.get(r.sourceSheet) ?? 0) + 1);
     byStatus.set(r.statusLabel, (byStatus.get(r.statusLabel) ?? 0) + 1);
-    if (r.priorityLabel) byPriority.set(r.priorityLabel, (byPriority.get(r.priorityLabel) ?? 0) + 1);
+    if (r.priorityLabel)
+      byPriority.set(r.priorityLabel, (byPriority.get(r.priorityLabel) ?? 0) + 1);
     if (r.assigneeName) assignees.add(r.assigneeName);
     if (r.requesterName) requesters.add(r.requesterName);
     if (r.requestingDeptName) departments.add(r.requestingDeptName);
@@ -98,7 +99,9 @@ const summarize = (rows: NormalizedTaskRow[]): void => {
   console.log(`  by priority: ${[...byPriority].map(([k, v]) => `${k}=${v}`).join(', ')}`);
   console.log(`  with deadline: ${withDeadline} / planned: ${withPlanned}`);
   console.log(`  assignees (${assignees.size}): ${[...assignees].join(', ')}`);
-  console.log(`  requesters (${requesters.size}): ${[...requesters].slice(0, 20).join(', ')}${requesters.size > 20 ? '…' : ''}`);
+  console.log(
+    `  requesters (${requesters.size}): ${[...requesters].slice(0, 20).join(', ')}${requesters.size > 20 ? '…' : ''}`,
+  );
   console.log(`  departments (${departments.size}): ${[...departments].join(', ')}`);
 };
 

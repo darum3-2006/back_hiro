@@ -42,7 +42,11 @@ const FIELD_LABELS: Record<string, string> = {
 
 const labelOf = (path: string): string => {
   // links.0.url のような path から数字部分を除いた最後のキーで lookup
-  const last = path.split('.').filter((p) => !/^\d+$/.test(p)).pop() ?? path;
+  const last =
+    path
+      .split('.')
+      .filter((p) => !/^\d+$/.test(p))
+      .pop() ?? path;
   return FIELD_LABELS[last] ?? last;
 };
 
@@ -51,11 +55,7 @@ const firstNumber = (s: string): number | null => {
   return m ? Number(m[1]) : null;
 };
 
-const constraintMessage = (
-  path: string,
-  key: string,
-  originalMessage: string,
-): string => {
+const constraintMessage = (path: string, key: string, originalMessage: string): string => {
   const label = labelOf(path);
   switch (key) {
     case 'isString':

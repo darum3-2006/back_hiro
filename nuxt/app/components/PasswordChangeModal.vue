@@ -76,11 +76,7 @@ const submit = async () => {
 </script>
 
 <template>
-  <UModal
-    :open="open"
-    title="パスワード変更"
-    @update:open="(v: boolean) => emit('update:open', v)"
-  >
+  <UModal :open="open" title="パスワード変更" @update:open="(v: boolean) => emit('update:open', v)">
     <template #body>
       <div class="space-y-4">
         <UFormField label="現在のパスワード" required :error="errors.currentPassword">
@@ -93,12 +89,7 @@ const submit = async () => {
           />
         </UFormField>
 
-        <UFormField
-          label="新しいパスワード"
-          hint="8〜72 文字"
-          required
-          :error="errors.newPassword"
-        >
+        <UFormField label="新しいパスワード" hint="8〜72 文字" required :error="errors.newPassword">
           <UInput
             v-model="draft.newPassword"
             type="password"

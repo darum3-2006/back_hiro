@@ -88,9 +88,7 @@ const NO_ASSIGNEE = '__none__';
 
 const assigneeFilterItems = computed(() => {
   const ids = new Set(
-    tasks.value
-      .map((t) => t.assigneeMemberId)
-      .filter((id): id is string => Boolean(id)),
+    tasks.value.map((t) => t.assigneeMemberId).filter((id): id is string => Boolean(id)),
   );
   const items: { label: string; value: string }[] = members.value
     .filter((m) => ids.has(m.id))
@@ -116,9 +114,7 @@ const assigneeFilterItems = computed(() => {
 /** タグフィルタ用: 実際にタスクに付いているタグのみ */
 const tagFilterItems = computed(() => {
   const codes = new Set(tasks.value.flatMap((t) => t.tagCodes));
-  return tags.value
-    .filter((t) => codes.has(t.code))
-    .map((t) => ({ label: t.name, value: t.code }));
+  return tags.value.filter((t) => codes.has(t.code)).map((t) => ({ label: t.name, value: t.code }));
 });
 
 /** 完了系ステータスを表示するか（既定 false）。URL クエリで保持 */
@@ -130,11 +126,11 @@ const showCompleted = computed<boolean>({
 const hasActiveFilter = computed(() =>
   Boolean(
     search.value ||
-      statusFilter.value ||
-      priorityFilter.value ||
-      assigneeFilter.value ||
-      tagFilter.value ||
-      showCompleted.value,
+    statusFilter.value ||
+    priorityFilter.value ||
+    assigneeFilter.value ||
+    tagFilter.value ||
+    showCompleted.value,
   ),
 );
 
@@ -459,9 +455,7 @@ const columnSizingInfo = ref<ColumnSizingInfoState>({
 });
 
 // 列の表示/非表示もプロジェクトごとに localStorage 永続化
-const columnVisibilityKey = computed(
-  () => `tasks:column-visibility:${currentProjectId.value}`,
-);
+const columnVisibilityKey = computed(() => `tasks:column-visibility:${currentProjectId.value}`);
 const columnVisibility = ref<Record<string, boolean>>({});
 
 // ドロップダウンに出す日本語ラベル
@@ -601,12 +595,7 @@ const isOverdue = (task: Task): boolean => {
 
       <template v-else>
         <div class="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-default">
-          <UInput
-            v-model="search"
-            placeholder="内容を検索"
-            icon="i-lucide-search"
-            class="min-w-64"
-          >
+          <UInput v-model="search" placeholder="内容を検索" icon="i-lucide-search" class="min-w-64">
             <template v-if="search" #trailing>
               <UButton
                 icon="i-lucide-x"
@@ -696,11 +685,7 @@ const isOverdue = (task: Task): boolean => {
               @click="tagFilter = ''"
             />
           </div>
-          <UCheckbox
-            v-model="showCompleted"
-            label="完了も表示"
-            :disabled="!!statusFilter"
-          />
+          <UCheckbox v-model="showCompleted" label="完了も表示" :disabled="!!statusFilter" />
           <UButton
             v-if="hasActiveFilter"
             color="neutral"
@@ -875,8 +860,7 @@ const isOverdue = (task: Task): boolean => {
             <DatePopover
               :model-value="row.original.plannedCompletionDate"
               @update:model-value="
-                (v: string | null) =>
-                  updateTaskField(row.original.id, { plannedCompletionDate: v })
+                (v: string | null) => updateTaskField(row.original.id, { plannedCompletionDate: v })
               "
             >
               <button
@@ -900,10 +884,7 @@ const isOverdue = (task: Task): boolean => {
           </template>
 
           <template #description-cell="{ row }">
-            <span
-              class="text-xs text-muted block truncate"
-              :title="row.original.description"
-            >
+            <span class="text-xs text-muted block truncate" :title="row.original.description">
               {{ row.original.description || '—' }}
             </span>
           </template>
@@ -922,12 +903,7 @@ const isOverdue = (task: Task): boolean => {
               >
                 {{ link.label || 'link' }}
               </a>
-              <span
-                v-if="row.original.links.length === 0"
-                class="text-xs text-muted"
-              >
-                —
-              </span>
+              <span v-if="row.original.links.length === 0" class="text-xs text-muted"> — </span>
             </div>
           </template>
 

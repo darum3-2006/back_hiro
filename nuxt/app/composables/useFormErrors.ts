@@ -26,9 +26,7 @@ export const useFormErrors = () => {
 
   const clearField = (field: string) => {
     if (field in errors.value) {
-      errors.value = Object.fromEntries(
-        Object.entries(errors.value).filter(([k]) => k !== field),
-      );
+      errors.value = Object.fromEntries(Object.entries(errors.value).filter(([k]) => k !== field));
     }
   };
 

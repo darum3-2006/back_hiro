@@ -55,30 +55,18 @@ export class TasksService {
     return this.attachTagCodes(tasks);
   }
 
-  async count(
-    tenantId: string,
-    projectId: string,
-    filter: TaskFilterDto = {},
-  ): Promise<number> {
+  async count(tenantId: string, projectId: string, filter: TaskFilterDto = {}): Promise<number> {
     await this.projects.findByIdInTenant(tenantId, projectId);
     return this.queryBuilder(projectId, filter).getCount();
   }
 
-  async findInProject(
-    tenantId: string,
-    projectId: string,
-    id: string,
-  ): Promise<TaskResponse> {
+  async findInProject(tenantId: string, projectId: string, id: string): Promise<TaskResponse> {
     const task = await this.findEntityInProject(tenantId, projectId, id);
     const [withTags] = await this.attachTagCodes([task]);
     return withTags;
   }
 
-  async create(
-    tenantId: string,
-    projectId: string,
-    dto: CreateTaskDto,
-  ): Promise<TaskResponse> {
+  async create(tenantId: string, projectId: string, dto: CreateTaskDto): Promise<TaskResponse> {
     await this.projects.findByIdInTenant(tenantId, projectId);
     const seq = await this.nextSeq(projectId);
     const task = this.tasks.create({
@@ -174,9 +162,7 @@ export class TasksService {
       const ttRepo = em.getRepository(TaskTag);
       await ttRepo.delete({ taskId });
       if (tagsInProject.length === 0) return;
-      const rows = tagsInProject.map((t) =>
-        ttRepo.create({ taskId, tagId: t.id }),
-      );
+      const rows = tagsInProject.map((t) => ttRepo.create({ taskId, tagId: t.id }));
       await ttRepo.save(rows);
     });
   }

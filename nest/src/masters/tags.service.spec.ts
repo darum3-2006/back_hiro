@@ -81,9 +81,9 @@ describe('TagsService', () => {
     it('存在しない code は NotFound', async () => {
       repo.findOne.mockResolvedValue(null);
 
-      await expect(
-        service.update(tenantId, projectId, 'unknown', { name: 'x' }),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.update(tenantId, projectId, 'unknown', { name: 'x' })).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });

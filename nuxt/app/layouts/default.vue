@@ -57,18 +57,14 @@ const navItems = computed(() => {
       {
         label: 'タスク一覧',
         icon: 'i-lucide-list-checks',
-        to: currentProjectId.value
-          ? `/${tk}/projects/${currentProjectId.value}/tasks`
-          : `/${tk}`,
+        to: currentProjectId.value ? `/${tk}/projects/${currentProjectId.value}/tasks` : `/${tk}`,
       },
     ],
     [{ label: 'プロジェクト', icon: 'i-lucide-folders', to: `/${tk}/projects` }],
   ];
   // admin だけテナント設定（ユーザー管理など）を表示
   if (me.value?.role === 'admin') {
-    groups.push([
-      { label: 'ユーザー管理', icon: 'i-lucide-users', to: `/${tk}/settings/users` },
-    ]);
+    groups.push([{ label: 'ユーザー管理', icon: 'i-lucide-users', to: `/${tk}/settings/users` }]);
   }
   return groups;
 });
