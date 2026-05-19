@@ -250,7 +250,8 @@ const wrapHeader = (children: unknown[], header: ResizeHeader) => {
     h('div', {
       class: [
         'absolute top-0 right-0 h-full w-1.5 cursor-col-resize select-none touch-none transition-colors',
-        isResizing ? 'bg-primary' : 'bg-default hover:bg-primary/60',
+        // 常時うっすら見える色にしておき、ホバー/ドラッグで強調する。
+        isResizing ? 'bg-primary' : 'bg-accented hover:bg-primary/60',
       ].join(' '),
       onMousedown: (e: MouseEvent) => {
         e.preventDefault();
@@ -740,8 +741,8 @@ const isOverdue = (task: Task): boolean => {
           :column-sizing-options="{ enableColumnResizing: true, columnResizeMode: 'onChange' }"
           :ui="{
             base: 'table-fixed',
-            th: 'relative group',
-            td: 'align-top py-2 truncate',
+            th: 'relative group px-1',
+            td: 'align-top py-2 px-1 truncate',
           }"
         >
           <template #seq-cell="{ row }">
