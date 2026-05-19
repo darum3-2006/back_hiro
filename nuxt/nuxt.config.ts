@@ -33,6 +33,14 @@ export default defineNuxtConfig({
     },
   },
 
+  // 実行環境ラベル。空ならバッジを出さない（本番想定）。
+  // NUXT_PUBLIC_ENV_LABEL=local 等で上書きする。
+  runtimeConfig: {
+    public: {
+      envLabel: '',
+    },
+  },
+
   compatibilityDate: '2025-01-15',
 
   eslint: {
