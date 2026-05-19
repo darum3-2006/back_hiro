@@ -1,10 +1,7 @@
 import type { AuthMe, ChangePasswordInput, LoginInput, LoginResponse } from '~/types/auth';
 
 /** POST /api/auth/login */
-export const apiLogin = async (
-  api: typeof $fetch,
-  input: LoginInput,
-): Promise<LoginResponse> => {
+export const apiLogin = async (api: typeof $fetch, input: LoginInput): Promise<LoginResponse> => {
   return api<LoginResponse>('/auth/login', {
     method: 'POST',
     body: input,

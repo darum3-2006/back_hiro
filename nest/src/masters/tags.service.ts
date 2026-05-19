@@ -34,12 +34,7 @@ export class TagsService {
     return this.tags.save(tag);
   }
 
-  async update(
-    tenantId: string,
-    projectId: string,
-    code: string,
-    dto: UpdateTagDto,
-  ): Promise<Tag> {
+  async update(tenantId: string, projectId: string, code: string, dto: UpdateTagDto): Promise<Tag> {
     const tag = await this.findInProject(tenantId, projectId, code);
     if (dto.name !== undefined) tag.name = dto.name.trim();
     if (dto.color !== undefined) tag.color = dto.color;

@@ -28,11 +28,7 @@ export class TaskStatusesService {
     });
   }
 
-  async create(
-    tenantId: string,
-    projectId: string,
-    dto: CreateTaskStatusDto,
-  ): Promise<TaskStatus> {
+  async create(tenantId: string, projectId: string, dto: CreateTaskStatusDto): Promise<TaskStatus> {
     await this.projects.findByIdInTenant(tenantId, projectId);
     const status = this.statuses.create({
       projectId,

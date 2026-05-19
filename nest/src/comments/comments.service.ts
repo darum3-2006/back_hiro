@@ -29,11 +29,7 @@ export class CommentsService {
     });
   }
 
-  async count(
-    tenantId: string,
-    projectId: string,
-    filter: CommentFilterDto = {},
-  ): Promise<number> {
+  async count(tenantId: string, projectId: string, filter: CommentFilterDto = {}): Promise<number> {
     await this.projects.findByIdInTenant(tenantId, projectId);
     const qb = this.comments
       .createQueryBuilder('c')
@@ -76,12 +72,7 @@ export class CommentsService {
     return this.comments.save(comment);
   }
 
-  async remove(
-    tenantId: string,
-    projectId: string,
-    taskId: string,
-    id: string,
-  ): Promise<void> {
+  async remove(tenantId: string, projectId: string, taskId: string, id: string): Promise<void> {
     const comment = await this.findInTask(tenantId, projectId, taskId, id);
     await this.comments.remove(comment);
   }

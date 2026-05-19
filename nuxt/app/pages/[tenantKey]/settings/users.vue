@@ -106,12 +106,7 @@ const columns: TableColumn<User>[] = [
     <template #header>
       <UDashboardNavbar title="ユーザー管理" icon="i-lucide-users">
         <template #right>
-          <UButton
-            color="primary"
-            icon="i-lucide-plus"
-            label="新規ユーザー"
-            @click="openCreate"
-          />
+          <UButton color="primary" icon="i-lucide-plus" label="新規ユーザー" @click="openCreate" />
         </template>
       </UDashboardNavbar>
     </template>
@@ -140,11 +135,7 @@ const columns: TableColumn<User>[] = [
         </template>
       </UTable>
 
-      <UserFormModal
-        v-model:open="formModalOpen"
-        :user="editingUser"
-        @saved="onSaved"
-      />
+      <UserFormModal v-model:open="formModalOpen" :user="editingUser" @saved="onSaved" />
 
       <UModal
         v-model:open="deleteModalOpen"

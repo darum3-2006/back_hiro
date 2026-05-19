@@ -1,11 +1,7 @@
 import dayjs from 'dayjs';
 import { readFileSync } from 'node:fs';
 import * as XLSX from 'xlsx';
-import {
-  normalizePriorityLabel,
-  normalizeStatusLabel,
-  type NormalizedTaskRow,
-} from './mapping';
+import { normalizePriorityLabel, normalizeStatusLabel, type NormalizedTaskRow } from './mapping';
 
 export const readWorkbook = (filePath: string): XLSX.WorkBook => {
   const buf = readFileSync(filePath);

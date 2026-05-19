@@ -80,9 +80,9 @@ describe('TaskPrioritiesService', () => {
     it('存在しない code は NotFound', async () => {
       repo.findOne.mockResolvedValue(null);
 
-      await expect(
-        service.update(tenantId, projectId, 'unknown', { label: 'x' }),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.update(tenantId, projectId, 'unknown', { label: 'x' })).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });

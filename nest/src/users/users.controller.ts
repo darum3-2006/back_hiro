@@ -69,10 +69,7 @@ export class UsersController {
   @Delete(':id')
   @UseGuards(AdminGuard)
   @HttpCode(204)
-  remove(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('id', new ParseUUIDPipe()) id: string,
-  ) {
+  remove(@CurrentUser() user: AuthenticatedUser, @Param('id', new ParseUUIDPipe()) id: string) {
     return this.users.remove(user.tenantId, user.userId, id);
   }
 }

@@ -1,11 +1,6 @@
 <script setup lang="ts">
 import type { TableColumn, DropdownMenuItem } from '@nuxt/ui';
-import {
-  apiCreateTag,
-  apiDeleteTag,
-  apiUpdateTag,
-  countTagReferences,
-} from '~/api/masters';
+import { apiCreateTag, apiDeleteTag, apiUpdateTag, countTagReferences } from '~/api/masters';
 import type { Tag } from '~/types/master';
 import type { MasterFormPayload } from '~/components/MasterFormModal.vue';
 

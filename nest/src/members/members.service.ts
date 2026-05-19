@@ -50,11 +50,7 @@ export class MembersService {
     }
   }
 
-  async create(
-    tenantId: string,
-    projectId: string,
-    dto: CreateMemberDto,
-  ): Promise<ProjectMember> {
+  async create(tenantId: string, projectId: string, dto: CreateMemberDto): Promise<ProjectMember> {
     await this.projects.findByIdInTenant(tenantId, projectId);
     const member = this.members.create({
       projectId,

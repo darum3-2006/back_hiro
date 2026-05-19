@@ -94,16 +94,12 @@ watch(open, (v) => {
             @click="handleSelect(item.value)"
           >
             <UIcon
-              :name="
-                item.value === current ? 'i-lucide-check' : (defaultIcon ?? 'i-lucide-circle')
-              "
+              :name="item.value === current ? 'i-lucide-check' : (defaultIcon ?? 'i-lucide-circle')"
               class="size-4 shrink-0"
             />
             <span class="truncate">{{ item.label }}</span>
           </button>
-          <div v-if="filteredItems.length === 0" class="text-xs text-muted px-2 py-2">
-            該当なし
-          </div>
+          <div v-if="filteredItems.length === 0" class="text-xs text-muted px-2 py-2">該当なし</div>
         </div>
         <template v-if="allowNone">
           <USeparator class="my-1" />
@@ -123,11 +119,7 @@ watch(open, (v) => {
       </div>
     </template>
   </UPopover>
-  <UDropdownMenu
-    v-else
-    :items="menuItems"
-    :ui="{ content: 'max-h-80 overflow-y-auto' }"
-  >
+  <UDropdownMenu v-else :items="menuItems" :ui="{ content: 'max-h-80 overflow-y-auto' }">
     <slot />
   </UDropdownMenu>
 </template>

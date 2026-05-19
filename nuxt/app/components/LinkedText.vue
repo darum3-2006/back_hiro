@@ -55,7 +55,8 @@ const linkTo = (taskId: string) => ({
         :to="linkTo(s.taskId)"
         replace
         class="text-primary hover:underline"
-      >{{ s.text }}</NuxtLink>
+        >{{ s.text }}</NuxtLink
+      >
       <template v-else>{{ s.text }}</template>
     </template>
   </span>

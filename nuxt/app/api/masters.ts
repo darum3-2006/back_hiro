@@ -10,10 +10,8 @@ export const apiListDepartments = (api: typeof $fetch): Promise<Department[]> =>
 // ===== Task Statuses (project) =====
 
 /** GET /api/projects/:projectId/task-statuses */
-export const apiListTaskStatuses = (
-  api: typeof $fetch,
-  projectId: string,
-): Promise<TaskStatus[]> => api<TaskStatus[]>(`/projects/${projectId}/task-statuses`);
+export const apiListTaskStatuses = (api: typeof $fetch, projectId: string): Promise<TaskStatus[]> =>
+  api<TaskStatus[]>(`/projects/${projectId}/task-statuses`);
 
 /** POST /api/projects/:projectId/task-statuses */
 export const apiCreateTaskStatus = (

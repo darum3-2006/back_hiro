@@ -90,9 +90,7 @@ watch(
 const linkError = (index: number, field: 'label' | 'url'): string | undefined =>
   errors.value[`links.${index}.${field}`];
 
-const canSubmit = computed(() =>
-  Boolean(draft.value.content.trim() && draft.value.statusCode),
-);
+const canSubmit = computed(() => Boolean(draft.value.content.trim() && draft.value.statusCode));
 
 const toast = useToast();
 
@@ -351,11 +349,7 @@ const departmentSelectItems = computed(() =>
         <div>
           <p class="text-xs text-muted mb-1">リンク</p>
           <div class="space-y-2">
-            <div
-              v-for="(link, i) in draft.links"
-              :key="i"
-              class="flex items-start gap-2"
-            >
+            <div v-for="(link, i) in draft.links" :key="i" class="flex items-start gap-2">
               <UFormField :error="linkError(i, 'label')" class="w-32">
                 <UInput v-model="link.label" placeholder="ラベル" class="w-full" />
               </UFormField>
