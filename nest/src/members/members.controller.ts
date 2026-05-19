@@ -31,31 +31,34 @@ export class MembersController {
   }
 
   @Post()
-  create(
+  async create(
     @CurrentUser() user: AuthenticatedUser,
     @Param('projectId', new ParseUUIDPipe()) projectId: string,
     @Body() dto: CreateMemberDto,
   ) {
+    await this.members.assertProjectAdmin(user.tenantId, projectId, user);
     return this.members.create(user.tenantId, projectId, dto);
   }
 
   @Patch(':id')
-  update(
+  async update(
     @CurrentUser() user: AuthenticatedUser,
     @Param('projectId', new ParseUUIDPipe()) projectId: string,
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: UpdateMemberDto,
   ) {
+    await this.members.assertProjectAdmin(user.tenantId, projectId, user);
     return this.members.update(user.tenantId, projectId, id, dto);
   }
 
   @Delete(':id')
   @HttpCode(204)
-  remove(
+  async remove(
     @CurrentUser() user: AuthenticatedUser,
     @Param('projectId', new ParseUUIDPipe()) projectId: string,
     @Param('id', new ParseUUIDPipe()) id: string,
   ) {
+    await this.members.assertProjectAdmin(user.tenantId, projectId, user);
     return this.members.remove(user.tenantId, projectId, id);
   }
 }

@@ -12,6 +12,15 @@ const { data: users } = await useUsers();
 
 const userMap = computed(() => Object.fromEntries(users.value.map((u) => [u.id, u])));
 
+const { me } = useAuth();
+const currentUserId = useCurrentUserId();
+// メンバー管理可能か: テナント admin か、自分が当プロジェクトの ProjectMember.role=admin
+const isProjectAdmin = computed(() => {
+  if (me.value?.role === 'admin') return true;
+  const own = members.value.find((m) => m.userId === currentUserId.value);
+  return own?.role === 'admin';
+});
+
 const existingUserIds = computed(() =>
   members.value.filter((m) => m.userId !== null).map((m) => m.userId!),
 );
@@ -122,16 +131,32 @@ const columns: TableColumn<Member>[] = [
   <div class="p-6 space-y-4">
     <div class="flex justify-between items-center">
       <p class="text-sm text-muted">メンバー {{ members.length }} 人</p>
-      <UButton color="primary" icon="i-lucide-plus" label="メンバーを追加" @click="openCreate" />
+      <UButton
+        v-if="isProjectAdmin"
+        color="primary"
+        icon="i-lucide-plus"
+        label="メンバーを追加"
+        @click="openCreate"
+      />
     </div>
 
     <EmptyState
       v-if="members.length === 0"
       icon="i-lucide-users"
       title="メンバーがまだいません"
-      description="メンバーを追加するとタスクを担当者に割り当てられます"
+      :description="
+        isProjectAdmin
+          ? 'メンバーを追加するとタスクを担当者に割り当てられます'
+          : 'メンバーの追加はプロジェクト管理者にお問い合わせください'
+      "
     >
-      <UButton color="primary" icon="i-lucide-plus" label="メンバーを追加" @click="openCreate" />
+      <UButton
+        v-if="isProjectAdmin"
+        color="primary"
+        icon="i-lucide-plus"
+        label="メンバーを追加"
+        @click="openCreate"
+      />
     </EmptyState>
 
     <UTable v-else :data="members" :columns="columns" :ui="{ td: 'py-2' }">
@@ -155,7 +180,7 @@ const columns: TableColumn<Member>[] = [
       </template>
       <template #actions-cell="{ row }">
         <div class="flex justify-end">
-          <UDropdownMenu :items="buildActions(row.original)">
+          <UDropdownMenu v-if="isProjectAdmin" :items="buildActions(row.original)">
             <UButton icon="i-lucide-more-horizontal" color="neutral" variant="ghost" size="sm" />
           </UDropdownMenu>
         </div>
