@@ -425,6 +425,19 @@ const columns: TableColumn<Task>[] = [
     meta: RESIZABLE_META,
   },
   {
+    accessorKey: 'completedAt',
+    header: sortHeader('完了日時'),
+    size: 140,
+    minSize: 100,
+    meta: RESIZABLE_META,
+    sortingFn: (a: Row<Task>, b: Row<Task>) => {
+      // null は末尾に来るよう ZZZ で代用
+      const da = a.original.completedAt ?? 'ZZZZ';
+      const db = b.original.completedAt ?? 'ZZZZ';
+      return da.localeCompare(db);
+    },
+  },
+  {
     accessorKey: 'createdAt',
     header: sortHeader('作成日時'),
     size: 140,
@@ -472,6 +485,7 @@ const COLUMN_LABELS: Record<string, string> = {
   requestingDeptCode: '依頼部署',
   description: '説明',
   links: 'リンク',
+  completedAt: '完了日時',
   createdAt: '作成日時',
   updatedAt: '更新日時',
 };
@@ -483,6 +497,7 @@ const DEFAULT_HIDDEN_COLUMNS: Record<string, boolean> = {
   requestingDeptCode: false,
   description: false,
   links: false,
+  completedAt: false,
   createdAt: false,
   updatedAt: false,
 };
@@ -509,12 +524,11 @@ onMounted(() => {
   }
   try {
     const raw = localStorage.getItem(columnVisibilityKey.value);
-    if (raw) {
-      columnVisibility.value = JSON.parse(raw) as Record<string, boolean>;
-    } else {
-      // 初回はデフォルト非表示の列を反映
-      columnVisibility.value = { ...DEFAULT_HIDDEN_COLUMNS };
-    }
+    const stored = raw ? (JSON.parse(raw) as Record<string, boolean>) : null;
+    // 既存ユーザーの保存値に後から増えた列のキーが含まれないため、
+    // DEFAULT_HIDDEN_COLUMNS を下敷きにして保存値で上書きする
+    // （明示的に表示/非表示を選んでいればそちらを優先）。
+    columnVisibility.value = { ...DEFAULT_HIDDEN_COLUMNS, ...(stored ?? {}) };
   } catch {
     columnVisibility.value = { ...DEFAULT_HIDDEN_COLUMNS };
   }
@@ -905,6 +919,12 @@ const isOverdue = (task: Task): boolean => {
               </a>
               <span v-if="row.original.links.length === 0" class="text-xs text-muted"> — </span>
             </div>
+          </template>
+
+          <template #completedAt-cell="{ row }">
+            <span class="text-xs text-muted tabular-nums">
+              {{ row.original.completedAt ? fmtDateTime(row.original.completedAt) : '—' }}
+            </span>
           </template>
 
           <template #createdAt-cell="{ row }">

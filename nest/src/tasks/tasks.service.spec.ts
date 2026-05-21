@@ -3,6 +3,7 @@ import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import { Tag } from '../masters/tag.entity';
+import { TaskStatus } from '../masters/task-status.entity';
 import type { Project } from '../projects/project.entity';
 import { ProjectsService } from '../projects/projects.service';
 import { TaskTag } from './task-tag.entity';
@@ -31,10 +32,13 @@ describe('TasksService', () => {
     requestingDeptCode: null,
     deadline: null,
     plannedCompletionDate: null,
+    completedAt: null,
     createdAt: new Date('2026-01-01'),
     updatedAt: new Date('2026-01-01'),
     deletedAt: null,
   } as Task;
+
+  let statusesRepo: jest.Mocked<Pick<Repository<TaskStatus>, 'findOne'>>;
 
   beforeEach(async () => {
     projects = {
@@ -100,12 +104,17 @@ describe('TasksService', () => {
           provide: getRepositoryToken(Tag),
           useValue: { find: jest.fn() },
         },
+        {
+          provide: getRepositoryToken(TaskStatus),
+          useValue: { findOne: jest.fn().mockResolvedValue(null) },
+        },
         { provide: ProjectsService, useValue: projects },
       ],
     }).compile();
 
     service = module.get(TasksService);
     tasksRepo = module.get(getRepositoryToken(Task));
+    statusesRepo = module.get(getRepositoryToken(TaskStatus));
   });
 
   describe('findInProject', () => {
@@ -163,6 +172,74 @@ describe('TasksService', () => {
       await expect(
         service.update(tenantId, projectId, 'unknown', { content: 'x' }),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    it('non-terminal -> terminal で completedAt が現在時刻にセットされる', async () => {
+      const target: Task = { ...baseTask, statusCode: 'todo', completedAt: null };
+      tasksRepo.findOne
+        .mockResolvedValueOnce(target)
+        .mockResolvedValueOnce({ ...target, statusCode: 'done' });
+      statusesRepo.findOne.mockImplementation(({ where }) => {
+        const code = (where as { code: string }).code;
+        return Promise.resolve({
+          isTerminal: code === 'done',
+        } as TaskStatus);
+      });
+
+      await service.update(tenantId, projectId, 't1', { statusCode: 'done' });
+
+      const saved = tasksRepo.save.mock.calls[0]![0] as Task;
+      expect(saved.statusCode).toBe('done');
+      expect(saved.completedAt).toBeInstanceOf(Date);
+    });
+
+    it('terminal -> 別の terminal で completedAt が上書きされる', async () => {
+      const old = new Date('2026-01-01');
+      const target: Task = { ...baseTask, statusCode: 'done', completedAt: old };
+      tasksRepo.findOne
+        .mockResolvedValueOnce(target)
+        .mockResolvedValueOnce({ ...target, statusCode: 'archived' });
+      statusesRepo.findOne.mockResolvedValue({ isTerminal: true } as TaskStatus);
+
+      await service.update(tenantId, projectId, 't1', { statusCode: 'archived' });
+
+      const saved = tasksRepo.save.mock.calls[0]![0] as Task;
+      expect(saved.completedAt).toBeInstanceOf(Date);
+      expect(saved.completedAt!.getTime()).toBeGreaterThan(old.getTime());
+    });
+
+    it('terminal -> non-terminal で completedAt が null になる', async () => {
+      const target: Task = {
+        ...baseTask,
+        statusCode: 'done',
+        completedAt: new Date('2026-01-01'),
+      };
+      tasksRepo.findOne
+        .mockResolvedValueOnce(target)
+        .mockResolvedValueOnce({ ...target, statusCode: 'todo', completedAt: null });
+      statusesRepo.findOne.mockImplementation(({ where }) => {
+        const code = (where as { code: string }).code;
+        return Promise.resolve({
+          isTerminal: code === 'done',
+        } as TaskStatus);
+      });
+
+      await service.update(tenantId, projectId, 't1', { statusCode: 'todo' });
+
+      const saved = tasksRepo.save.mock.calls[0]![0] as Task;
+      expect(saved.completedAt).toBeNull();
+    });
+
+    it('statusCode 未指定なら completedAt に触れない', async () => {
+      const completed = new Date('2026-01-01');
+      const target: Task = { ...baseTask, statusCode: 'done', completedAt: completed };
+      tasksRepo.findOne.mockResolvedValueOnce(target).mockResolvedValueOnce(target);
+
+      await service.update(tenantId, projectId, 't1', { content: 'x' });
+
+      const saved = tasksRepo.save.mock.calls[0]![0] as Task;
+      expect(saved.completedAt).toBe(completed);
+      expect(statusesRepo.findOne).not.toHaveBeenCalled();
     });
   });
 });

@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { Tag } from '../masters/tag.entity';
+import { TaskStatus } from '../masters/task-status.entity';
 import { ProjectsService } from '../projects/projects.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { TaskFilterDto } from './dto/task-filter.dto';
@@ -26,6 +27,7 @@ export interface TaskResponse {
   requestingDeptCode: string | null;
   deadline: string | null;
   plannedCompletionDate: string | null;
+  completedAt: Date | null;
   tagCodes: string[];
   createdAt: Date;
   updatedAt: Date;
@@ -40,6 +42,8 @@ export class TasksService {
     private readonly taskTags: Repository<TaskTag>,
     @InjectRepository(Tag)
     private readonly tags: Repository<Tag>,
+    @InjectRepository(TaskStatus)
+    private readonly statuses: Repository<TaskStatus>,
     private readonly projects: ProjectsService,
   ) {}
 
@@ -69,6 +73,7 @@ export class TasksService {
   async create(tenantId: string, projectId: string, dto: CreateTaskDto): Promise<TaskResponse> {
     await this.projects.findByIdInTenant(tenantId, projectId);
     const seq = await this.nextSeq(projectId);
+    const completedAt = await this.resolveCompletedAt(projectId, null, dto.statusCode, null);
     const task = this.tasks.create({
       projectId,
       seq,
@@ -82,6 +87,7 @@ export class TasksService {
       requestingDeptCode: dto.requestingDeptCode ?? null,
       deadline: dto.deadline ?? null,
       plannedCompletionDate: dto.plannedCompletionDate ?? null,
+      completedAt,
     });
     const saved = await this.tasks.save(task);
     if (dto.tagCodes && dto.tagCodes.length > 0) {
@@ -100,7 +106,15 @@ export class TasksService {
     if (dto.content !== undefined) task.content = dto.content.trim();
     if (dto.description !== undefined) task.description = dto.description;
     if (dto.links !== undefined) task.links = dto.links;
-    if (dto.statusCode !== undefined) task.statusCode = dto.statusCode;
+    if (dto.statusCode !== undefined && dto.statusCode !== task.statusCode) {
+      task.completedAt = await this.resolveCompletedAt(
+        projectId,
+        task.statusCode,
+        dto.statusCode,
+        task.completedAt,
+      );
+      task.statusCode = dto.statusCode;
+    }
     if (dto.priorityCode !== undefined) task.priorityCode = dto.priorityCode ?? null;
     if (dto.assigneeMemberId !== undefined) task.assigneeMemberId = dto.assigneeMemberId ?? null;
     if (dto.requesterMemberId !== undefined) task.requesterMemberId = dto.requesterMemberId ?? null;
@@ -134,6 +148,33 @@ export class TasksService {
     const task = await this.tasks.findOne({ where: { projectId, id } });
     if (!task) throw new NotFoundException('タスクが見つかりません');
     return task;
+  }
+
+  /**
+   * ステータス遷移に対する completed_at の新値を返す。
+   * - 新ステータスが terminal: 現在時刻（旧が terminal でも上書き）
+   * - 旧 terminal -> 新 non-terminal: null
+   * - 旧 non-terminal -> 新 non-terminal: 既存値を維持
+   * - 旧と新が同じ: 既存値を維持
+   */
+  private async resolveCompletedAt(
+    projectId: string,
+    oldStatusCode: string | null,
+    newStatusCode: string,
+    currentCompletedAt: Date | null,
+  ): Promise<Date | null> {
+    if (oldStatusCode === newStatusCode) return currentCompletedAt;
+    const [oldStatus, newStatus] = await Promise.all([
+      oldStatusCode
+        ? this.statuses.findOne({ where: { projectId, code: oldStatusCode } })
+        : Promise.resolve(null),
+      this.statuses.findOne({ where: { projectId, code: newStatusCode } }),
+    ]);
+    const newIsTerminal = newStatus?.isTerminal === true;
+    const oldIsTerminal = oldStatus?.isTerminal === true;
+    if (newIsTerminal) return new Date();
+    if (oldIsTerminal) return null;
+    return currentCompletedAt;
   }
 
   private async nextSeq(projectId: string): Promise<number> {
@@ -200,6 +241,7 @@ export class TasksService {
       requestingDeptCode: t.requestingDeptCode,
       deadline: t.deadline,
       plannedCompletionDate: t.plannedCompletionDate,
+      completedAt: t.completedAt,
       tagCodes,
       createdAt: t.createdAt,
       updatedAt: t.updatedAt,
