@@ -24,6 +24,7 @@ const colorModeAriaLabel = computed(() =>
 );
 
 const UButton = resolveComponent('UButton');
+const UIcon = resolveComponent('UIcon');
 
 const route = useRoute();
 const router = useRouter();
@@ -339,28 +340,187 @@ interface SortColumn {
 }
 interface ResizeHeader {
   getResizeHandler: () => (e: unknown) => void;
-  column: { getIsResizing: () => boolean };
+  column: { id: string; getIsResizing: () => boolean };
 }
 
-/** th 全幅をカバーする wrapper。右端にリサイズハンドルを絶対配置 */
+// ===== 列並び替え (ヘッダー grip ドラッグ) =====
+// 干渉を避けるため、ドラッグソースは header 左端の grip アイコンに限定する。
+// ドロップターゲットは header wrapper 全体で受け、左右どちらに落としたかで
+// before / after を判定する。
+const dragColumnId = ref<string | null>(null);
+const dragOverColumnId = ref<string | null>(null);
+const dragOverSide = ref<'before' | 'after' | null>(null);
+
+const resetDragState = () => {
+  dragColumnId.value = null;
+  dragOverColumnId.value = null;
+  dragOverSide.value = null;
+};
+
+/**
+ * grip の dragstart 時に「列全体の縦長プレビュー」を作って setDragImage に渡す。
+ * 既存の th と同じ幅で、そのまま上から数行ぶんのセルテキストを並べたゴースト。
+ * ブラウザがゴーストを描画した直後 (次マイクロタスク) に DOM から取り除く。
+ */
+const buildColumnGhost = (grip: HTMLElement): HTMLElement | null => {
+  const th = grip.closest('th');
+  const table = th?.closest('table');
+  if (!th || !table) return null;
+  const cellIndex = Array.from(th.parentElement!.children).indexOf(th);
+  if (cellIndex < 0) return null;
+
+  const ghost = document.createElement('div');
+  const thRect = th.getBoundingClientRect();
+  const bg = getComputedStyle(table).backgroundColor || 'white';
+  Object.assign(ghost.style, {
+    position: 'fixed',
+    top: '-9999px',
+    left: '-9999px',
+    width: `${thRect.width}px`,
+    background: bg,
+    border: '1px solid rgba(99, 102, 241, 0.6)',
+    borderRadius: '4px',
+    boxShadow: '0 8px 20px rgba(0,0,0,0.18)',
+    overflow: 'hidden',
+    fontSize: '12px',
+  } as CSSStyleDeclaration);
+
+  // ヘッダー部分
+  const headDiv = document.createElement('div');
+  Object.assign(headDiv.style, {
+    padding: '4px 8px',
+    background: 'rgba(99, 102, 241, 0.12)',
+    fontWeight: '600',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  } as CSSStyleDeclaration);
+  headDiv.textContent = (th.textContent ?? '').trim();
+  ghost.appendChild(headDiv);
+
+  // 表示中の上から最大 5 行ぶんのセルテキストを抜粋
+  const rows = table.querySelectorAll<HTMLTableRowElement>('tbody tr');
+  for (let i = 0; i < Math.min(rows.length, 5); i += 1) {
+    const td = rows[i]!.children[cellIndex] as HTMLElement | undefined;
+    if (!td) continue;
+    const row = document.createElement('div');
+    Object.assign(row.style, {
+      padding: '4px 8px',
+      borderTop: '1px solid rgba(0,0,0,0.08)',
+      whiteSpace: 'nowrap',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+    } as CSSStyleDeclaration);
+    row.textContent = (td.textContent ?? '').trim().slice(0, 60);
+    ghost.appendChild(row);
+  }
+  document.body.appendChild(ghost);
+  return ghost;
+};
+
+const onGripDragStart = (e: DragEvent, columnId: string) => {
+  if (!e.dataTransfer) return;
+  e.dataTransfer.effectAllowed = 'move';
+  // 一部ブラウザは setData 必須でないと dragend しか発火しないケースがある
+  e.dataTransfer.setData('text/plain', columnId);
+
+  const grip = e.currentTarget as HTMLElement;
+  const ghost = buildColumnGhost(grip);
+  if (ghost) {
+    e.dataTransfer.setDragImage(ghost, 12, 12);
+    // ブラウザがゴーストを画像化した直後に DOM から除去 (次マイクロタスク)
+    setTimeout(() => ghost.remove(), 0);
+  }
+
+  dragColumnId.value = columnId;
+};
+
+const onHeaderDragOver = (e: DragEvent, columnId: string) => {
+  if (!dragColumnId.value || dragColumnId.value === columnId) return;
+  e.preventDefault();
+  if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+  const midX = rect.left + rect.width / 2;
+  dragOverColumnId.value = columnId;
+  dragOverSide.value = e.clientX < midX ? 'before' : 'after';
+};
+
+const onHeaderDrop = (e: DragEvent, columnId: string) => {
+  e.preventDefault();
+  const src = dragColumnId.value;
+  if (!src || src === columnId) {
+    resetDragState();
+    return;
+  }
+  const from = columnOrder.value.indexOf(src);
+  let to = columnOrder.value.indexOf(columnId);
+  if (from === -1 || to === -1) {
+    resetDragState();
+    return;
+  }
+  if (dragOverSide.value === 'after') to += 1;
+  if (from < to) to -= 1;
+  if (from === to) {
+    resetDragState();
+    return;
+  }
+  const next = [...columnOrder.value];
+  next.splice(from, 1);
+  next.splice(to, 0, src);
+  columnOrder.value = next;
+  resetDragState();
+};
+
+/** th 全幅をカバーする wrapper。左端に grip ドラッグ、右端にリサイズハンドルを配置 */
 const wrapHeader = (children: unknown[], header: ResizeHeader) => {
   const isResizing = header.column.getIsResizing();
-  return h('div', { class: 'relative flex items-center w-full pr-2' }, [
-    ...(children as never[]),
-    h('div', {
-      class: [
-        'absolute top-0 right-0 h-full w-1.5 cursor-col-resize select-none touch-none transition-colors',
-        // 常時うっすら見える色にしておき、ホバー/ドラッグで強調する。
-        isResizing ? 'bg-primary' : 'bg-accented hover:bg-primary/60',
-      ].join(' '),
-      onMousedown: (e: MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        header.getResizeHandler()(e);
-      },
-      onTouchstart: header.getResizeHandler(),
-    }),
-  ]);
+  const columnId = header.column.id;
+  const showBefore = dragOverColumnId.value === columnId && dragOverSide.value === 'before';
+  const showAfter = dragOverColumnId.value === columnId && dragOverSide.value === 'after';
+  return h(
+    'div',
+    {
+      class: 'relative flex items-center w-full pr-2',
+      onDragover: (e: DragEvent) => onHeaderDragOver(e, columnId),
+      onDrop: (e: DragEvent) => onHeaderDrop(e, columnId),
+      onDragend: resetDragState,
+    },
+    [
+      h(UIcon, {
+        name: 'i-lucide-grip-vertical',
+        class:
+          'shrink-0 mr-1 size-3.5 text-muted opacity-50 hover:opacity-100 cursor-grab active:cursor-grabbing',
+        draggable: true,
+        onDragstart: (e: DragEvent) => onGripDragStart(e, columnId),
+        title: 'ドラッグで列を並べ替え',
+      }),
+      ...(children as never[]),
+      h('div', {
+        class: [
+          'absolute top-0 right-0 h-full w-1.5 cursor-col-resize select-none touch-none transition-colors',
+          // 常時うっすら見える色にしておき、ホバー/ドラッグで強調する。
+          isResizing ? 'bg-primary' : 'bg-accented hover:bg-primary/60',
+        ].join(' '),
+        onMousedown: (e: MouseEvent) => {
+          e.preventDefault();
+          e.stopPropagation();
+          header.getResizeHandler()(e);
+        },
+        onTouchstart: header.getResizeHandler(),
+      }),
+      // ドロップ位置インジケータ
+      showBefore
+        ? h('div', {
+            class: 'absolute left-0 top-0 bottom-0 w-0.5 bg-primary pointer-events-none',
+          })
+        : null,
+      showAfter
+        ? h('div', {
+            class: 'absolute right-0 top-0 bottom-0 w-0.5 bg-primary pointer-events-none',
+          })
+        : null,
+    ],
+  );
 };
 
 const sortHeader = (label: string) => {
@@ -396,13 +556,25 @@ const plainHeader = (label: string) => {
 const RESIZABLE_META = {
   class: { th: 'relative' },
   style: {
-    th: (header: { column: { getSize: () => number } }) => {
+    th: (header: { column: { id: string; getSize: () => number } }) => {
       const w = header.column.getSize();
-      return { width: `${w}px`, minWidth: `${w}px`, maxWidth: `${w}px` };
+      const isDragging = dragColumnId.value === header.column.id;
+      return {
+        width: `${w}px`,
+        minWidth: `${w}px`,
+        maxWidth: `${w}px`,
+        ...(isDragging ? { opacity: '0.3' } : {}),
+      };
     },
-    td: (cell: { column: { getSize: () => number } }) => {
+    td: (cell: { column: { id: string; getSize: () => number } }) => {
       const w = cell.column.getSize();
-      return { width: `${w}px`, minWidth: `${w}px`, maxWidth: `${w}px` };
+      const isDragging = dragColumnId.value === cell.column.id;
+      return {
+        width: `${w}px`,
+        minWidth: `${w}px`,
+        maxWidth: `${w}px`,
+        ...(isDragging ? { opacity: '0.3' } : {}),
+      };
     },
   },
 } as const;
