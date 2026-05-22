@@ -114,6 +114,15 @@ export class Task extends BaseEntity {
   })
   plannedCompletionDate!: string | null;
 
+  @Column({
+    type: 'datetime',
+    precision: 6,
+    name: 'completed_at',
+    nullable: true,
+    comment: '完了日時（ステータスが完了扱いの間だけ値を持つ）',
+  })
+  completedAt!: Date | null;
+
   @OneToMany(() => TaskTag, (tt) => tt.task)
   taskTags!: TaskTag[];
 }

@@ -24,7 +24,7 @@ const emit = defineEmits<{
 }>();
 
 // 作成画面で入力するフィールドのみ。サーバ側で割り当てる列は除外する。
-type Draft = Omit<Task, 'id' | 'projectId' | 'createdAt' | 'updatedAt' | 'seq'>;
+type Draft = Omit<Task, 'id' | 'projectId' | 'createdAt' | 'updatedAt' | 'seq' | 'completedAt'>;
 
 const makeInitialDraft = (): Draft => ({
   content: '',
