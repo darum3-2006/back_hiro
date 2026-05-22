@@ -2,10 +2,10 @@
 import { h, resolveComponent } from 'vue';
 import type { ColumnSizingInfoState, Row } from '@tanstack/vue-table';
 import type { DropdownMenuItem, TableColumn } from '@nuxt/ui';
-import dayjs from 'dayjs';
 import { apiUpdateTask } from '~/api/tasks';
 import type { Task } from '~/types/task';
 import { fmtDateTime } from '~/utils/date';
+import { isTaskDatePast } from '~/utils/task-overdue';
 
 const api = useApi();
 
@@ -677,12 +677,11 @@ const updateTaskField = async (
   await refreshTasks();
 };
 
-/** 期限超過判定: 今日より前 かつ 完了系ステータスでない */
-const isOverdue = (task: Task): boolean => {
-  if (!task.deadline) return false;
-  if (statusMap.value[task.statusCode]?.isTerminal) return false;
-  return dayjs(task.deadline).isBefore(dayjs(), 'day');
-};
+const isOverdue = (task: Task): boolean =>
+  isTaskDatePast(task.deadline, task.statusCode, statusMap.value);
+
+const isPlannedCompletionOverdue = (task: Task): boolean =>
+  isTaskDatePast(task.plannedCompletionDate, task.statusCode, statusMap.value);
 </script>
 
 <template>
@@ -1011,6 +1010,7 @@ const isOverdue = (task: Task): boolean => {
             >
               <button
                 class="text-sm tabular-nums hover:underline cursor-pointer min-w-16 text-left"
+                :class="isPlannedCompletionOverdue(row.original) ? 'text-error font-medium' : ''"
               >
                 {{ row.original.plannedCompletionDate ?? '—' }}
               </button>
