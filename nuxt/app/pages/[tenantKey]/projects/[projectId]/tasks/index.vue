@@ -60,30 +60,112 @@ const updateQuery = (changes: Record<string, string | undefined>) => {
 
 const queryString = (key: string): string => (route.query[key] as string | undefined) ?? '';
 
+// カンマ区切りで配列を URL に同期。旧形式 `?status=foo` (単値) も
+// [foo] として読めるので後方互換あり。
+const queryArray = (key: string): string[] => {
+  const v = queryString(key);
+  if (!v) return [];
+  return v.split(',').filter(Boolean);
+};
+const setQueryArray = (key: string, arr: string[]) => {
+  updateQuery({ [key]: arr.length > 0 ? arr.join(',') : undefined });
+};
+
 const search = computed<string>({
   get: () => queryString('search'),
   set: (v) => updateQuery({ search: v || undefined }),
 });
 
-const statusFilter = computed<string>({
-  get: () => queryString('status'),
-  set: (v) => updateQuery({ status: v || undefined }),
+// マルチセレクトのチェック反映を「クリック直後」に出すため、UI バインド用の
+// ref と、テーブル描画に使う applied 用 ref を分ける。
+// - v-model は statusFilter 等にバインド: 即時更新でチェックボックスがすぐ反映
+// - applied 系は requestAnimationFrame で 1 フレーム遅らせて反映: 重いテーブル
+//   再描画が次フレームに回り、チェックが先に描画される
+// URL の同期も applied と同じタイミングに寄せる。
+const statusFilter = ref<string[]>(queryArray('status'));
+const priorityFilter = ref<string[]>(queryArray('priority'));
+const assigneeFilter = ref<string[]>(queryArray('assignee'));
+const tagFilter = ref<string[]>(queryArray('tag'));
+
+const appliedStatusFilter = ref<string[]>([...statusFilter.value]);
+const appliedPriorityFilter = ref<string[]>([...priorityFilter.value]);
+const appliedAssigneeFilter = ref<string[]>([...assigneeFilter.value]);
+const appliedTagFilter = ref<string[]>([...tagFilter.value]);
+
+const arraysEqual = (a: string[], b: string[]) =>
+  a.length === b.length && a.every((v, i) => v === b[i]);
+
+let pendingFrame: number | null = null;
+const scheduleApply = () => {
+  if (!import.meta.client) return;
+  if (pendingFrame !== null) cancelAnimationFrame(pendingFrame);
+  // rAF 1 回目は「今フレームの paint 直前」に走るため、チェックボックスの描画と
+  // 同フレームになる。次フレームまで遅らせるために rAF を 2 段ネストする。
+  pendingFrame = requestAnimationFrame(() => {
+    pendingFrame = requestAnimationFrame(() => {
+      pendingFrame = null;
+      if (!arraysEqual(appliedStatusFilter.value, statusFilter.value)) {
+        appliedStatusFilter.value = [...statusFilter.value];
+      }
+      if (!arraysEqual(appliedPriorityFilter.value, priorityFilter.value)) {
+        appliedPriorityFilter.value = [...priorityFilter.value];
+      }
+      if (!arraysEqual(appliedAssigneeFilter.value, assigneeFilter.value)) {
+        appliedAssigneeFilter.value = [...assigneeFilter.value];
+      }
+      if (!arraysEqual(appliedTagFilter.value, tagFilter.value)) {
+        appliedTagFilter.value = [...tagFilter.value];
+      }
+      syncFiltersToUrl();
+    });
+  });
+};
+
+const syncFiltersToUrl = () => {
+  if (!arraysEqual(statusFilter.value, queryArray('status'))) {
+    setQueryArray('status', statusFilter.value);
+  }
+  if (!arraysEqual(priorityFilter.value, queryArray('priority'))) {
+    setQueryArray('priority', priorityFilter.value);
+  }
+  if (!arraysEqual(assigneeFilter.value, queryArray('assignee'))) {
+    setQueryArray('assignee', assigneeFilter.value);
+  }
+  if (!arraysEqual(tagFilter.value, queryArray('tag'))) {
+    setQueryArray('tag', tagFilter.value);
+  }
+};
+
+watch([statusFilter, priorityFilter, assigneeFilter, tagFilter], () => scheduleApply(), {
+  deep: true,
 });
 
-const priorityFilter = computed<string>({
-  get: () => queryString('priority'),
-  set: (v) => updateQuery({ priority: v || undefined }),
-});
-
-const assigneeFilter = computed<string>({
-  get: () => queryString('assignee'),
-  set: (v) => updateQuery({ assignee: v || undefined }),
-});
-
-const tagFilter = computed<string>({
-  get: () => queryString('tag'),
-  set: (v) => updateQuery({ tag: v || undefined }),
-});
+// 戻る/進む・ディープリンク等で URL が外から変わったら ref を合わせる
+const bindFromUrl = (filter: Ref<string[]>, key: string) => {
+  watch(
+    () => queryArray(key),
+    (v) => {
+      if (!arraysEqual(v, filter.value)) {
+        filter.value = v;
+        // URL 主導で来たので applied も即時同期
+        const target =
+          key === 'status'
+            ? appliedStatusFilter
+            : key === 'priority'
+              ? appliedPriorityFilter
+              : key === 'assignee'
+                ? appliedAssigneeFilter
+                : appliedTagFilter;
+        target.value = [...v];
+      }
+    },
+    { deep: true },
+  );
+};
+bindFromUrl(statusFilter, 'status');
+bindFromUrl(priorityFilter, 'priority');
+bindFromUrl(assigneeFilter, 'assignee');
+bindFromUrl(tagFilter, 'tag');
 
 const statusSelectItems = computed(() =>
   statuses.value.map((s) => ({ label: s.label, value: s.code })),
@@ -112,8 +194,8 @@ const assigneeFilterItems = computed(() => {
   }
   // 選択中の担当者が items に無い場合（全タスクが完了して非表示になった等）でも
   // ラベルが ID に化けないように補う
-  const current = assigneeFilter.value;
-  if (current && !items.some((i) => i.value === current)) {
+  for (const current of assigneeFilter.value) {
+    if (items.some((i) => i.value === current)) continue;
     if (current === NO_ASSIGNEE) {
       items.unshift({ label: '(担当者なし)', value: NO_ASSIGNEE });
     } else {
@@ -139,10 +221,10 @@ const showCompleted = computed<boolean>({
 const hasActiveFilter = computed(() =>
   Boolean(
     search.value ||
-    statusFilter.value ||
-    priorityFilter.value ||
-    assigneeFilter.value ||
-    tagFilter.value ||
+    statusFilter.value.length > 0 ||
+    priorityFilter.value.length > 0 ||
+    assigneeFilter.value.length > 0 ||
+    tagFilter.value.length > 0 ||
     showCompleted.value,
   ),
 );
@@ -195,10 +277,16 @@ const onTaskCreated = async (task: Task) => {
 };
 
 const filteredTasks = computed(() => {
+  // チェック直後のチラつき防止のため、applied 系 (rAF で 1 フレーム遅延) を使う
+  const statusSet = new Set(appliedStatusFilter.value);
+  const prioritySet = new Set(appliedPriorityFilter.value);
+  const assigneeSet = new Set(appliedAssigneeFilter.value);
+  const tagSet = new Set(appliedTagFilter.value);
+
   return tasks.value.filter((t) => {
     // ステータスフィルタが選択されていればそれを最優先（完了系も含めて表示）
-    if (statusFilter.value) {
-      if (t.statusCode !== statusFilter.value) return false;
+    if (statusSet.size > 0) {
+      if (!statusSet.has(t.statusCode)) return false;
     } else if (!showCompleted.value && statusMap.value[t.statusCode]?.isTerminal) {
       // ステータスフィルタなし & 「完了も表示」OFF のときは完了系を除外
       return false;
@@ -211,15 +299,15 @@ const filteredTasks = computed(() => {
         t.links.some((l) => l.url.toLowerCase().includes(q));
       if (!matched) return false;
     }
-    if (priorityFilter.value && t.priorityCode !== priorityFilter.value) return false;
-    if (assigneeFilter.value) {
-      if (assigneeFilter.value === NO_ASSIGNEE) {
-        if (t.assigneeMemberId) return false;
-      } else if (t.assigneeMemberId !== assigneeFilter.value) {
-        return false;
-      }
+    if (prioritySet.size > 0 && (!t.priorityCode || !prioritySet.has(t.priorityCode))) {
+      return false;
     }
-    if (tagFilter.value && !t.tagCodes.includes(tagFilter.value)) return false;
+    if (assigneeSet.size > 0) {
+      const matchesNone = !t.assigneeMemberId && assigneeSet.has(NO_ASSIGNEE);
+      const matchesId = t.assigneeMemberId && assigneeSet.has(t.assigneeMemberId);
+      if (!matchesNone && !matchesId) return false;
+    }
+    if (tagSet.size > 0 && !t.tagCodes.some((c) => tagSet.has(c))) return false;
     return true;
   });
 });
@@ -628,39 +716,41 @@ const isOverdue = (task: Task): boolean => {
             </template>
           </UInput>
           <div class="flex items-center gap-1">
-            <USelect
+            <USelectMenu
               v-model="statusFilter"
               :items="statusSelectItems"
               value-key="value"
+              multiple
               placeholder="すべてのステータス"
               class="w-44"
             />
             <UButton
-              v-if="statusFilter"
+              v-if="statusFilter.length > 0"
               icon="i-lucide-x"
               size="xs"
               color="neutral"
               variant="ghost"
               aria-label="ステータスフィルタをクリア"
-              @click="statusFilter = ''"
+              @click="statusFilter = []"
             />
           </div>
           <div class="flex items-center gap-1">
-            <USelect
+            <USelectMenu
               v-model="priorityFilter"
               :items="prioritySelectItems"
               value-key="value"
+              multiple
               placeholder="すべての優先度"
               class="w-40"
             />
             <UButton
-              v-if="priorityFilter"
+              v-if="priorityFilter.length > 0"
               icon="i-lucide-x"
               size="xs"
               color="neutral"
               variant="ghost"
               aria-label="優先度フィルタをクリア"
-              @click="priorityFilter = ''"
+              @click="priorityFilter = []"
             />
           </div>
           <div class="flex items-center gap-1">
@@ -668,6 +758,7 @@ const isOverdue = (task: Task): boolean => {
               v-model="assigneeFilter"
               :items="assigneeFilterItems"
               value-key="value"
+              multiple
               placeholder="すべての担当者"
               icon="i-lucide-user"
               searchable
@@ -675,13 +766,13 @@ const isOverdue = (task: Task): boolean => {
               class="w-44"
             />
             <UButton
-              v-if="assigneeFilter"
+              v-if="assigneeFilter.length > 0"
               icon="i-lucide-x"
               size="xs"
               color="neutral"
               variant="ghost"
               aria-label="担当者フィルタをクリア"
-              @click="assigneeFilter = ''"
+              @click="assigneeFilter = []"
             />
           </div>
           <div class="flex items-center gap-1">
@@ -689,6 +780,7 @@ const isOverdue = (task: Task): boolean => {
               v-model="tagFilter"
               :items="tagFilterItems"
               value-key="value"
+              multiple
               placeholder="すべてのタグ"
               icon="i-lucide-tag"
               searchable
@@ -696,16 +788,20 @@ const isOverdue = (task: Task): boolean => {
               class="w-44"
             />
             <UButton
-              v-if="tagFilter"
+              v-if="tagFilter.length > 0"
               icon="i-lucide-x"
               size="xs"
               color="neutral"
               variant="ghost"
               aria-label="タグフィルタをクリア"
-              @click="tagFilter = ''"
+              @click="tagFilter = []"
             />
           </div>
-          <UCheckbox v-model="showCompleted" label="完了も表示" :disabled="!!statusFilter" />
+          <UCheckbox
+            v-model="showCompleted"
+            label="完了も表示"
+            :disabled="statusFilter.length > 0"
+          />
           <UButton
             v-if="hasActiveFilter"
             color="neutral"
