@@ -2,6 +2,7 @@
 import { h, resolveComponent } from 'vue';
 import type { ColumnSizingInfoState, Row } from '@tanstack/vue-table';
 import type { DropdownMenuItem, TableColumn } from '@nuxt/ui';
+import { VueDraggable } from 'vue-draggable-plus';
 import { apiUpdateTask } from '~/api/tasks';
 import type { Task } from '~/types/task';
 import { fmtDateTime } from '~/utils/date';
@@ -586,6 +587,24 @@ const columnSizingInfo = ref<ColumnSizingInfoState>({
 const columnVisibilityKey = computed(() => `tasks:column-visibility:${currentProjectId.value}`);
 const columnVisibility = ref<Record<string, boolean>>({});
 
+// 列順序も同じくプロジェクトごとに localStorage 永続化
+const columnOrderKey = computed(() => `tasks:column-order:${currentProjectId.value}`);
+const DEFAULT_COLUMN_ORDER: string[] = columns.map(
+  (c) => (c as { accessorKey?: string; id?: string }).accessorKey ?? (c as { id: string }).id,
+);
+/**
+ * 保存値と現行列定義をマージする。
+ * - 保存値の順序を尊重しつつ、存在しなくなったキーは除外
+ * - 新しく増えた列は末尾に追加（過去ユーザーでもデフォルト位置に出てくる）
+ */
+const mergeColumnOrder = (saved: string[] | null): string[] => {
+  if (!saved) return [...DEFAULT_COLUMN_ORDER];
+  const valid = saved.filter((k) => DEFAULT_COLUMN_ORDER.includes(k));
+  const missing = DEFAULT_COLUMN_ORDER.filter((k) => !valid.includes(k));
+  return [...valid, ...missing];
+};
+const columnOrder = ref<string[]>([...DEFAULT_COLUMN_ORDER]);
+
 // ドロップダウンに出す日本語ラベル
 const COLUMN_LABELS: Record<string, string> = {
   seq: 'No',
@@ -649,6 +668,13 @@ onMounted(() => {
   } catch {
     columnVisibility.value = { ...DEFAULT_HIDDEN_COLUMNS };
   }
+  try {
+    const raw = localStorage.getItem(columnOrderKey.value);
+    const stored = raw ? (JSON.parse(raw) as string[]) : null;
+    columnOrder.value = mergeColumnOrder(stored);
+  } catch {
+    columnOrder.value = [...DEFAULT_COLUMN_ORDER];
+  }
 });
 
 watch(
@@ -665,6 +691,15 @@ watch(
   (v) => {
     if (!import.meta.client) return;
     localStorage.setItem(columnVisibilityKey.value, JSON.stringify(v));
+  },
+  { deep: true },
+);
+
+watch(
+  columnOrder,
+  (v) => {
+    if (!import.meta.client) return;
+    localStorage.setItem(columnOrderKey.value, JSON.stringify(v));
   },
   { deep: true },
 );
@@ -705,6 +740,36 @@ const isPlannedCompletionOverdue = (task: Task): boolean =>
               trailing-icon="i-lucide-chevron-down"
             />
           </UDropdownMenu>
+          <UPopover :ui="{ content: 'p-2 w-64' }">
+            <UButton
+              color="neutral"
+              variant="outline"
+              icon="i-lucide-arrow-left-right"
+              label="列順"
+              trailing-icon="i-lucide-chevron-down"
+            />
+            <template #content>
+              <p class="text-xs text-muted px-2 pt-1 pb-2">ドラッグで列の並び順を変更</p>
+              <VueDraggable
+                v-model="columnOrder"
+                :animation="150"
+                handle=".drag-handle"
+                class="space-y-0.5"
+              >
+                <div
+                  v-for="key in columnOrder"
+                  :key="key"
+                  class="flex items-center gap-2 px-2 py-1 rounded hover:bg-elevated/40"
+                >
+                  <UIcon
+                    name="i-lucide-grip-vertical"
+                    class="drag-handle cursor-move size-4 text-muted shrink-0"
+                  />
+                  <span class="text-sm truncate">{{ COLUMN_LABELS[key] ?? key }}</span>
+                </div>
+              </VueDraggable>
+            </template>
+          </UPopover>
           <UButton
             color="primary"
             icon="i-lucide-plus"
@@ -866,6 +931,7 @@ const isPlannedCompletionOverdue = (task: Task): boolean =>
           v-model:column-sizing="columnSizing"
           v-model:column-sizing-info="columnSizingInfo"
           v-model:column-visibility="columnVisibility"
+          v-model:column-order="columnOrder"
           :data="filteredTasks"
           :columns="columns"
           :column-sizing-options="{ enableColumnResizing: true, columnResizeMode: 'onChange' }"
