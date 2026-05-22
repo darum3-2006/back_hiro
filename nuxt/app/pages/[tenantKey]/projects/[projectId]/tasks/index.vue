@@ -486,6 +486,18 @@ const columns: TableColumn<Task>[] = [
     },
   },
   {
+    accessorKey: 'plannedReleaseDate',
+    header: sortHeader('リリース予定日'),
+    size: 120,
+    minSize: 80,
+    meta: RESIZABLE_META,
+    sortingFn: (a: Row<Task>, b: Row<Task>) => {
+      const da = a.original.plannedReleaseDate ?? '9999-12-31';
+      const db = b.original.plannedReleaseDate ?? '9999-12-31';
+      return da.localeCompare(db);
+    },
+  },
+  {
     accessorKey: 'requesterMemberId',
     header: sortHeader('起票者'),
     size: 140,
@@ -582,6 +594,7 @@ const COLUMN_LABELS: Record<string, string> = {
   tagCodes: 'タグ',
   deadline: '期限',
   plannedCompletionDate: '完了予定日',
+  plannedReleaseDate: 'リリース予定日',
   requesterMemberId: '起票者',
   requestingDeptCode: '依頼部署',
   description: '説明',
@@ -594,6 +607,7 @@ const COLUMN_LABELS: Record<string, string> = {
 /** デフォルトで非表示にする列（ユーザーが切り替えれば永続化） */
 const DEFAULT_HIDDEN_COLUMNS: Record<string, boolean> = {
   plannedCompletionDate: false,
+  plannedReleaseDate: false,
   requesterMemberId: false,
   requestingDeptCode: false,
   description: false,
@@ -997,6 +1011,21 @@ const isOverdue = (task: Task): boolean => {
                 class="text-sm tabular-nums hover:underline cursor-pointer min-w-16 text-left"
               >
                 {{ row.original.plannedCompletionDate ?? '—' }}
+              </button>
+            </DatePopover>
+          </template>
+
+          <template #plannedReleaseDate-cell="{ row }">
+            <DatePopover
+              :model-value="row.original.plannedReleaseDate"
+              @update:model-value="
+                (v: string | null) => updateTaskField(row.original.id, { plannedReleaseDate: v })
+              "
+            >
+              <button
+                class="text-sm tabular-nums hover:underline cursor-pointer min-w-16 text-left"
+              >
+                {{ row.original.plannedReleaseDate ?? '—' }}
               </button>
             </DatePopover>
           </template>

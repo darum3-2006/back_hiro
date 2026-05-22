@@ -32,6 +32,7 @@ describe('TasksService', () => {
     requestingDeptCode: null,
     deadline: null,
     plannedCompletionDate: null,
+    plannedReleaseDate: null,
     completedAt: null,
     createdAt: new Date('2026-01-01'),
     updatedAt: new Date('2026-01-01'),
