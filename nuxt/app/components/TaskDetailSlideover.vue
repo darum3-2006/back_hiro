@@ -6,6 +6,7 @@ import type { Department, Tag, TaskPriority, TaskStatus } from '~/types/master';
 import type { Task, TaskLink } from '~/types/task';
 import { fmtDate, fmtDateTime } from '~/utils/date';
 import { resolveLinkLabelFromUrl } from '~/utils/link-label';
+import { isTaskDatePast } from '~/utils/task-overdue';
 
 /** 作成と更新の差が 1 秒以上なら「編集済み」とみなす（DB の updated_at は作成時にも入るため） */
 const isCommentEdited = (c: { createdAt: string; updatedAt: string | null }): boolean => {
@@ -13,13 +14,15 @@ const isCommentEdited = (c: { createdAt: string; updatedAt: string | null }): bo
   return dayjs(c.updatedAt).diff(c.createdAt, 'second') >= 1;
 };
 
-/** 期限超過判定: 今日より前 かつ 完了系ステータスでない */
-const isOverdue = computed(() => {
-  const t = props.task;
-  if (!t || !t.deadline) return false;
-  if (props.statusMap[t.statusCode]?.isTerminal) return false;
-  return dayjs(t.deadline).isBefore(dayjs(), 'day');
-});
+const isOverdue = computed(() =>
+  props.task ? isTaskDatePast(props.task.deadline, props.task.statusCode, props.statusMap) : false,
+);
+
+const isPlannedCompletionOverdue = computed(() =>
+  props.task
+    ? isTaskDatePast(props.task.plannedCompletionDate, props.task.statusCode, props.statusMap)
+    : false,
+);
 
 const api = useApi();
 
@@ -441,7 +444,10 @@ const tagsList = computed(() => Object.values(props.tagMap));
                 (v: string | null) => emit('change-field', { plannedCompletionDate: v })
               "
             >
-              <button class="text-sm tabular-nums hover:underline cursor-pointer text-left">
+              <button
+                class="text-sm tabular-nums hover:underline cursor-pointer text-left"
+                :class="isPlannedCompletionOverdue ? 'text-error font-medium' : ''"
+              >
                 {{ fmtDate(task.plannedCompletionDate) }}
               </button>
             </DatePopover>
