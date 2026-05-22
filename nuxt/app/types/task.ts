@@ -17,6 +17,7 @@ export interface Task {
   statusCode: string;
   deadline: string | null;
   plannedCompletionDate: string | null;
+  plannedReleaseDate: string | null;
   /** 完了日時。ステータスが完了扱い (isTerminal=true) の間だけ値を持つ */
   completedAt: string | null;
   tagCodes: string[];

@@ -115,6 +115,14 @@ export class Task extends BaseEntity {
   plannedCompletionDate!: string | null;
 
   @Column({
+    type: 'date',
+    name: 'planned_release_date',
+    nullable: true,
+    comment: 'リリース予定日',
+  })
+  plannedReleaseDate!: string | null;
+
+  @Column({
     type: 'datetime',
     precision: 6,
     name: 'completed_at',

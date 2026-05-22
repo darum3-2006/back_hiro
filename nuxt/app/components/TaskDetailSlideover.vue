@@ -447,6 +447,19 @@ const tagsList = computed(() => Object.values(props.tagMap));
             </DatePopover>
           </div>
           <div>
+            <p class="text-xs text-muted mb-1">リリース予定日</p>
+            <DatePopover
+              :model-value="task.plannedReleaseDate"
+              @update:model-value="
+                (v: string | null) => emit('change-field', { plannedReleaseDate: v })
+              "
+            >
+              <button class="text-sm tabular-nums hover:underline cursor-pointer text-left">
+                {{ fmtDate(task.plannedReleaseDate) }}
+              </button>
+            </DatePopover>
+          </div>
+          <div>
             <p class="text-xs text-muted mb-1">作成日時</p>
             <p class="text-sm">
               {{ fmtDateTime(task.createdAt) }}

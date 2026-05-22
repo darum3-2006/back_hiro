@@ -35,6 +35,7 @@ const FIELD_LABELS: Record<string, string> = {
   requestingDeptCode: '依頼部署',
   deadline: '期限',
   plannedCompletionDate: '完了予定日',
+  plannedReleaseDate: 'リリース予定日',
   tagCodes: 'タグ',
   tagCode: 'タグ',
   url: 'URL',

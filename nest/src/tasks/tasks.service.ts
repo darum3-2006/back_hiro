@@ -27,6 +27,7 @@ export interface TaskResponse {
   requestingDeptCode: string | null;
   deadline: string | null;
   plannedCompletionDate: string | null;
+  plannedReleaseDate: string | null;
   completedAt: Date | null;
   tagCodes: string[];
   createdAt: Date;
@@ -87,6 +88,7 @@ export class TasksService {
       requestingDeptCode: dto.requestingDeptCode ?? null,
       deadline: dto.deadline ?? null,
       plannedCompletionDate: dto.plannedCompletionDate ?? null,
+      plannedReleaseDate: dto.plannedReleaseDate ?? null,
       completedAt,
     });
     const saved = await this.tasks.save(task);
@@ -124,6 +126,9 @@ export class TasksService {
     if (dto.deadline !== undefined) task.deadline = dto.deadline ?? null;
     if (dto.plannedCompletionDate !== undefined) {
       task.plannedCompletionDate = dto.plannedCompletionDate ?? null;
+    }
+    if (dto.plannedReleaseDate !== undefined) {
+      task.plannedReleaseDate = dto.plannedReleaseDate ?? null;
     }
     await this.tasks.save(task);
     if (dto.tagCodes !== undefined) {
@@ -241,6 +246,7 @@ export class TasksService {
       requestingDeptCode: t.requestingDeptCode,
       deadline: t.deadline,
       plannedCompletionDate: t.plannedCompletionDate,
+      plannedReleaseDate: t.plannedReleaseDate,
       completedAt: t.completedAt,
       tagCodes,
       createdAt: t.createdAt,

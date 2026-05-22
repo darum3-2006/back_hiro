@@ -37,6 +37,7 @@ const makeInitialDraft = (): Draft => ({
   statusCode: props.statuses[0]?.code ?? '',
   deadline: null,
   plannedCompletionDate: null,
+  plannedReleaseDate: null,
   tagCodes: [],
 });
 
@@ -111,6 +112,7 @@ const submit = async () => {
       requestingDeptCode: draft.value.requestingDeptCode,
       deadline: draft.value.deadline,
       plannedCompletionDate: draft.value.plannedCompletionDate,
+      plannedReleaseDate: draft.value.plannedReleaseDate,
       tagCodes: draft.value.tagCodes,
     });
     emit('created', task);
@@ -317,6 +319,17 @@ const departmentSelectItems = computed(() =>
             >
               <button class="text-sm tabular-nums hover:underline cursor-pointer text-left">
                 {{ draft.plannedCompletionDate ?? '—' }}
+              </button>
+            </DatePopover>
+          </div>
+          <div>
+            <p class="text-xs text-muted mb-1">リリース予定日</p>
+            <DatePopover
+              :model-value="draft.plannedReleaseDate"
+              @update:model-value="(v: string | null) => (draft.plannedReleaseDate = v)"
+            >
+              <button class="text-sm tabular-nums hover:underline cursor-pointer text-left">
+                {{ draft.plannedReleaseDate ?? '—' }}
               </button>
             </DatePopover>
           </div>
