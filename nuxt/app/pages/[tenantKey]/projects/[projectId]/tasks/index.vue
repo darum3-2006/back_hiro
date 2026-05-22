@@ -314,8 +314,10 @@ const filteredTasks = computed(() => {
 
 const sorting = computed<{ id: string; desc: boolean }[]>({
   get: () => {
+    // 未指定時は空配列を返す。実在しない列 id を渡すと TanStack Table が
+    // 「Column with id 'id' does not exist.」と警告するため。
     const id = queryString('sort');
-    if (!id) return [{ id: 'id', desc: false }];
+    if (!id) return [];
     return [{ id, desc: queryString('sortDir') === 'desc' }];
   },
   set: (v) => {
