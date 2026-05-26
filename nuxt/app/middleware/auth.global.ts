@@ -16,8 +16,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
   const { token, me, fetchMe } = useAuth();
 
   // 再ログイン後に元の URL に戻せるよう、login へ飛ばす際は redirect クエリで fullPath を保持する。
-  const loginUrlFor = (key: string) =>
-    `/${key}/login?redirect=${encodeURIComponent(to.fullPath)}`;
+  const loginUrlFor = (key: string) => `/${key}/login?redirect=${encodeURIComponent(to.fullPath)}`;
 
   if (!token.value) {
     if (tenantKey) return navigateTo(loginUrlFor(tenantKey), { replace: true });
