@@ -364,16 +364,19 @@ const departmentSelectItems = computed(() =>
           <p class="text-xs text-muted mb-1">リンク</p>
           <div class="space-y-2">
             <div v-for="(link, i) in draft.links" :key="i" class="flex items-start gap-2">
-              <UFormField :error="linkError(i, 'label')" class="w-32">
-                <UInput v-model="link.label" placeholder="ラベル" class="w-full" />
-              </UFormField>
+              <!-- Tab 順を URL → ラベル → ボタン にするため、DOM 上は URL を先に置き、
+                   ラベルは order-first で視覚的に先頭へ戻している。 -->
               <UFormField :error="linkError(i, 'url')" class="flex-1">
                 <UInput
                   v-model="link.url"
+                  autofocus
                   placeholder="https://..."
                   class="w-full"
                   @paste="(e: ClipboardEvent) => onLinkUrlPaste(e, link)"
                 />
+              </UFormField>
+              <UFormField :error="linkError(i, 'label')" class="w-32 order-first">
+                <UInput v-model="link.label" placeholder="ラベル" class="w-full" />
               </UFormField>
               <UButton
                 size="xs"
