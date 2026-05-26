@@ -11,12 +11,28 @@ const email = ref('');
 const password = ref('');
 const submitting = ref(false);
 
-// 既にログイン済みなら自動でテナントトップへ。
+/**
+ * セッション切れで login へ飛ばされる際に付与された ?redirect= を解決する。
+ * 同テナント配下のパスのみ許可し、login 自身や外部 URL（//evil.com 等）は弾く。
+ */
+const resolveRedirect = (): string => {
+  const fallback = `/${tenantKey.value}`;
+  const raw = route.query.redirect;
+  const target = typeof raw === 'string' ? raw : '';
+  if (!target) return fallback;
+  if (target.startsWith('//')) return fallback;
+  if (!target.startsWith(`/${tenantKey.value}/`)) return fallback;
+  if (target === `/${tenantKey.value}/login`) return fallback;
+  if (target.startsWith(`/${tenantKey.value}/login?`)) return fallback;
+  return target;
+};
+
+// 既にログイン済みなら自動で元のページ（無ければテナントトップ）へ。
 onMounted(async () => {
   if (!token.value) return;
   const me = await fetchMe();
   if (me) {
-    await navigateTo(`/${tenantKey.value}`, { replace: true });
+    await navigateTo(resolveRedirect(), { replace: true });
   }
 });
 
@@ -34,7 +50,7 @@ const onSubmit = async () => {
       password: password.value,
     });
     // SPA ナビゲーションで Suspense が解決しないケースを回避するためハード遷移
-    window.location.href = `/${tenantKey.value}`;
+    window.location.href = resolveRedirect();
   } catch (e: unknown) {
     submitting.value = false;
     const message =

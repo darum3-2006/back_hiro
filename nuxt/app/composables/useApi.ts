@@ -23,9 +23,14 @@ export const useApi = () => {
       const m = /^\/([^/]+)/.exec(path);
       const tenantKey = m?.[1] ?? '';
       const loginPath = tenantKey ? `/${tenantKey}/login` : '/';
-      if (path !== loginPath) {
-        await navigateTo(loginPath, { replace: true });
-      }
+      if (path === loginPath) return;
+      // 再ログイン後に元のページへ戻せるよう、現在の fullPath を redirect クエリで保持する。
+      const fullPath = path + window.location.search;
+      const target =
+        tenantKey && fullPath.startsWith(`/${tenantKey}/`) && fullPath !== loginPath
+          ? `${loginPath}?redirect=${encodeURIComponent(fullPath)}`
+          : loginPath;
+      await navigateTo(target, { replace: true });
     },
   });
 };
