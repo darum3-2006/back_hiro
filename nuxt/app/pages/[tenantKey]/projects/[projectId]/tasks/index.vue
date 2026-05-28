@@ -4,8 +4,9 @@ import type { ColumnSizingInfoState, Row } from '@tanstack/vue-table';
 import type { DropdownMenuItem, TableColumn } from '@nuxt/ui';
 import { VueDraggable } from 'vue-draggable-plus';
 import { apiUpdateTask } from '~/api/tasks';
+import type { DateRangeValue } from '~/components/DateRangeFilter.vue';
 import type { Task } from '~/types/task';
-import { fmtDateTime } from '~/utils/date';
+import { fmtDate, fmtDateTime } from '~/utils/date';
 import { isTaskDatePast } from '~/utils/task-overdue';
 
 const api = useApi();
@@ -25,6 +26,8 @@ const colorModeAriaLabel = computed(() =>
 
 const UButton = resolveComponent('UButton');
 const UIcon = resolveComponent('UIcon');
+const UPopover = resolveComponent('UPopover');
+const DateRangeFilter = resolveComponent('DateRangeFilter');
 
 const route = useRoute();
 const router = useRouter();
@@ -169,6 +172,95 @@ bindFromUrl(priorityFilter, 'priority');
 bindFromUrl(assigneeFilter, 'assignee');
 bindFromUrl(tagFilter, 'tag');
 
+// ===== 日付範囲フィルタ =====
+// 期限 / 完了予定日 / リリース予定日 / 完了日時 を URL クエリと双方向同期する。
+// completedAt のみ datetime 値だが、フィルタは「日付」単位で比較する（matchesDateRange 参照）。
+const useDateRangeFilter = (queryKeyFrom: string, queryKeyTo: string) => {
+  const range = ref<DateRangeValue>({
+    from: queryString(queryKeyFrom) || null,
+    to: queryString(queryKeyTo) || null,
+  });
+
+  const isActive = computed(() => Boolean(range.value.from || range.value.to));
+
+  watch(
+    range,
+    (v) => {
+      const currentFrom = queryString(queryKeyFrom) || null;
+      const currentTo = queryString(queryKeyTo) || null;
+      if (v.from === currentFrom && v.to === currentTo) return;
+      updateQuery({
+        [queryKeyFrom]: v.from ?? undefined,
+        [queryKeyTo]: v.to ?? undefined,
+      });
+    },
+    { deep: true },
+  );
+
+  watch(
+    () => [queryString(queryKeyFrom), queryString(queryKeyTo)] as const,
+    ([from, to]) => {
+      const fromN = from || null;
+      const toN = to || null;
+      if (range.value.from === fromN && range.value.to === toN) return;
+      range.value = { from: fromN, to: toN };
+    },
+  );
+
+  const clear = () => {
+    range.value = { from: null, to: null };
+  };
+
+  return { range, isActive, clear };
+};
+
+const deadlineFilter = useDateRangeFilter('deadlineFrom', 'deadlineTo');
+const plannedCompletionFilter = useDateRangeFilter('plannedCompletionFrom', 'plannedCompletionTo');
+const plannedReleaseFilter = useDateRangeFilter('plannedReleaseFrom', 'plannedReleaseTo');
+const completedAtFilter = useDateRangeFilter('completedAtFrom', 'completedAtTo');
+
+/**
+ * タスクの日付列値 (date or datetime) が範囲に含まれるか。
+ * - value が null かつ範囲指定中: 除外
+ * - completedAt のような datetime も先頭 10 文字 (YYYY-MM-DD) で日付比較
+ */
+const matchesDateRange = (value: string | null, range: DateRangeValue): boolean => {
+  if (!range.from && !range.to) return true;
+  if (!value) return false;
+  const datePart = value.slice(0, 10);
+  if (range.from && datePart < range.from) return false;
+  if (range.to && datePart > range.to) return false;
+  return true;
+};
+
+/** チップ表示用: from/to の片方だけ指定なら「以降」「以前」と表現する */
+const formatDateRangeChip = (range: DateRangeValue): string => {
+  const from = range.from ? fmtDate(range.from) : null;
+  const to = range.to ? fmtDate(range.to) : null;
+  if (from && to) return `${from} 〜 ${to}`;
+  if (from) return `${from} 以降`;
+  if (to) return `${to} 以前`;
+  return '';
+};
+
+/** チップ列で繰り返し描画するためのメタ情報。computed 内で .value を展開して再評価を効かせる */
+const dateFilterChips = computed(() =>
+  [
+    { label: '期限', filter: deadlineFilter },
+    { label: '完了予定日', filter: plannedCompletionFilter },
+    { label: 'リリース予定日', filter: plannedReleaseFilter },
+    { label: '完了日時', filter: completedAtFilter },
+  ]
+    .filter((c) => c.filter.isActive.value)
+    .map((c) => ({
+      label: c.label,
+      text: formatDateRangeChip(c.filter.range.value),
+      clear: c.filter.clear,
+    })),
+);
+
+const hasActiveDateFilter = computed(() => dateFilterChips.value.length > 0);
+
 const statusSelectItems = computed(() =>
   statuses.value.map((s) => ({ label: s.label, value: s.code })),
 );
@@ -227,7 +319,8 @@ const hasActiveFilter = computed(() =>
     priorityFilter.value.length > 0 ||
     assigneeFilter.value.length > 0 ||
     tagFilter.value.length > 0 ||
-    showCompleted.value,
+    showCompleted.value ||
+    hasActiveDateFilter.value,
   ),
 );
 
@@ -239,6 +332,14 @@ const resetFilters = () => {
     assignee: undefined,
     tag: undefined,
     showCompleted: undefined,
+    deadlineFrom: undefined,
+    deadlineTo: undefined,
+    plannedCompletionFrom: undefined,
+    plannedCompletionTo: undefined,
+    plannedReleaseFrom: undefined,
+    plannedReleaseTo: undefined,
+    completedAtFrom: undefined,
+    completedAtTo: undefined,
   });
 };
 
@@ -310,6 +411,13 @@ const filteredTasks = computed(() => {
       if (!matchesNone && !matchesId) return false;
     }
     if (tagSet.size > 0 && !t.tagCodes.some((c) => tagSet.has(c))) return false;
+    // 日付範囲フィルタ。null 値は範囲指定中は除外。
+    if (!matchesDateRange(t.deadline, deadlineFilter.range.value)) return false;
+    if (!matchesDateRange(t.plannedCompletionDate, plannedCompletionFilter.range.value)) {
+      return false;
+    }
+    if (!matchesDateRange(t.plannedReleaseDate, plannedReleaseFilter.range.value)) return false;
+    if (!matchesDateRange(t.completedAt, completedAtFilter.range.value)) return false;
     return true;
   });
 });
@@ -552,6 +660,57 @@ const plainHeader = (label: string) => {
     wrapHeader([h('span', { class: 'text-sm' }, label)], header);
 };
 
+/** ソートボタンに加えて、漏斗アイコン + 日付範囲フィルタの Popover を持つヘッダ */
+const sortAndDateFilterHeader = (
+  label: string,
+  active: ComputedRef<boolean>,
+  range: Ref<DateRangeValue>,
+) => {
+  return ({ column, header }: { column: SortColumn; header: ResizeHeader }) => {
+    const sorted = column.getIsSorted();
+    return wrapHeader(
+      [
+        h(UButton, {
+          color: 'neutral',
+          variant: 'ghost',
+          label,
+          class: '-mx-2.5 data-[state=open]:bg-elevated',
+          icon:
+            sorted === 'asc'
+              ? 'i-lucide-arrow-up'
+              : sorted === 'desc'
+                ? 'i-lucide-arrow-down'
+                : 'i-lucide-arrow-up-down',
+          onClick: () => column.toggleSorting(),
+        }),
+        h(
+          UPopover,
+          { ui: { content: 'p-0 w-auto' } },
+          {
+            default: () =>
+              h(UButton, {
+                color: active.value ? 'primary' : 'neutral',
+                variant: active.value ? 'soft' : 'ghost',
+                size: 'xs',
+                icon: 'i-lucide-filter',
+                'aria-label': `${label}の範囲でフィルタ`,
+                class: 'ml-0.5',
+              }),
+            content: () =>
+              h(DateRangeFilter, {
+                modelValue: range.value,
+                'onUpdate:modelValue': (v: DateRangeValue) => {
+                  range.value = v;
+                },
+              }),
+          },
+        ),
+      ],
+      header,
+    );
+  };
+};
+
 /** リサイズハンドル配置用 + 列幅を th/td の style に反映する meta */
 const RESIZABLE_META = {
   class: { th: 'relative' },
@@ -638,7 +797,7 @@ const columns: TableColumn<Task>[] = [
   },
   {
     accessorKey: 'deadline',
-    header: sortHeader('期限'),
+    header: sortAndDateFilterHeader('期限', deadlineFilter.isActive, deadlineFilter.range),
     size: 120,
     minSize: 80,
     meta: RESIZABLE_META,
@@ -650,7 +809,11 @@ const columns: TableColumn<Task>[] = [
   },
   {
     accessorKey: 'plannedCompletionDate',
-    header: sortHeader('完了予定日'),
+    header: sortAndDateFilterHeader(
+      '完了予定日',
+      plannedCompletionFilter.isActive,
+      plannedCompletionFilter.range,
+    ),
     size: 120,
     minSize: 80,
     meta: RESIZABLE_META,
@@ -662,7 +825,11 @@ const columns: TableColumn<Task>[] = [
   },
   {
     accessorKey: 'plannedReleaseDate',
-    header: sortHeader('リリース予定日'),
+    header: sortAndDateFilterHeader(
+      'リリース予定日',
+      plannedReleaseFilter.isActive,
+      plannedReleaseFilter.range,
+    ),
     size: 120,
     minSize: 80,
     meta: RESIZABLE_META,
@@ -714,7 +881,11 @@ const columns: TableColumn<Task>[] = [
   },
   {
     accessorKey: 'completedAt',
-    header: sortHeader('完了日時'),
+    header: sortAndDateFilterHeader(
+      '完了日時',
+      completedAtFilter.isActive,
+      completedAtFilter.range,
+    ),
     size: 140,
     minSize: 100,
     meta: RESIZABLE_META,
@@ -1081,24 +1252,31 @@ const isPlannedCompletionOverdue = (task: Task): boolean =>
           </span>
         </div>
 
-        <EmptyState
-          v-if="filteredTasks.length === 0"
-          icon="i-lucide-search-x"
-          title="条件に合うタスクがありません"
-          description="フィルタを変更してみてください"
+        <!-- 列ヘッダで設定されたフィルタは上部バーから見えないので、ここでチップ表示。
+             デフォルト非表示の列にフィルタが残っていても気付けるようにする。 -->
+        <div
+          v-if="hasActiveDateFilter"
+          class="flex flex-wrap items-center gap-2 px-4 pb-2 border-b border-default"
         >
-          <UButton
-            v-if="hasActiveFilter"
-            color="neutral"
-            variant="ghost"
-            icon="i-lucide-x"
-            label="フィルタをクリア"
-            @click="resetFilters"
-          />
-        </EmptyState>
+          <span class="text-xs text-muted">フィルタ:</span>
+          <div
+            v-for="chip in dateFilterChips"
+            :key="chip.label"
+            class="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-md bg-primary/10 text-primary text-xs"
+          >
+            <span>{{ chip.label }}: {{ chip.text }}</span>
+            <UButton
+              icon="i-lucide-x"
+              size="xs"
+              color="primary"
+              variant="ghost"
+              :aria-label="`${chip.label}フィルタをクリア`"
+              @click="chip.clear"
+            />
+          </div>
+        </div>
 
         <UTable
-          v-else
           v-model:sorting="sorting"
           v-model:column-sizing="columnSizing"
           v-model:column-sizing-info="columnSizingInfo"
@@ -1322,6 +1500,21 @@ const isPlannedCompletionOverdue = (task: Task): boolean =>
             <span class="text-xs text-muted tabular-nums">
               {{ fmtDateTime(row.original.updatedAt) }}
             </span>
+          </template>
+
+          <template #empty>
+            <div class="flex flex-col items-center gap-2 py-10 text-muted">
+              <UIcon name="i-lucide-search-x" class="size-8" />
+              <p class="text-sm">条件に合うタスクがありません</p>
+              <UButton
+                v-if="hasActiveFilter"
+                color="neutral"
+                variant="ghost"
+                icon="i-lucide-x"
+                label="フィルタをクリア"
+                @click="resetFilters"
+              />
+            </div>
           </template>
         </UTable>
       </template>
