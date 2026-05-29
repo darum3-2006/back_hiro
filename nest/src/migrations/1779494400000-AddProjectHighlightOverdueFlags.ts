@@ -22,8 +22,6 @@ export class AddProjectHighlightOverdueFlags1779494400000 implements MigrationIn
     await queryRunner.query(
       `ALTER TABLE \`projects\` DROP COLUMN \`highlight_overdue_planned_completion\``,
     );
-    await queryRunner.query(
-      `ALTER TABLE \`projects\` DROP COLUMN \`highlight_overdue_deadline\``,
-    );
+    await queryRunner.query(`ALTER TABLE \`projects\` DROP COLUMN \`highlight_overdue_deadline\``);
   }
 }
