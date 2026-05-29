@@ -108,6 +108,9 @@ describe('ProjectsService', () => {
       name: 'Old',
       description: null,
       archivedAt: null,
+      highlightOverdueDeadline: false,
+      highlightOverduePlannedCompletion: false,
+      highlightOverduePlannedRelease: false,
       createdAt: new Date('2026-01-01'),
       updatedAt: new Date('2026-01-01'),
       deletedAt: null,
@@ -151,6 +154,19 @@ describe('ProjectsService', () => {
       await expect(service.update(tenantId, 'unknown', { name: 'X' })).rejects.toThrow(
         NotFoundException,
       );
+    });
+
+    it('highlight フラグを個別に切り替えられる', async () => {
+      repo.findOne.mockResolvedValue({ ...existing } as Project);
+
+      const result = await service.update(tenantId, 'p1', {
+        highlightOverdueDeadline: true,
+        highlightOverduePlannedRelease: true,
+      });
+
+      expect(result.highlightOverdueDeadline).toBe(true);
+      expect(result.highlightOverduePlannedCompletion).toBe(false);
+      expect(result.highlightOverduePlannedRelease).toBe(true);
     });
   });
 });

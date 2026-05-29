@@ -4,4 +4,7 @@ export interface Project {
   name: string;
   description: string | null;
   archivedAt: string | null;
+  highlightOverdueDeadline: boolean;
+  highlightOverduePlannedCompletion: boolean;
+  highlightOverduePlannedRelease: boolean;
 }

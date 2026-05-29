@@ -50,6 +50,15 @@ export class ProjectsService {
     if (dto.archived !== undefined) {
       project.archivedAt = dto.archived ? new Date() : null;
     }
+    if (dto.highlightOverdueDeadline !== undefined) {
+      project.highlightOverdueDeadline = dto.highlightOverdueDeadline;
+    }
+    if (dto.highlightOverduePlannedCompletion !== undefined) {
+      project.highlightOverduePlannedCompletion = dto.highlightOverduePlannedCompletion;
+    }
+    if (dto.highlightOverduePlannedRelease !== undefined) {
+      project.highlightOverduePlannedRelease = dto.highlightOverduePlannedRelease;
+    }
     return this.projects.save(project);
   }
 }
