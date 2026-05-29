@@ -16,4 +16,16 @@ export class UpdateProjectDto {
   @IsOptional()
   @IsBoolean()
   archived?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  highlightOverdueDeadline?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  highlightOverduePlannedCompletion?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  highlightOverduePlannedRelease?: boolean;
 }

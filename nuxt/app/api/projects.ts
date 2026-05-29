@@ -11,6 +11,9 @@ export interface UpdateProjectInput {
   description?: string | null;
   /** true でアーカイブ、false で復元 */
   archived?: boolean;
+  highlightOverdueDeadline?: boolean;
+  highlightOverduePlannedCompletion?: boolean;
+  highlightOverduePlannedRelease?: boolean;
 }
 
 /** GET /api/projects */

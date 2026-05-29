@@ -54,6 +54,23 @@ const cancelEdit = () => {
   editingField.value = null;
 };
 
+type HighlightField =
+  | 'highlightOverdueDeadline'
+  | 'highlightOverduePlannedCompletion'
+  | 'highlightOverduePlannedRelease';
+
+const highlightToggles: { field: HighlightField; label: string }[] = [
+  { field: 'highlightOverdueDeadline', label: '期限超過の行を赤く強調する' },
+  { field: 'highlightOverduePlannedCompletion', label: '完了予定日超過の行を赤く強調する' },
+  { field: 'highlightOverduePlannedRelease', label: 'リリース予定日超過の行を赤く強調する' },
+];
+
+const toggleHighlight = async (field: HighlightField, value: boolean) => {
+  if (!project.value) return;
+  await apiUpdateProject(api, projectId.value, { [field]: value });
+  await refreshProjects();
+};
+
 const archiveModalOpen = ref(false);
 const archiving = ref(false);
 
@@ -118,6 +135,21 @@ const performArchive = async () => {
         <span v-if="project.description">{{ project.description }}</span>
         <span v-else class="text-muted">クリックして説明を追加</span>
       </button>
+    </div>
+
+    <USeparator />
+
+    <div>
+      <h3 class="text-sm font-medium mb-3">表示設定</h3>
+      <div class="space-y-3">
+        <USwitch
+          v-for="t in highlightToggles"
+          :key="t.field"
+          :model-value="project[t.field]"
+          :label="t.label"
+          @update:model-value="(v: boolean) => toggleHighlight(t.field, v)"
+        />
+      </div>
     </div>
 
     <template v-if="isAdmin">

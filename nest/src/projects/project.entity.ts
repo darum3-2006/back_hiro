@@ -32,4 +32,40 @@ export class Project extends BaseEntity {
     comment: 'アーカイブ日時（NULL=有効）',
   })
   archivedAt!: Date | null;
+
+  @Column({
+    type: 'boolean',
+    name: 'highlight_overdue_deadline',
+    default: false,
+    comment: '期限超過の行を赤く強調する',
+    transformer: {
+      to: (v: boolean) => v,
+      from: (v: number | boolean | null) => Boolean(v),
+    },
+  })
+  highlightOverdueDeadline!: boolean;
+
+  @Column({
+    type: 'boolean',
+    name: 'highlight_overdue_planned_completion',
+    default: false,
+    comment: '完了予定日超過の行を赤く強調する',
+    transformer: {
+      to: (v: boolean) => v,
+      from: (v: number | boolean | null) => Boolean(v),
+    },
+  })
+  highlightOverduePlannedCompletion!: boolean;
+
+  @Column({
+    type: 'boolean',
+    name: 'highlight_overdue_planned_release',
+    default: false,
+    comment: 'リリース予定日超過の行を赤く強調する',
+    transformer: {
+      to: (v: boolean) => v,
+      from: (v: number | boolean | null) => Boolean(v),
+    },
+  })
+  highlightOverduePlannedRelease!: boolean;
 }

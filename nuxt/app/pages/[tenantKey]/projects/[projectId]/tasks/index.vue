@@ -41,6 +41,8 @@ const { data: priorities } = await useTaskPriorities(currentProjectId);
 const { data: tags } = await useTags(currentProjectId);
 const { data: members } = await useMembers(currentProjectId);
 const { data: departments } = await useDepartments();
+const { data: projects } = await useProjects();
+const currentProject = computed(() => projects.value.find((p) => p.id === currentProjectId.value));
 
 const currentMemberId = computed<string | null>(() => {
   const userId = currentUserId.value;
@@ -1056,10 +1058,16 @@ const updateTaskField = async (
 };
 
 const isOverdue = (task: Task): boolean =>
+  (currentProject.value?.highlightOverdueDeadline ?? false) &&
   isTaskDatePast(task.deadline, task.statusCode, statusMap.value);
 
 const isPlannedCompletionOverdue = (task: Task): boolean =>
+  (currentProject.value?.highlightOverduePlannedCompletion ?? false) &&
   isTaskDatePast(task.plannedCompletionDate, task.statusCode, statusMap.value);
+
+const isPlannedReleaseOverdue = (task: Task): boolean =>
+  (currentProject.value?.highlightOverduePlannedRelease ?? false) &&
+  isTaskDatePast(task.plannedReleaseDate, task.statusCode, statusMap.value);
 </script>
 
 <template>
@@ -1442,6 +1450,7 @@ const isPlannedCompletionOverdue = (task: Task): boolean =>
             >
               <button
                 class="text-sm tabular-nums hover:underline cursor-pointer min-w-16 text-left"
+                :class="isPlannedReleaseOverdue(row.original) ? 'text-error font-medium' : ''"
               >
                 {{ row.original.plannedReleaseDate ?? '—' }}
               </button>
