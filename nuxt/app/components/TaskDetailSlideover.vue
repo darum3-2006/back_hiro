@@ -104,7 +104,14 @@ const editingField = ref<EditableField | null>(null);
 const editBuffer = ref('');
 const cancelling = ref(false);
 
+// コピー目的でテキストをドラッグ選択しただけでは編集に入らないようにする
+const hasTextSelection = () => {
+  const sel = window.getSelection();
+  return !!sel && sel.type === 'Range' && sel.toString().trim().length > 0;
+};
+
 const startEdit = (field: EditableField, current: string | null) => {
+  if (hasTextSelection()) return;
   editingField.value = field;
   editBuffer.value = current ?? '';
   cancelling.value = false;
@@ -272,13 +279,13 @@ const tagsList = computed(() => Object.values(props.tagMap));
             @keydown.enter.prevent="commitEdit"
             @keydown.escape.prevent="cancelEdit"
           />
-          <button
+          <div
             v-else
-            class="text-sm whitespace-pre-wrap text-left w-full hover:bg-elevated/40 rounded px-1 -mx-1"
+            class="text-sm whitespace-pre-wrap text-left w-full hover:bg-elevated/40 rounded px-1 -mx-1 cursor-text"
             @click="startEdit('content', task.content)"
           >
             {{ task.content }}
-          </button>
+          </div>
         </div>
 
         <!-- 説明 (editable) -->
