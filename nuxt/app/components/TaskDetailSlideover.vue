@@ -209,6 +209,16 @@ const copyToClipboard = async (text: string, successTitle: string) => {
 const copyLink = (url: string) => copyToClipboard(url, 'リンクをコピーしました');
 const copyContent = (content: string) => copyToClipboard(content, '内容をコピーしました');
 
+const currentTenantKey = useCurrentTenantKey();
+
+/** /:tenantKey/:shortCode 形式の共有リンクをコピーする */
+const copyShareLink = () => {
+  const task = props.task;
+  if (!task) return;
+  const url = `${window.location.origin}/${currentTenantKey.value}/${task.shortCode}`;
+  copyToClipboard(url, 'タスクのリンクをコピーしました');
+};
+
 watch(
   () => props.task?.id,
   () => {
@@ -253,6 +263,15 @@ const tagsList = computed(() => Object.values(props.tagMap));
     <template #description>
       <div class="flex items-start gap-2">
         <span class="flex-1">{{ task?.content }}</span>
+        <UButton
+          v-if="task"
+          size="xs"
+          color="neutral"
+          variant="ghost"
+          icon="i-lucide-link"
+          aria-label="タスクのリンクをコピー"
+          @click="copyShareLink"
+        />
         <UButton
           v-if="task"
           size="xs"

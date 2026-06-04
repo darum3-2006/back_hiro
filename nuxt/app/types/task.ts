@@ -6,6 +6,8 @@ export interface TaskLink {
 export interface Task {
   id: string;
   projectId: string;
+  /** 共有リンク用の不透明な短縮コード（/:tenantKey/:shortCode） */
+  shortCode: string;
   /** プロジェクト内連番（表示用 #N） */
   seq: number;
   content: string;
