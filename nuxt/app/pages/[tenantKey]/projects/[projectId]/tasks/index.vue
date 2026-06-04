@@ -590,7 +590,7 @@ const wrapHeader = (children: unknown[], header: ResizeHeader) => {
   return h(
     'div',
     {
-      class: 'relative flex items-center w-full pr-2',
+      class: 'relative flex items-center w-full min-w-0 overflow-hidden pr-2',
       onDragover: (e: DragEvent) => onHeaderDragOver(e, columnId),
       onDrop: (e: DragEvent) => onHeaderDrop(e, columnId),
       onDragend: resetDragState,
@@ -650,7 +650,8 @@ const sortHeader = (label: string) => {
           color: 'neutral',
           variant: 'ghost',
           label,
-          class: '-mx-2.5 data-[state=open]:bg-elevated',
+          class: '-mx-2.5 min-w-0 data-[state=open]:bg-elevated',
+          ui: { label: 'truncate min-w-0' },
           icon:
             sorted === 'asc'
               ? 'i-lucide-arrow-up'
@@ -667,7 +668,7 @@ const sortHeader = (label: string) => {
 
 const plainHeader = (label: string) => {
   return ({ header }: { header: ResizeHeader }) =>
-    wrapHeader([h('span', { class: 'text-sm' }, label)], header);
+    wrapHeader([h('span', { class: 'text-sm truncate min-w-0' }, label)], header);
 };
 
 /** ソートボタンに加えて、漏斗アイコン + 日付範囲フィルタの Popover を持つヘッダ */
@@ -684,7 +685,8 @@ const sortAndDateFilterHeader = (
           color: 'neutral',
           variant: 'ghost',
           label,
-          class: '-mx-2.5 data-[state=open]:bg-elevated',
+          class: '-mx-2.5 min-w-0 data-[state=open]:bg-elevated',
+          ui: { label: 'truncate min-w-0' },
           icon:
             sorted === 'asc'
               ? 'i-lucide-arrow-up'
@@ -704,7 +706,7 @@ const sortAndDateFilterHeader = (
                 size: 'xs',
                 icon: 'i-lucide-filter',
                 'aria-label': `${label}の範囲でフィルタ`,
-                class: 'ml-0.5',
+                class: 'ml-0.5 shrink-0',
               }),
             content: () =>
               h(DateRangeFilter, {
