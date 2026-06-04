@@ -35,6 +35,13 @@ const buildQuery = (filter: TaskFilter): string => {
   return qs ? `?${qs}` : '';
 };
 
+/** GET /api/tasks/by-code/:code — 共有リンクの短縮コードからタスクを解決する */
+export const apiResolveTaskByCode = (
+  api: typeof $fetch,
+  code: string,
+): Promise<{ projectId: string; id: string }> =>
+  api<{ projectId: string; id: string }>(`/tasks/by-code/${code}`);
+
 /** GET /api/projects/:projectId/tasks */
 export const apiListTasks = (
   api: typeof $fetch,

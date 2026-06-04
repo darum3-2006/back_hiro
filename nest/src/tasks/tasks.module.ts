@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Tag } from '../masters/tag.entity';
 import { TaskStatus } from '../masters/task-status.entity';
 import { ProjectsModule } from '../projects/projects.module';
+import { TaskLinksController } from './task-links.controller';
 import { TaskTag } from './task-tag.entity';
 import { Task } from './task.entity';
 import { TasksController } from './tasks.controller';
@@ -10,7 +11,7 @@ import { TasksService } from './tasks.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Task, TaskTag, Tag, TaskStatus]), ProjectsModule],
-  controllers: [TasksController],
+  controllers: [TasksController, TaskLinksController],
   providers: [TasksService],
   exports: [TasksService, TypeOrmModule],
 })

@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
@@ -10,12 +11,27 @@ import { UpdateTaskDto } from './dto/update-task.dto';
 import { TaskTag } from './task-tag.entity';
 import { Task, TaskLink } from './task.entity';
 
+// 短縮コードに使う文字種（英大小 + 数字 = 62 種）
+const SHORT_CODE_ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+const SHORT_CODE_LENGTH = 10;
+
+/** 不透明な短縮コードを 1 つ生成する（base62 / 10 桁）。 */
+export const generateShortCode = (): string => {
+  const bytes = randomBytes(SHORT_CODE_LENGTH);
+  let out = '';
+  for (let i = 0; i < SHORT_CODE_LENGTH; i++) {
+    out += SHORT_CODE_ALPHABET[bytes[i] % SHORT_CODE_ALPHABET.length];
+  }
+  return out;
+};
+
 /**
  * フロント返却用の Task DTO 形（id 含む、tag は code 配列）。
  */
 export interface TaskResponse {
   id: string;
   projectId: string;
+  shortCode: string;
   seq: number;
   content: string;
   description: string;
@@ -71,13 +87,34 @@ export class TasksService {
     return withTags;
   }
 
+  /**
+   * 共有リンク用の短縮コードからタスクを解決する。
+   * Project 経由で tenant_id をスコープし、他テナントのコードは 404 にする。
+   */
+  async resolveByCode(
+    tenantId: string,
+    code: string,
+  ): Promise<{ projectId: string; id: string }> {
+    const task = await this.tasks
+      .createQueryBuilder('t')
+      .innerJoin('t.project', 'p')
+      .where('t.short_code = :code', { code })
+      .andWhere('p.tenant_id = :tenantId', { tenantId })
+      .select(['t.id', 't.projectId'])
+      .getOne();
+    if (!task) throw new NotFoundException('タスクが見つかりません');
+    return { projectId: task.projectId, id: task.id };
+  }
+
   async create(tenantId: string, projectId: string, dto: CreateTaskDto): Promise<TaskResponse> {
     await this.projects.findByIdInTenant(tenantId, projectId);
     const seq = await this.nextSeq(projectId);
+    const shortCode = await this.nextShortCode();
     const completedAt = await this.resolveCompletedAt(projectId, null, dto.statusCode, null);
     const task = this.tasks.create({
       projectId,
       seq,
+      shortCode,
       content: dto.content.trim(),
       description: dto.description ?? '',
       links: dto.links ?? [],
@@ -192,6 +229,22 @@ export class TasksService {
   }
 
   /**
+   * 未使用の短縮コードを採番する。
+   * 衝突は天文学的に稀だが、unique 制約の手前で DB を引いて確認しリトライする。
+   */
+  private async nextShortCode(): Promise<string> {
+    for (let i = 0; i < 5; i++) {
+      const code = generateShortCode();
+      const exists = await this.tasks.findOne({
+        where: { shortCode: code },
+        select: { id: true },
+      });
+      if (!exists) return code;
+    }
+    throw new Error('短縮コードの生成に失敗しました');
+  }
+
+  /**
    * tag_codes 配列に従って task_tags を全置換。
    * 不正な tagCode（同プロジェクト内に存在しない）は黙って無視。
    */
@@ -235,6 +288,7 @@ export class TasksService {
     return {
       id: t.id,
       projectId: t.projectId,
+      shortCode: t.shortCode,
       seq: t.seq,
       content: t.content,
       description: t.description,

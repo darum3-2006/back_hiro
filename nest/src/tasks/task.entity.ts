@@ -26,12 +26,22 @@ export interface TaskLink {
 @Index('idx_tasks_project_deadline', ['projectId', 'deadline'])
 // 表示用のプロジェクト内連番（#15 などの表示）
 @Index('uq_tasks_project_seq', ['projectId', 'seq'], { unique: true })
+// 共有リンク用の不透明な短縮コード（グローバル一意）
+@Index('uq_tasks_short_code', ['shortCode'], { unique: true })
 export class Task extends BaseEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
   @Column({ type: 'varchar', length: 36, name: 'project_id', comment: '所属プロジェクト' })
   projectId!: string;
+
+  @Column({
+    type: 'varchar',
+    length: 16,
+    name: 'short_code',
+    comment: '共有リンク用の不透明な短縮コード（/:tenantKey/:shortCode、グローバル一意）',
+  })
+  shortCode!: string;
 
   @ManyToOne(() => Project, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'project_id' })
