@@ -1148,13 +1148,19 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
 
       <template v-else>
         <div class="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-default">
-          <UInput v-model="search" placeholder="内容を検索" icon="i-lucide-search" class="min-w-64">
+          <UInput
+            v-model="search"
+            placeholder="内容を検索"
+            icon="i-lucide-search"
+            class="min-w-64"
+            :ui="{ trailing: 'pe-1' }"
+          >
             <template v-if="search" #trailing>
               <UButton
                 icon="i-lucide-x"
-                size="xs"
+                size="sm"
                 color="neutral"
-                variant="link"
+                variant="ghost"
                 aria-label="検索内容をクリア"
                 @click="search = ''"
               />
