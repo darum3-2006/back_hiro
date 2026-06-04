@@ -618,6 +618,13 @@ const wrapHeader = (children: unknown[], header: ResizeHeader) => {
           header.getResizeHandler()(e);
         },
         onTouchstart: header.getResizeHandler(),
+        // ダブルクリックで左隣の列を内容に自動フィット
+        onDblclick: (e: MouseEvent) => {
+          e.preventDefault();
+          e.stopPropagation();
+          autoFitColumn(columnId);
+        },
+        title: 'ダブルクリックで内容に合わせて調整',
       }),
       // ドロップ位置インジケータ
       showBefore
@@ -972,6 +979,80 @@ watch(resizingColumnId, (colId) => {
 onBeforeUnmount(() => {
   if (import.meta.client) cancelAnimationFrame(resizeRaf);
 });
+
+// 自動フィットの上限。長文セルでも列が画面外まで広がって破綻しないよう必ずクランプする。
+const AUTO_FIT_MAX_WIDTH = 600;
+const AUTO_FIT_PADDING = 4;
+
+/**
+ * セルの中身を画面外に複製し、幅制約（table-fixed / truncate / w-full 等）を
+ * 外した自然幅を実測する。padding 込みの必要幅を返す。
+ */
+const measureCellContentWidth = (measureHost: HTMLElement, cell: HTMLElement): number => {
+  const cs = getComputedStyle(cell);
+  const padX = parseFloat(cs.paddingLeft || '0') + parseFloat(cs.paddingRight || '0');
+  const wrapper = document.createElement('div');
+  wrapper.style.cssText = 'display:inline-flex;align-items:center;white-space:nowrap;';
+  // フォントはクラス由来でも効くが、テキストノード直下のセル用に明示コピーしておく
+  wrapper.style.fontFamily = cs.fontFamily;
+  wrapper.style.fontSize = cs.fontSize;
+  wrapper.style.fontWeight = cs.fontWeight;
+  wrapper.style.letterSpacing = cs.letterSpacing;
+  for (const child of Array.from(cell.childNodes)) {
+    wrapper.appendChild(child.cloneNode(true));
+  }
+  for (const el of Array.from(wrapper.querySelectorAll<HTMLElement>('*'))) {
+    el.style.width = 'auto';
+    el.style.minWidth = '0';
+    el.style.maxWidth = 'none';
+    el.style.overflow = 'visible';
+    el.style.whiteSpace = 'nowrap';
+    el.style.flex = 'none';
+  }
+  measureHost.appendChild(wrapper);
+  const width = wrapper.getBoundingClientRect().width;
+  measureHost.removeChild(wrapper);
+  return Math.ceil(width + padX + AUTO_FIT_PADDING);
+};
+
+/** ダブルクリックされた列を、ヘッダ＋表示中セルの内容幅に自動フィットする。 */
+const autoFitColumn = (colId: string) => {
+  if (!import.meta.client) return;
+  const root = tableRef.value?.$el;
+  if (!root) return;
+  const handle = root.querySelector<HTMLElement>(`[data-resize-handle="${colId}"]`);
+  const th = handle?.closest('th');
+  if (!th) return;
+  const ths = Array.from(root.querySelectorAll('thead th'));
+  const index = ths.indexOf(th);
+  if (index < 0) return;
+
+  // 画面外の計測用ホスト（クラスを効かせるため document 内に置く）
+  const host = document.createElement('div');
+  host.style.cssText = 'position:absolute;left:-99999px;top:0;visibility:hidden;';
+  document.body.appendChild(host);
+  try {
+    let max = measureCellContentWidth(host, th);
+    for (const tr of Array.from(root.querySelectorAll('tbody tr'))) {
+      const td = tr.children[index];
+      if (td instanceof HTMLElement) {
+        max = Math.max(max, measureCellContentWidth(host, td));
+      }
+    }
+    const minSize =
+      (
+        columns.find(
+          (c) =>
+            ((c as { accessorKey?: string; id?: string }).accessorKey ??
+              (c as { id?: string }).id) === colId,
+        ) as { minSize?: number } | undefined
+      )?.minSize ?? 48;
+    const next = Math.min(Math.max(max, minSize), AUTO_FIT_MAX_WIDTH);
+    columnSizing.value = { ...columnSizing.value, [colId]: next };
+  } finally {
+    document.body.removeChild(host);
+  }
+};
 
 // 列の表示/非表示もプロジェクトごとに localStorage 永続化
 const columnVisibilityKey = computed(() => `tasks:column-visibility:${currentProjectId.value}`);
