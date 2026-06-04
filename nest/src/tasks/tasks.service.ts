@@ -91,10 +91,7 @@ export class TasksService {
    * 共有リンク用の短縮コードからタスクを解決する。
    * Project 経由で tenant_id をスコープし、他テナントのコードは 404 にする。
    */
-  async resolveByCode(
-    tenantId: string,
-    code: string,
-  ): Promise<{ projectId: string; id: string }> {
+  async resolveByCode(tenantId: string, code: string): Promise<{ projectId: string; id: string }> {
     const task = await this.tasks
       .createQueryBuilder('t')
       .innerJoin('t.project', 'p')
