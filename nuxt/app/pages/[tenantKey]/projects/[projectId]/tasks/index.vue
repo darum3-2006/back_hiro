@@ -606,6 +606,7 @@ const wrapHeader = (children: unknown[], header: ResizeHeader) => {
       }),
       ...(children as never[]),
       h('div', {
+        'data-resize-handle': columnId,
         class: [
           'absolute top-0 right-0 h-full w-1.5 cursor-col-resize select-none touch-none transition-colors',
           // 常時うっすら見える色にしておき、ホバー/ドラッグで強調する。
@@ -926,6 +927,50 @@ const columnSizingInfo = ref<ColumnSizingInfoState>({
   deltaPercentage: null,
   isResizingColumn: false,
   columnSizingStart: [],
+});
+
+// 列リサイズ中、ヘッダのリサイズバーの中心に列全体（ヘッダ〜全行）を貫く
+// ガイド線を出す。カーソル X ではなくハンドルの実描画位置を毎フレーム読むので、
+// minSize でのクランプ等で移動幅が大きくなってもヘッダの線とズレない。
+const tableRef = useTemplateRef<{ $el?: HTMLElement }>('tableRef');
+const resizeGuide = ref<{ x: number; top: number; height: number } | null>(null);
+const resizingColumnId = computed(() => {
+  const id = columnSizingInfo.value.isResizingColumn;
+  return id === false ? null : id;
+});
+
+let resizeRaf = 0;
+const syncResizeGuide = () => {
+  const root = tableRef.value?.$el;
+  const colId = resizingColumnId.value;
+  if (root && colId) {
+    const handle = root.querySelector<HTMLElement>(`[data-resize-handle="${colId}"]`);
+    if (handle) {
+      const tableRect = root.getBoundingClientRect();
+      const handleRect = handle.getBoundingClientRect();
+      resizeGuide.value = {
+        // ハンドル（バー）の中心 X に合わせる
+        x: handleRect.left + handleRect.width / 2,
+        top: tableRect.top,
+        height: tableRect.height,
+      };
+    }
+  }
+  if (resizingColumnId.value) resizeRaf = requestAnimationFrame(syncResizeGuide);
+};
+
+watch(resizingColumnId, (colId) => {
+  if (!import.meta.client) return;
+  cancelAnimationFrame(resizeRaf);
+  if (colId) {
+    resizeRaf = requestAnimationFrame(syncResizeGuide);
+  } else {
+    resizeGuide.value = null;
+  }
+});
+
+onBeforeUnmount(() => {
+  if (import.meta.client) cancelAnimationFrame(resizeRaf);
 });
 
 // 列の表示/非表示もプロジェクトごとに localStorage 永続化
@@ -1294,6 +1339,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
         </div>
 
         <UTable
+          ref="tableRef"
           v-model:sorting="sorting"
           v-model:column-sizing="columnSizing"
           v-model:column-sizing-info="columnSizingInfo"
@@ -1535,6 +1581,17 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
             </div>
           </template>
         </UTable>
+
+        <!-- 列リサイズ中、掴んだ位置を列全体に貫くガイド線 -->
+        <div
+          v-if="resizeGuide"
+          class="fixed z-50 w-px bg-primary pointer-events-none"
+          :style="{
+            left: `${resizeGuide.x}px`,
+            top: `${resizeGuide.top}px`,
+            height: `${resizeGuide.height}px`,
+          }"
+        />
       </template>
     </template>
   </UDashboardPanel>
