@@ -1008,6 +1008,8 @@ const measureCellContentWidth = (measureHost: HTMLElement, cell: HTMLElement): n
     el.style.overflow = 'visible';
     el.style.whiteSpace = 'nowrap';
     el.style.flex = 'none';
+    // ヘッダのソートボタンの -mx-2.5 など、負マージンで幅が過小評価されるのを防ぐ
+    el.style.margin = '0';
   }
   measureHost.appendChild(wrapper);
   const width = wrapper.getBoundingClientRect().width;
