@@ -76,6 +76,9 @@ const columns: TableColumn<Project>[] = [
   <UDashboardPanel id="projects">
     <template #header>
       <UDashboardNavbar title="プロジェクト" icon="i-lucide-folders">
+        <template #leading>
+          <UDashboardSidebarCollapse />
+        </template>
         <template #right>
           <UCheckbox v-model="showArchived" label="アーカイブ済みも表示" />
           <UButton

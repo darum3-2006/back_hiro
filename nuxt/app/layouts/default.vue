@@ -112,43 +112,52 @@ const accountMenuItems = computed(() => [
       :min-size="14"
       :max-size="28"
     >
-      <template #header>
+      <template #header="{ collapsed }">
         <UDropdownMenu
           :items="projectMenuItems"
-          :ui="{ content: 'w-(--reka-dropdown-menu-trigger-width)' }"
+          :ui="{ content: collapsed ? undefined : 'w-(--reka-dropdown-menu-trigger-width)' }"
         >
           <UButton
             color="neutral"
             variant="outline"
-            block
-            class="justify-between"
-            trailing-icon="i-lucide-chevrons-up-down"
+            :block="!collapsed"
+            :square="collapsed"
+            :class="collapsed ? undefined : 'justify-between'"
+            :trailing-icon="collapsed ? undefined : 'i-lucide-chevrons-up-down'"
+            :aria-label="
+              collapsed ? `プロジェクト: ${currentProject?.name ?? 'プロジェクト'}` : undefined
+            "
           >
             <UIcon name="i-lucide-folder-kanban" class="size-4" />
-            <span class="truncate flex-1 text-left">{{
+            <span v-if="!collapsed" class="truncate flex-1 text-left">{{
               currentProject?.name ?? 'プロジェクト'
             }}</span>
           </UButton>
         </UDropdownMenu>
       </template>
 
-      <UNavigationMenu :items="navItems" orientation="vertical" />
+      <template #default="{ collapsed }">
+        <UNavigationMenu :items="navItems" orientation="vertical" :collapsed="collapsed" />
+      </template>
 
-      <template #footer>
+      <template #footer="{ collapsed }">
         <UDropdownMenu
           :items="accountMenuItems"
-          :ui="{ content: 'w-(--reka-dropdown-menu-trigger-width)' }"
+          :ui="{ content: collapsed ? undefined : 'w-(--reka-dropdown-menu-trigger-width)' }"
         >
           <UButton
             color="neutral"
             variant="ghost"
-            block
-            class="justify-start gap-2"
+            :block="!collapsed"
+            :square="collapsed"
+            :class="collapsed ? undefined : 'justify-start gap-2'"
             :aria-label="`アカウントメニュー: ${me?.name ?? ''}`"
           >
             <UIcon name="i-lucide-circle-user-round" class="size-5 text-muted shrink-0" />
-            <span class="text-sm truncate flex-1 text-left">{{ me?.name ?? '' }}</span>
-            <UIcon name="i-lucide-chevrons-up-down" class="size-4 text-muted shrink-0" />
+            <template v-if="!collapsed">
+              <span class="text-sm truncate flex-1 text-left">{{ me?.name ?? '' }}</span>
+              <UIcon name="i-lucide-chevrons-up-down" class="size-4 text-muted shrink-0" />
+            </template>
           </UButton>
         </UDropdownMenu>
       </template>
