@@ -48,6 +48,7 @@ const tabs = computed(() => [
     <template #header>
       <UDashboardNavbar :title="project?.name ?? 'プロジェクト設定'" icon="i-lucide-settings-2">
         <template #leading>
+          <UDashboardSidebarCollapse />
           <UButton
             icon="i-lucide-arrow-left"
             color="neutral"

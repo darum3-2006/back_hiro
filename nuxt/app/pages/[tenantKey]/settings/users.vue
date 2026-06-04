@@ -105,6 +105,9 @@ const columns: TableColumn<User>[] = [
   <UDashboardPanel id="users">
     <template #header>
       <UDashboardNavbar title="ユーザー管理" icon="i-lucide-users">
+        <template #leading>
+          <UDashboardSidebarCollapse />
+        </template>
         <template #right>
           <UButton color="primary" icon="i-lucide-plus" label="新規ユーザー" @click="openCreate" />
         </template>
