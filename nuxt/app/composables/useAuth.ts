@@ -6,7 +6,11 @@ export const useAuthToken = () =>
   useCookie<string | null>('auth_token', {
     sameSite: 'lax',
     path: '/',
-    maxAge: 60 * 60 * 24 * 7,
+    // 本番（HTTPS）では Secure を付け、平文 HTTP への送出を防ぐ。
+    // dev は localhost の HTTP で動かすため除外する。
+    secure: !import.meta.dev,
+    // JWT 既定の有効期限（1d）に合わせる。期限切れトークンを長く保持しない。
+    maxAge: 60 * 60 * 24,
   });
 
 /** 現在ログイン中ユーザー（未ログインなら null）。 */
