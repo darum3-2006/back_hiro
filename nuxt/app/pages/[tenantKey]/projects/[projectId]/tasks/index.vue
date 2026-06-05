@@ -590,7 +590,7 @@ const wrapHeader = (children: unknown[], header: ResizeHeader) => {
   return h(
     'div',
     {
-      class: 'relative flex items-center w-full pr-2',
+      class: 'relative flex items-center w-full min-w-0 overflow-hidden pr-2',
       onDragover: (e: DragEvent) => onHeaderDragOver(e, columnId),
       onDrop: (e: DragEvent) => onHeaderDrop(e, columnId),
       onDragend: resetDragState,
@@ -606,6 +606,7 @@ const wrapHeader = (children: unknown[], header: ResizeHeader) => {
       }),
       ...(children as never[]),
       h('div', {
+        'data-resize-handle': columnId,
         class: [
           'absolute top-0 right-0 h-full w-1.5 cursor-col-resize select-none touch-none transition-colors',
           // 常時うっすら見える色にしておき、ホバー/ドラッグで強調する。
@@ -617,6 +618,13 @@ const wrapHeader = (children: unknown[], header: ResizeHeader) => {
           header.getResizeHandler()(e);
         },
         onTouchstart: header.getResizeHandler(),
+        // ダブルクリックで左隣の列を内容に自動フィット
+        onDblclick: (e: MouseEvent) => {
+          e.preventDefault();
+          e.stopPropagation();
+          autoFitColumn(columnId);
+        },
+        title: 'ダブルクリックで内容に合わせて調整',
       }),
       // ドロップ位置インジケータ
       showBefore
@@ -642,7 +650,8 @@ const sortHeader = (label: string) => {
           color: 'neutral',
           variant: 'ghost',
           label,
-          class: '-mx-2.5 data-[state=open]:bg-elevated',
+          class: '-mx-2.5 min-w-0 data-[state=open]:bg-elevated',
+          ui: { label: 'truncate min-w-0' },
           icon:
             sorted === 'asc'
               ? 'i-lucide-arrow-up'
@@ -659,7 +668,7 @@ const sortHeader = (label: string) => {
 
 const plainHeader = (label: string) => {
   return ({ header }: { header: ResizeHeader }) =>
-    wrapHeader([h('span', { class: 'text-sm' }, label)], header);
+    wrapHeader([h('span', { class: 'text-sm truncate min-w-0' }, label)], header);
 };
 
 /** ソートボタンに加えて、漏斗アイコン + 日付範囲フィルタの Popover を持つヘッダ */
@@ -676,7 +685,8 @@ const sortAndDateFilterHeader = (
           color: 'neutral',
           variant: 'ghost',
           label,
-          class: '-mx-2.5 data-[state=open]:bg-elevated',
+          class: '-mx-2.5 min-w-0 data-[state=open]:bg-elevated',
+          ui: { label: 'truncate min-w-0' },
           icon:
             sorted === 'asc'
               ? 'i-lucide-arrow-up'
@@ -696,7 +706,7 @@ const sortAndDateFilterHeader = (
                 size: 'xs',
                 icon: 'i-lucide-filter',
                 'aria-label': `${label}の範囲でフィルタ`,
-                class: 'ml-0.5',
+                class: 'ml-0.5 shrink-0',
               }),
             content: () =>
               h(DateRangeFilter, {
@@ -927,6 +937,126 @@ const columnSizingInfo = ref<ColumnSizingInfoState>({
   isResizingColumn: false,
   columnSizingStart: [],
 });
+
+// 列リサイズ中、ヘッダのリサイズバーの中心に列全体（ヘッダ〜全行）を貫く
+// ガイド線を出す。カーソル X ではなくハンドルの実描画位置を毎フレーム読むので、
+// minSize でのクランプ等で移動幅が大きくなってもヘッダの線とズレない。
+const tableRef = useTemplateRef<{ $el?: HTMLElement }>('tableRef');
+const resizeGuide = ref<{ x: number; top: number; height: number } | null>(null);
+const resizingColumnId = computed(() => {
+  const id = columnSizingInfo.value.isResizingColumn;
+  return id === false ? null : id;
+});
+
+let resizeRaf = 0;
+const syncResizeGuide = () => {
+  const root = tableRef.value?.$el;
+  const colId = resizingColumnId.value;
+  if (root && colId) {
+    const handle = root.querySelector<HTMLElement>(`[data-resize-handle="${colId}"]`);
+    if (handle) {
+      const tableRect = root.getBoundingClientRect();
+      const handleRect = handle.getBoundingClientRect();
+      resizeGuide.value = {
+        // ハンドル（バー）の中心 X に合わせる
+        x: handleRect.left + handleRect.width / 2,
+        top: tableRect.top,
+        height: tableRect.height,
+      };
+    }
+  }
+  if (resizingColumnId.value) resizeRaf = requestAnimationFrame(syncResizeGuide);
+};
+
+watch(resizingColumnId, (colId) => {
+  if (!import.meta.client) return;
+  cancelAnimationFrame(resizeRaf);
+  if (colId) {
+    resizeRaf = requestAnimationFrame(syncResizeGuide);
+  } else {
+    resizeGuide.value = null;
+  }
+});
+
+onBeforeUnmount(() => {
+  if (import.meta.client) cancelAnimationFrame(resizeRaf);
+});
+
+// 自動フィットの上限。長文セルでも列が画面外まで広がって破綻しないよう必ずクランプする。
+const AUTO_FIT_MAX_WIDTH = 600;
+const AUTO_FIT_PADDING = 4;
+
+/**
+ * セルの中身を画面外に複製し、幅制約（table-fixed / truncate / w-full 等）を
+ * 外した自然幅を実測する。padding 込みの必要幅を返す。
+ */
+const measureCellContentWidth = (measureHost: HTMLElement, cell: HTMLElement): number => {
+  const cs = getComputedStyle(cell);
+  const padX = parseFloat(cs.paddingLeft || '0') + parseFloat(cs.paddingRight || '0');
+  const wrapper = document.createElement('div');
+  wrapper.style.cssText = 'display:inline-flex;align-items:center;white-space:nowrap;';
+  // フォントはクラス由来でも効くが、テキストノード直下のセル用に明示コピーしておく
+  wrapper.style.fontFamily = cs.fontFamily;
+  wrapper.style.fontSize = cs.fontSize;
+  wrapper.style.fontWeight = cs.fontWeight;
+  wrapper.style.letterSpacing = cs.letterSpacing;
+  for (const child of Array.from(cell.childNodes)) {
+    wrapper.appendChild(child.cloneNode(true));
+  }
+  for (const el of Array.from(wrapper.querySelectorAll<HTMLElement>('*'))) {
+    el.style.width = 'auto';
+    el.style.minWidth = '0';
+    el.style.maxWidth = 'none';
+    el.style.overflow = 'visible';
+    el.style.whiteSpace = 'nowrap';
+    el.style.flex = 'none';
+    // ヘッダのソートボタンの -mx-2.5 など、負マージンで幅が過小評価されるのを防ぐ
+    el.style.margin = '0';
+  }
+  measureHost.appendChild(wrapper);
+  const width = wrapper.getBoundingClientRect().width;
+  measureHost.removeChild(wrapper);
+  return Math.ceil(width + padX + AUTO_FIT_PADDING);
+};
+
+/** ダブルクリックされた列を、ヘッダ＋表示中セルの内容幅に自動フィットする。 */
+const autoFitColumn = (colId: string) => {
+  if (!import.meta.client) return;
+  const root = tableRef.value?.$el;
+  if (!root) return;
+  const handle = root.querySelector<HTMLElement>(`[data-resize-handle="${colId}"]`);
+  const th = handle?.closest('th');
+  if (!th) return;
+  const ths = Array.from(root.querySelectorAll('thead th'));
+  const index = ths.indexOf(th);
+  if (index < 0) return;
+
+  // 画面外の計測用ホスト（クラスを効かせるため document 内に置く）
+  const host = document.createElement('div');
+  host.style.cssText = 'position:absolute;left:-99999px;top:0;visibility:hidden;';
+  document.body.appendChild(host);
+  try {
+    let max = measureCellContentWidth(host, th);
+    for (const tr of Array.from(root.querySelectorAll('tbody tr'))) {
+      const td = tr.children[index];
+      if (td instanceof HTMLElement) {
+        max = Math.max(max, measureCellContentWidth(host, td));
+      }
+    }
+    const minSize =
+      (
+        columns.find(
+          (c) =>
+            ((c as { accessorKey?: string; id?: string }).accessorKey ??
+              (c as { id?: string }).id) === colId,
+        ) as { minSize?: number } | undefined
+      )?.minSize ?? 48;
+    const next = Math.min(Math.max(max, minSize), AUTO_FIT_MAX_WIDTH);
+    columnSizing.value = { ...columnSizing.value, [colId]: next };
+  } finally {
+    document.body.removeChild(host);
+  }
+};
 
 // 列の表示/非表示もプロジェクトごとに localStorage 永続化
 const columnVisibilityKey = computed(() => `tasks:column-visibility:${currentProjectId.value}`);
@@ -1294,6 +1424,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
         </div>
 
         <UTable
+          ref="tableRef"
           v-model:sorting="sorting"
           v-model:column-sizing="columnSizing"
           v-model:column-sizing-info="columnSizingInfo"
@@ -1535,6 +1666,17 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
             </div>
           </template>
         </UTable>
+
+        <!-- 列リサイズ中、掴んだ位置を列全体に貫くガイド線 -->
+        <div
+          v-if="resizeGuide"
+          class="fixed z-50 w-px bg-primary pointer-events-none"
+          :style="{
+            left: `${resizeGuide.x}px`,
+            top: `${resizeGuide.top}px`,
+            height: `${resizeGuide.height}px`,
+          }"
+        />
       </template>
     </template>
   </UDashboardPanel>
