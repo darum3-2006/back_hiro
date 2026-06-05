@@ -346,30 +346,58 @@ const resetFilters = () => {
 };
 
 // ===== タスク詳細スライドオーバー: URL クエリで連動 =====
-const selectedTaskId = computed<string | null>(() => queryString('task') || null);
+// URL にはタスクの連番(seq, 表示用 #N)を載せる。詳細ページは projectId スコープなので
+// seq はプロジェクト内一意で曖昧にならない。内部処理は解決した Task の id を使う。
+// 旧 URL は UUID を載せていたので、後方互換で id 解決も受け付ける（解決後 seq に正規化）。
+const taskParam = computed<string | null>(() => queryString('task') || null);
 
-const selectedTask = computed<Task | null>(() =>
-  selectedTaskId.value !== null
-    ? (tasks.value.find((t) => t.id === selectedTaskId.value) ?? null)
-    : null,
-);
+const selectedTask = computed<Task | null>(() => {
+  const raw = taskParam.value;
+  if (!raw) return null;
+  const n = Number(raw);
+  if (Number.isInteger(n) && n > 0) {
+    return tasks.value.find((t) => t.seq === n) ?? null;
+  }
+  // 後方互換: 旧 URL の UUID
+  return tasks.value.find((t) => t.id === raw) ?? null;
+});
 
-const slideoverOpen = computed(() => selectedTaskId.value !== null);
+// 該当タスクが解決できたときだけ開く（未存在の番号で空パネルを出さない）。
+const slideoverOpen = computed(() => selectedTask.value !== null);
 
-const setSelectedTaskId = (id: string | null) => {
-  updateQuery({ task: id === null ? undefined : id });
+const setSelectedTaskSeq = (seq: number | null) => {
+  updateQuery({ task: seq === null ? undefined : String(seq) });
 };
 
 const openTask = (task: Task) => {
-  setSelectedTaskId(task.id);
+  setSelectedTaskSeq(task.seq);
 };
 
 const closeSlideover = () => {
-  setSelectedTaskId(null);
+  setSelectedTaskSeq(null);
 };
 
 const createSlideoverOpen = ref(false);
 const toast = useToast();
+
+// URL の task パラメータを検証・正規化する。
+// - 見つからない番号/ID → 通知して一覧へ戻す（空パネルを出さない）
+// - UUID 等 seq 以外で解決できた場合 → URL を seq へ正規化
+const normalizeTaskParam = () => {
+  const raw = taskParam.value;
+  if (raw === null) return;
+  const task = selectedTask.value;
+  if (!task) {
+    toast.add({ title: '指定されたタスクは見つかりませんでした', color: 'warning' });
+    setSelectedTaskSeq(null);
+    return;
+  }
+  if (raw !== String(task.seq)) {
+    setSelectedTaskSeq(task.seq);
+  }
+};
+watch([taskParam, selectedTask], normalizeTaskParam);
+onMounted(normalizeTaskParam);
 
 const onTaskCreated = async (task: Task) => {
   await refreshTasks();
