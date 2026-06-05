@@ -38,6 +38,9 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       envLabel: '',
+      // Google SSO の OAuth クライアント ID（公開値）。
+      // 環境ごとに NUXT_PUBLIC_GOOGLE_CLIENT_ID で上書きする。
+      googleClientId: '560084721969-p0fds84u2dbmsppj7o6dn37ejhkpbipe.apps.googleusercontent.com',
     },
   },
 

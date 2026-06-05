@@ -24,6 +24,12 @@ export interface LoginInput {
   password: string;
 }
 
+export interface GoogleLoginInput {
+  tenantKey: string;
+  /** Google Identity Services が返す ID トークン（JWT）。 */
+  idToken: string;
+}
+
 export interface ChangePasswordInput {
   currentPassword: string;
   newPassword: string;

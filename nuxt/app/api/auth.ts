@@ -1,8 +1,25 @@
-import type { AuthMe, ChangePasswordInput, LoginInput, LoginResponse } from '~/types/auth';
+import type {
+  AuthMe,
+  ChangePasswordInput,
+  GoogleLoginInput,
+  LoginInput,
+  LoginResponse,
+} from '~/types/auth';
 
 /** POST /api/auth/login */
 export const apiLogin = async (api: typeof $fetch, input: LoginInput): Promise<LoginResponse> => {
   return api<LoginResponse>('/auth/login', {
+    method: 'POST',
+    body: input,
+  });
+};
+
+/** POST /api/auth/google — Google SSO ログイン */
+export const apiLoginWithGoogle = async (
+  api: typeof $fetch,
+  input: GoogleLoginInput,
+): Promise<LoginResponse> => {
+  return api<LoginResponse>('/auth/google', {
     method: 'POST',
     body: input,
   });
