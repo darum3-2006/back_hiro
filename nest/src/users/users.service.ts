@@ -22,6 +22,15 @@ export class UsersService {
     return this.users.findOne({ where: { tenantId, email } });
   }
 
+  findByTenantAndGoogleSub(tenantId: string, googleSub: string): Promise<User | null> {
+    return this.users.findOne({ where: { tenantId, googleSub } });
+  }
+
+  /** 既存ユーザに Google の sub を紐づける（初回 SSO ログイン時の連携）。 */
+  async linkGoogleSub(userId: string, googleSub: string): Promise<void> {
+    await this.users.update({ id: userId }, { googleSub });
+  }
+
   findById(id: string): Promise<User | null> {
     return this.users.findOne({ where: { id } });
   }

@@ -38,6 +38,10 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       envLabel: '',
+      // Google SSO の OAuth クライアント ID（公開値だがソースに直書きしない）。
+      // NUXT_PUBLIC_GOOGLE_CLIENT_ID で環境ごとに設定する。
+      // ssr: false のため値はビルド時に埋め込まれる（dev/build 実行時に env が必要）。
+      googleClientId: '',
     },
   },
 

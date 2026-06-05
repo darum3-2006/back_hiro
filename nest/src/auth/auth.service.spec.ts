@@ -1,4 +1,5 @@
 import { UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Test, type TestingModule } from '@nestjs/testing';
 import * as bcrypt from 'bcrypt';
@@ -46,6 +47,10 @@ describe('AuthService', () => {
           useValue: { findByTenantAndEmail: jest.fn(), findById: jest.fn() },
         },
         { provide: TenantsService, useValue: { findByKey: jest.fn(), findById: jest.fn() } },
+        {
+          provide: ConfigService,
+          useValue: { getOrThrow: jest.fn().mockReturnValue('test-google-client-id') },
+        },
       ],
     }).compile();
 

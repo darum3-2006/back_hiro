@@ -1,5 +1,5 @@
-import type { AuthMe, LoginInput } from '~/types/auth';
-import { apiFetchMe, apiLogin } from '~/api/auth';
+import type { AuthMe, GoogleLoginInput, LoginInput } from '~/types/auth';
+import { apiFetchMe, apiLogin, apiLoginWithGoogle } from '~/api/auth';
 
 /** JWT アクセストークン。Cookie で SSR/CSR 両対応。 */
 export const useAuthToken = () =>
@@ -30,6 +30,13 @@ export const useAuth = () => {
     return res;
   };
 
+  const loginWithGoogle = async (input: GoogleLoginInput) => {
+    const res = await apiLoginWithGoogle($fetch.create({ baseURL: '/api' }), input);
+    token.value = res.accessToken;
+    me.value = { ...res.user, tenant: res.tenant };
+    return res;
+  };
+
   const fetchMe = async (): Promise<AuthMe | null> => {
     if (!token.value) {
       me.value = null;
@@ -55,5 +62,5 @@ export const useAuth = () => {
     }
   };
 
-  return { token, me, isAuthenticated, login, fetchMe, logout };
+  return { token, me, isAuthenticated, login, loginWithGoogle, fetchMe, logout };
 };

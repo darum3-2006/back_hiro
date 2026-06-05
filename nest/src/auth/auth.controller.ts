@@ -14,6 +14,7 @@ import { UsersService } from '../users/users.service';
 import { AuthService } from './auth.service';
 import { CurrentUser } from './current-user.decorator';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { GoogleLoginDto } from './dto/google-login.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import type { AuthenticatedUser } from './jwt.strategy';
@@ -31,6 +32,13 @@ export class AuthController {
   @Post('login')
   login(@Body() dto: LoginDto) {
     return this.auth.login(dto);
+  }
+
+  // Google SSO ログイン。パスワードログインと同様に厳しく制限する。
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
+  @Post('google')
+  loginWithGoogle(@Body() dto: GoogleLoginDto) {
+    return this.auth.loginWithGoogle(dto);
   }
 
   @UseGuards(JwtAuthGuard)
