@@ -11,7 +11,7 @@ const props = defineProps<{
 interface Segment {
   type: 'text' | 'link';
   text: string;
-  taskId?: string;
+  seq?: number;
 }
 
 /** `#15` のような番号を検出して、tasks に該当 seq があれば内部リンクに分解 */
@@ -28,7 +28,7 @@ const segments = computed<Segment[]>(() => {
     const seq = Number(m[1]);
     const target = props.tasks.find((t) => t.seq === seq);
     if (target) {
-      out.push({ type: 'link', text: m[0], taskId: target.id });
+      out.push({ type: 'link', text: m[0], seq: target.seq });
     } else {
       out.push({ type: 'text', text: m[0] });
     }
@@ -42,8 +42,9 @@ const segments = computed<Segment[]>(() => {
 
 const route = useRoute();
 
-const linkTo = (taskId: string) => ({
-  query: { ...route.query, task: taskId },
+// URL クエリにはタスクの連番(seq)を載せる
+const linkTo = (seq: number) => ({
+  query: { ...route.query, task: String(seq) },
 });
 </script>
 
@@ -51,8 +52,8 @@ const linkTo = (taskId: string) => ({
   <span class="whitespace-pre-wrap">
     <template v-for="(s, i) in segments" :key="i">
       <NuxtLink
-        v-if="s.type === 'link' && s.taskId"
-        :to="linkTo(s.taskId)"
+        v-if="s.type === 'link' && s.seq !== undefined"
+        :to="linkTo(s.seq)"
         replace
         class="text-primary hover:underline"
         >{{ s.text }}</NuxtLink
