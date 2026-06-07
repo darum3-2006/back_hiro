@@ -10,6 +10,8 @@
 #   - 転送先サーバに node, pm2 が入っていること
 #   - Nuxt は ssr: false の SPA で .output は self-contained のため install は不要
 #   - ホームディレクトリ直下の ~/nuxt/ に展開する
+#   - 転送先の ~/nuxt/.env に環境固有の値を用意しておくこと（NUXT_PUBLIC_GOOGLE_CLIENT_ID 等）。
+#     .env は転送しない（環境ごとに各サーバが保持）。ecosystem.config.cjs が起動時に読み込む。
 
 set -euo pipefail
 
@@ -26,6 +28,9 @@ cd "$(dirname "$0")"
 
 echo "==> ローカルビルド"
 pnpm install --frozen-lockfile
+# NUXT_PUBLIC_* はビルド時には焼き込まれず、node サーバ起動時に runtimeConfig を
+# 上書きする方式。本番値は ecosystem.config.cjs の env で設定するため、ここでは
+# ローカル .env に依存しない素のビルドで良い。
 pnpm build
 
 echo "==> .output と ecosystem.config.cjs を $DEST:~/$REMOTE_DIR/ に rsync"
