@@ -16,10 +16,7 @@ const loadDotenv = () => {
     if (eq === -1) continue;
     const key = s.slice(0, eq).trim();
     let val = s.slice(eq + 1).trim();
-    if (
-      (val.startsWith('"') && val.endsWith('"')) ||
-      (val.startsWith("'") && val.endsWith("'"))
-    ) {
+    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
       val = val.slice(1, -1);
     }
     out[key] = val;
