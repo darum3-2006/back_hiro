@@ -51,13 +51,22 @@ export class TasksController {
     return this.tasks.findInProject(user.tenantId, projectId, id);
   }
 
+  @Get(':id/activities')
+  activities(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('projectId', new ParseUUIDPipe()) projectId: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    return this.tasks.listActivities(user.tenantId, projectId, id);
+  }
+
   @Post()
   create(
     @CurrentUser() user: AuthenticatedUser,
     @Param('projectId', new ParseUUIDPipe()) projectId: string,
     @Body() dto: CreateTaskDto,
   ) {
-    return this.tasks.create(user.tenantId, projectId, dto);
+    return this.tasks.create(user.tenantId, projectId, dto, user.userId);
   }
 
   @Patch(':id')
@@ -67,7 +76,7 @@ export class TasksController {
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: UpdateTaskDto,
   ) {
-    return this.tasks.update(user.tenantId, projectId, id, dto);
+    return this.tasks.update(user.tenantId, projectId, id, dto, user.userId);
   }
 
   @Delete(':id')
@@ -77,6 +86,6 @@ export class TasksController {
     @Param('projectId', new ParseUUIDPipe()) projectId: string,
     @Param('id', new ParseUUIDPipe()) id: string,
   ) {
-    return this.tasks.remove(user.tenantId, projectId, id);
+    return this.tasks.remove(user.tenantId, projectId, id, user.userId);
   }
 }
