@@ -52,14 +52,18 @@ const projectMenuItems = computed(() => [
 const navItems = computed(() => {
   const tk = currentTenantKey.value;
   if (!tk) return [];
+  // 現在プロジェクトが無いとき「タスク一覧」をホーム(/${tk})に向けると active が
+  // ホームと衝突するため、先頭のアクティブプロジェクト（無ければプロジェクト一覧）へ。
+  const firstActive = activeProjects.value[0];
+  const tasksTo = currentProjectId.value
+    ? `/${tk}/projects/${currentProjectId.value}/tasks`
+    : firstActive
+      ? `/${tk}/projects/${firstActive.id}/tasks`
+      : `/${tk}/projects`;
   const groups = [
-    [
-      {
-        label: 'タスク一覧',
-        icon: 'i-lucide-list-checks',
-        to: currentProjectId.value ? `/${tk}/projects/${currentProjectId.value}/tasks` : `/${tk}`,
-      },
-    ],
+    // ホームは exact 一致のみ active（配下ルートで点灯させない）
+    [{ label: 'ホーム', icon: 'i-lucide-house', to: `/${tk}`, exact: true }],
+    [{ label: 'タスク一覧', icon: 'i-lucide-list-checks', to: tasksTo }],
     [{ label: 'プロジェクト', icon: 'i-lucide-folders', to: `/${tk}/projects` }],
   ];
   // admin だけテナント設定（ユーザー管理など）を表示

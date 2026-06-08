@@ -27,3 +27,19 @@ export interface Task {
   createdAt: string;
   updatedAt: string;
 }
+
+/**
+ * ホームダッシュボード用「自分のタスク」。プロジェクト横断のため
+ * projectId / projectName を含み、表示に必要な最小限のみ。
+ */
+export interface MyTask {
+  shortCode: string;
+  seq: number;
+  content: string;
+  statusCode: string;
+  statusLabel: string;
+  priorityCode: string | null;
+  deadline: string | null;
+  projectId: string;
+  projectName: string;
+}
