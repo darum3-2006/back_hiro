@@ -56,6 +56,24 @@ export interface TaskResponse {
   updatedAt: Date;
 }
 
+/**
+ * ホームダッシュボード用の「自分のタスク」DTO 形。
+ * プロジェクト横断のため projectId / projectName を含み、表示に必要な最小限に絞る。
+ */
+export interface MyTaskResponse {
+  shortCode: string;
+  seq: number;
+  content: string;
+  statusCode: string;
+  statusLabel: string;
+  /** ステータスマスタの表示色（プロジェクト設定）。UI のバッジ色に使う。 */
+  statusColor: string;
+  priorityCode: string | null;
+  deadline: string | null;
+  projectId: string;
+  projectName: string;
+}
+
 /** タスク履歴（監査ログ）のフロント返却用 DTO 形。 */
 export interface TaskActivityResponse {
   id: string;
@@ -121,6 +139,53 @@ export class TasksService {
     const task = await this.findEntityInProject(tenantId, projectId, id);
     const [withTags] = await this.attachTagCodes([task]);
     return withTags;
+  }
+
+  /**
+   * ホームダッシュボード用：自分（userId）が担当の「未完了」タスクをテナント横断で返す。
+   * - 担当 = assignee メンバーの user_id が一致（メンバーはプロジェクトごとに別行）
+   * - 未完了 = ステータスが非終端（is_terminal = false）
+   * - アーカイブ済みプロジェクトは除外
+   * - 並び: 期限の昇順（未設定は末尾）、次いで作成順
+   */
+  async listMyOpenTasks(tenantId: string, userId: string): Promise<MyTaskResponse[]> {
+    const rows = await this.tasks
+      .createQueryBuilder('t')
+      .innerJoin('t.project', 'p')
+      .innerJoin(ProjectMember, 'am', 'am.id = t.assignee_member_id')
+      .innerJoin(TaskStatus, 's', 's.project_id = t.project_id AND s.code = t.status_code')
+      .where('p.tenant_id = :tenantId', { tenantId })
+      .andWhere('p.archived_at IS NULL')
+      .andWhere('am.user_id = :userId', { userId })
+      .andWhere('s.is_terminal = false')
+      .orderBy('t.deadline IS NULL', 'ASC')
+      .addOrderBy('t.deadline', 'ASC')
+      .addOrderBy('t.created_at', 'ASC')
+      .select([
+        't.short_code AS shortCode',
+        't.seq AS seq',
+        't.content AS content',
+        't.status_code AS statusCode',
+        's.label AS statusLabel',
+        's.color AS statusColor',
+        't.priority_code AS priorityCode',
+        't.deadline AS deadline',
+        't.project_id AS projectId',
+        'p.name AS projectName',
+      ])
+      .getRawMany<{
+        shortCode: string;
+        seq: number;
+        content: string;
+        statusCode: string;
+        statusLabel: string;
+        statusColor: string;
+        priorityCode: string | null;
+        deadline: string | null;
+        projectId: string;
+        projectName: string;
+      }>();
+    return rows.map((r) => ({ ...r, seq: Number(r.seq) }));
   }
 
   /**

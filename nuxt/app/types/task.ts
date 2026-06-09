@@ -1,3 +1,5 @@
+import type { MasterColor } from '~/types/master';
+
 export interface TaskLink {
   label: string;
   url: string;
@@ -35,6 +37,24 @@ export interface TaskSearchResult {
   content: string;
   statusCode: string;
   statusLabel: string;
+  projectId: string;
+  projectName: string;
+}
+
+/**
+ * ホームダッシュボード用「自分のタスク」。プロジェクト横断のため
+ * projectId / projectName を含み、表示に必要な最小限のみ。
+ */
+export interface MyTask {
+  shortCode: string;
+  seq: number;
+  content: string;
+  statusCode: string;
+  statusLabel: string;
+  /** ステータスマスタの表示色（プロジェクト設定）。バッジ色に使う。 */
+  statusColor: MasterColor;
+  priorityCode: string | null;
+  deadline: string | null;
   projectId: string;
   projectName: string;
 }

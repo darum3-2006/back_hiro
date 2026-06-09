@@ -1,4 +1,5 @@
-import type { Task, TaskLink, TaskSearchResult } from '~/types/task';
+import type { TaskActivity } from '~/types/activity';
+import type { MyTask, Task, TaskLink, TaskSearchResult } from '~/types/task';
 
 export interface CreateTaskInput {
   content: string;
@@ -49,6 +50,17 @@ export const apiResolveTaskByCode = (
   code: string,
 ): Promise<{ projectId: string; id: string }> =>
   api<{ projectId: string; id: string }>(`/tasks/by-code/${code}`);
+
+/** GET /api/projects/:projectId/tasks/:taskId/activities — タスクの変更履歴（監査ログ） */
+export const apiListTaskActivities = (
+  api: typeof $fetch,
+  projectId: string,
+  taskId: string,
+): Promise<TaskActivity[]> =>
+  api<TaskActivity[]>(`/projects/${projectId}/tasks/${taskId}/activities`);
+
+/** GET /api/me/tasks — 自分が担当の未完了タスク（テナント横断） */
+export const apiListMyTasks = (api: typeof $fetch): Promise<MyTask[]> => api<MyTask[]>(`/me/tasks`);
 
 /** GET /api/projects/:projectId/tasks */
 export const apiListTasks = (

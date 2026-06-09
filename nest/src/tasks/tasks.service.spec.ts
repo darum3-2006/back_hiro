@@ -227,6 +227,53 @@ describe('TasksService', () => {
     });
   });
 
+  describe('listMyOpenTasks', () => {
+    it('生の行を返し seq を数値化する', async () => {
+      const qb = {
+        innerJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(),
+        getRawMany: jest.fn().mockResolvedValue([
+          {
+            shortCode: 'abc',
+            seq: '12',
+            content: '対応',
+            statusCode: 'doing',
+            statusLabel: '対応中',
+            statusColor: 'info',
+            priorityCode: null,
+            deadline: '2026-06-30',
+            projectId: 'p1',
+            projectName: 'PJ',
+          },
+        ]),
+      };
+      tasksRepo.createQueryBuilder.mockReturnValue(qb as never);
+
+      const result = await service.listMyOpenTasks(tenantId, 'user-1');
+
+      expect(result).toEqual([
+        {
+          shortCode: 'abc',
+          seq: 12,
+          content: '対応',
+          statusCode: 'doing',
+          statusLabel: '対応中',
+          statusColor: 'info',
+          priorityCode: null,
+          deadline: '2026-06-30',
+          projectId: 'p1',
+          projectName: 'PJ',
+        },
+      ]);
+      expect(qb.andWhere).toHaveBeenCalledWith('am.user_id = :userId', { userId: 'user-1' });
+      expect(qb.andWhere).toHaveBeenCalledWith('s.is_terminal = false');
+    });
+  });
+
   describe('remove', () => {
     it('対象を削除し監査ログ(delete)を記録', async () => {
       tasksRepo.findOne.mockResolvedValue({ ...baseTask });
