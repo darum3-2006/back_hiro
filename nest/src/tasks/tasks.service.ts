@@ -1,14 +1,19 @@
 import { randomBytes } from 'crypto';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { EntityManager, In, Repository } from 'typeorm';
+import { AuditChange } from '../audit/audit-log.entity';
+import { AuditService } from '../audit/audit.service';
+import { Department } from '../departments/department.entity';
 import { ProjectMember } from '../members/member.entity';
 import { Tag } from '../masters/tag.entity';
+import { TaskPriority } from '../masters/task-priority.entity';
 import { TaskStatus } from '../masters/task-status.entity';
 import { ProjectsService } from '../projects/projects.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { TaskFilterDto } from './dto/task-filter.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
+import { buildTaskChanges, TaskChangeLabels, TaskFieldSnapshot } from './task-audit';
 import { TaskTag } from './task-tag.entity';
 import { Task, TaskLink } from './task.entity';
 
@@ -67,6 +72,15 @@ export interface MyTaskResponse {
   projectName: string;
 }
 
+/** タスク履歴（監査ログ）のフロント返却用 DTO 形。 */
+export interface TaskActivityResponse {
+  id: string;
+  action: string;
+  changes: AuditChange[] | null;
+  actor: { userId: string | null; name: string | null };
+  createdAt: Date;
+}
+
 @Injectable()
 export class TasksService {
   constructor(
@@ -78,7 +92,14 @@ export class TasksService {
     private readonly tags: Repository<Tag>,
     @InjectRepository(TaskStatus)
     private readonly statuses: Repository<TaskStatus>,
+    @InjectRepository(TaskPriority)
+    private readonly priorities: Repository<TaskPriority>,
+    @InjectRepository(ProjectMember)
+    private readonly members: Repository<ProjectMember>,
+    @InjectRepository(Department)
+    private readonly departments: Repository<Department>,
     private readonly projects: ProjectsService,
+    private readonly audit: AuditService,
   ) {}
 
   async listByProject(
@@ -165,7 +186,12 @@ export class TasksService {
     return { projectId: task.projectId, id: task.id };
   }
 
-  async create(tenantId: string, projectId: string, dto: CreateTaskDto): Promise<TaskResponse> {
+  async create(
+    tenantId: string,
+    projectId: string,
+    dto: CreateTaskDto,
+    actingUserId: string,
+  ): Promise<TaskResponse> {
     await this.projects.findByIdInTenant(tenantId, projectId);
     const seq = await this.nextSeq(projectId);
     const shortCode = await this.nextShortCode();
@@ -187,10 +213,24 @@ export class TasksService {
       plannedReleaseDate: dto.plannedReleaseDate ?? null,
       completedAt,
     });
-    const saved = await this.tasks.save(task);
-    if (dto.tagCodes && dto.tagCodes.length > 0) {
-      await this.replaceTaskTags(projectId, saved.id, dto.tagCodes);
-    }
+    const saved = await this.tasks.manager.transaction(async (em) => {
+      const s = await em.save(task);
+      if (dto.tagCodes && dto.tagCodes.length > 0) {
+        await this.replaceTaskTags(projectId, s.id, dto.tagCodes, em);
+      }
+      await this.audit.record(
+        {
+          tenantId,
+          entityType: 'task',
+          entityId: s.id,
+          projectId,
+          action: 'create',
+          actorUserId: actingUserId,
+        },
+        em,
+      );
+      return s;
+    });
     return this.findInProject(tenantId, projectId, saved.id);
   }
 
@@ -199,8 +239,12 @@ export class TasksService {
     projectId: string,
     id: string,
     dto: UpdateTaskDto,
+    actingUserId: string,
   ): Promise<TaskResponse> {
     const task = await this.findEntityInProject(tenantId, projectId, id);
+    const beforeTagCodes = await this.getTagCodes(task.id);
+    const before = this.snapshotOf(task, beforeTagCodes);
+
     if (dto.content !== undefined) task.content = dto.content.trim();
     if (dto.description !== undefined) task.description = dto.description;
     if (dto.links !== undefined) task.links = dto.links;
@@ -226,16 +270,77 @@ export class TasksService {
     if (dto.plannedReleaseDate !== undefined) {
       task.plannedReleaseDate = dto.plannedReleaseDate ?? null;
     }
-    await this.tasks.save(task);
-    if (dto.tagCodes !== undefined) {
-      await this.replaceTaskTags(projectId, task.id, dto.tagCodes);
-    }
+
+    // タグ更新時は実際に保存される有効コードのみで差分を取る（不正コードは無視されるため）。
+    const afterTagCodes =
+      dto.tagCodes !== undefined
+        ? await this.resolveValidTagCodes(projectId, dto.tagCodes)
+        : beforeTagCodes;
+    const after = this.snapshotOf(task, afterTagCodes);
+    const labels = await this.resolveChangeLabels(tenantId, projectId, before, after);
+    const changes = buildTaskChanges(before, after, labels);
+
+    await this.tasks.manager.transaction(async (em) => {
+      await em.save(task);
+      if (dto.tagCodes !== undefined) {
+        await this.replaceTaskTags(projectId, task.id, dto.tagCodes, em);
+      }
+      if (changes.length > 0) {
+        await this.audit.record(
+          {
+            tenantId,
+            entityType: 'task',
+            entityId: task.id,
+            projectId,
+            action: 'update',
+            changes,
+            actorUserId: actingUserId,
+          },
+          em,
+        );
+      }
+    });
     return this.findInProject(tenantId, projectId, task.id);
   }
 
-  async remove(tenantId: string, projectId: string, id: string): Promise<void> {
+  async remove(
+    tenantId: string,
+    projectId: string,
+    id: string,
+    actingUserId: string,
+  ): Promise<void> {
     const task = await this.findEntityInProject(tenantId, projectId, id);
-    await this.tasks.remove(task);
+    await this.tasks.manager.transaction(async (em) => {
+      await em.remove(task);
+      await this.audit.record(
+        {
+          tenantId,
+          entityType: 'task',
+          entityId: id,
+          projectId,
+          action: 'delete',
+          actorUserId: actingUserId,
+        },
+        em,
+      );
+    });
+  }
+
+  /** タスクの履歴（監査ログ）を時系列で返す。 */
+  async listActivities(
+    tenantId: string,
+    projectId: string,
+    id: string,
+  ): Promise<TaskActivityResponse[]> {
+    await this.findEntityInProject(tenantId, projectId, id);
+    const logs = await this.audit.listForEntity(tenantId, 'task', id);
+    return logs.map((l) => ({
+      id: l.id,
+      action: l.action,
+      changes: l.changes,
+      actor: { userId: l.actorUserId, name: l.actorUserName },
+      createdAt: l.createdAt,
+    }));
   }
 
   // ===== 内部ヘルパ =====
@@ -306,13 +411,15 @@ export class TasksService {
   /**
    * tag_codes 配列に従って task_tags を全置換。
    * 不正な tagCode（同プロジェクト内に存在しない）は黙って無視。
+   * manager を渡すと呼び出し側のトランザクションに参加する（未指定なら自前で張る）。
    */
   private async replaceTaskTags(
     projectId: string,
     taskId: string,
     tagCodes: string[],
+    manager?: EntityManager,
   ): Promise<void> {
-    await this.taskTags.manager.transaction(async (em) => {
+    const run = async (em: EntityManager) => {
       const tagsRepo = em.getRepository(Tag);
       const tagsInProject = await tagsRepo.find({
         where: { projectId, code: In(tagCodes) },
@@ -322,7 +429,101 @@ export class TasksService {
       if (tagsInProject.length === 0) return;
       const rows = tagsInProject.map((t) => ttRepo.create({ taskId, tagId: t.id }));
       await ttRepo.save(rows);
+    };
+    if (manager) return run(manager);
+    return this.taskTags.manager.transaction(run);
+  }
+
+  /** 監査差分用に、タスクの現在のタグコード一覧を返す。 */
+  private async getTagCodes(taskId: string): Promise<string[]> {
+    const rows = await this.taskTags
+      .createQueryBuilder('tt')
+      .innerJoin(Tag, 'tag', 'tag.id = tt.tag_id')
+      .select('tag.code', 'code')
+      .where('tt.task_id = :taskId', { taskId })
+      .getRawMany<{ code: string }>();
+    return rows.map((r) => r.code);
+  }
+
+  /** 指定コードのうち同プロジェクトに実在するものだけを返す（保存される集合と一致させる）。 */
+  private async resolveValidTagCodes(projectId: string, codes: string[]): Promise<string[]> {
+    if (codes.length === 0) return [];
+    const rows = await this.tags.find({
+      where: { projectId, code: In(codes) },
+      select: { code: true },
     });
+    return rows.map((r) => r.code);
+  }
+
+  /** Task エンティティと tagCodes から監査差分用スナップショットを作る。 */
+  private snapshotOf(task: Task, tagCodes: string[]): TaskFieldSnapshot {
+    return {
+      content: task.content,
+      description: task.description,
+      statusCode: task.statusCode,
+      priorityCode: task.priorityCode,
+      assigneeMemberId: task.assigneeMemberId,
+      requesterMemberId: task.requesterMemberId,
+      requestingDeptCode: task.requestingDeptCode,
+      deadline: task.deadline,
+      plannedCompletionDate: task.plannedCompletionDate,
+      plannedReleaseDate: task.plannedReleaseDate,
+      links: task.links,
+      tagCodes,
+    };
+  }
+
+  /**
+   * 前後スナップショットに現れる code / id の表示ラベルをまとめて引く。
+   * 変更されたフィールド由来の値のみを対象にしたいが、union でも件数は小さいので
+   * 簡潔さを優先して before/after 双方の値を集めて解決する。
+   */
+  private async resolveChangeLabels(
+    tenantId: string,
+    projectId: string,
+    before: TaskFieldSnapshot,
+    after: TaskFieldSnapshot,
+  ): Promise<TaskChangeLabels> {
+    const uniq = (xs: (string | null)[]): string[] => [
+      ...new Set(xs.filter((x): x is string => x !== null)),
+    ];
+
+    const statusCodes = uniq([before.statusCode, after.statusCode]);
+    const priorityCodes = uniq([before.priorityCode, after.priorityCode]);
+    const memberIds = uniq([
+      before.assigneeMemberId,
+      after.assigneeMemberId,
+      before.requesterMemberId,
+      after.requesterMemberId,
+    ]);
+    const deptCodes = uniq([before.requestingDeptCode, after.requestingDeptCode]);
+    const tagCodes = uniq([...before.tagCodes, ...after.tagCodes]);
+
+    const [statuses, priorities, members, depts, tags] = await Promise.all([
+      statusCodes.length
+        ? this.statuses.find({ where: { projectId, code: In(statusCodes) } })
+        : Promise.resolve([]),
+      priorityCodes.length
+        ? this.priorities.find({ where: { projectId, code: In(priorityCodes) } })
+        : Promise.resolve([]),
+      memberIds.length
+        ? this.members.find({ where: { projectId, id: In(memberIds) } })
+        : Promise.resolve([]),
+      deptCodes.length
+        ? this.departments.find({ where: { tenantId, code: In(deptCodes) } })
+        : Promise.resolve([]),
+      tagCodes.length
+        ? this.tags.find({ where: { projectId, code: In(tagCodes) } })
+        : Promise.resolve([]),
+    ]);
+
+    return {
+      status: new Map(statuses.map((s) => [s.code, s.label])),
+      priority: new Map(priorities.map((p) => [p.code, p.label])),
+      member: new Map(members.map((m) => [m.id, m.displayName])),
+      dept: new Map(depts.map((d) => [d.code, d.name])),
+      tag: new Map(tags.map((t) => [t.code, t.name])),
+    };
   }
 
   private async attachTagCodes(tasks: Task[]): Promise<TaskResponse[]> {

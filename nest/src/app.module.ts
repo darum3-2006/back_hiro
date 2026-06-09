@@ -5,6 +5,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { buildDatabaseOptions } from './config/database.config';
 import { CommentsModule } from './comments/comments.module';
@@ -30,6 +31,7 @@ import { UsersModule } from './users/users.module';
     TenantsModule,
     UsersModule,
     AuthModule,
+    AuditModule,
     ProjectsModule,
     DepartmentsModule,
     MembersModule,
