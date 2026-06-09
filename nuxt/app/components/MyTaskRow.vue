@@ -16,7 +16,7 @@ const to = computed(() => `/${tenantKey.value}/${props.task.shortCode}`);
   >
     <span class="shrink-0 font-mono text-xs text-muted">#{{ task.seq }}</span>
     <span class="flex-1 truncate text-sm">{{ task.content }}</span>
-    <UBadge color="neutral" variant="soft" size="sm" :label="task.statusLabel" />
+    <UBadge :color="task.statusColor" variant="soft" size="sm" :label="task.statusLabel" />
     <span
       class="w-24 shrink-0 text-center text-xs"
       :class="overdue ? 'font-medium text-error' : 'text-muted'"
