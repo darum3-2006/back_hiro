@@ -25,7 +25,7 @@
 ```
 Tenant
 ├─ Users          (tenant-scoped, 認証用)
-├─ Departments    (tenant-scoped)
+├─ Departments    (tenant-scoped, admin が管理)
 └─ Projects       (tenant-scoped)
    ├─ ProjectMembers (project-scoped, displayName 必須・userId は null 可)
    ├─ TaskStatuses   (project-scoped)
@@ -35,17 +35,18 @@ Tenant
    └─ Comments       (Task に紐付く)
 ```
 
-### スコープ方針: 全マスタ project-scoped
+### スコープ方針: タスク系マスタは project-scoped
 
-- TaskStatus / TaskPriority / Tags はプロジェクトごとに自由に定義可能（Jira/Linear 風）
+- TaskStatus / TaskPriority / Tags はプロジェクトごとに自由に定義可能（Jira/Linear 風）で **project-scoped**
+- Departments はプロジェクト横断で使う組織情報のため **tenant-scoped**（例外）。admin が管理
 - **Why:** マルチテナント + プロジェクト単位で workflow を変えたいニーズに対応
-- **運用ルール:** 新マスタ追加時はデフォルトで project-scoped（`projectId` 必須）
+- **運用ルール:** ワークフロー系マスタを新設するときはデフォルトで project-scoped（`projectId` 必須）。組織横断の参照マスタのみ tenant-scoped を検討
 
 ### ProjectMember の設計: Hybrid
 
 - Member は独立エンティティ。`userId` は **null 可**（プレースホルダー運用OK）
 - **Why:** 「CS（起票）」「かんとく」のような擬人化メンバーを表現できる
-- **運用ルール:** Task の requester/assignee は **必ず Member を参照**（User 直参照は禁止）。監査ログは User を参照
+- **運用ルール:** Task の requester/assignee は **必ず Member を参照**（User 直参照は禁止）。監査ログ（`audit_logs`、実装済み）は User を参照
 
 ## ビュー設計の方針
 
@@ -74,14 +75,9 @@ Tenant
 
 ## データモデルの中心
 
-- **Task:** `content`, `description`, `links[]`, `requesterMemberId`, `requestingDeptCode`, `assigneeMemberId`, `priorityCode`, `statusCode`, `deadline`, `plannedCompletionDate`, `tagCodes[]`, `createdAt`
+- **Task:** `shortCode`, `seq`, `content`, `description`, `links[]`, `requesterMemberId`, `requestingDeptCode`, `assigneeMemberId`, `priorityCode`, `statusCode`, `deadline`, `plannedCompletionDate`, `plannedReleaseDate`, `completedAt`, `tagCodes[]`, `createdAt`
+  - `shortCode`: 共有リンク用の不透明な短縮コード（グローバル一意 / `/:tenantKey/:shortCode`）
+  - `seq`: プロジェクト内連番（表示用 `#N`）
+  - `completedAt`: ステータスが完了扱い（`isTerminal=true`）の間だけ値を持つ
 - **TaskLink:** `label`, `url`（タスクごとに複数）
 - **Comment:** `projectId`, `taskId`, `authorMemberId`, `body`, `createdAt`, `updatedAt`
-
-## 既存データの移行
-
-- 既存スプレッドシート（`システム改修対応一覧.xlsx`）のデータは移行する予定だが、ツール構築後に検討
-- **運用ルール:** 初期実装ではモックデータを使い、実データのインポートは後回し
-- 移行時の対応:
-  - 既存の Trello URL → `links: [{ label: 'Trello', url: ... }]`
-  - 「CS（起票）」「かんとく」のような担当者 → `userId: null` の ProjectMember として作成
