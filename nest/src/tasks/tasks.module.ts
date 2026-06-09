@@ -7,6 +7,7 @@ import { Tag } from '../masters/tag.entity';
 import { TaskPriority } from '../masters/task-priority.entity';
 import { TaskStatus } from '../masters/task-status.entity';
 import { ProjectsModule } from '../projects/projects.module';
+import { MyTasksController } from './my-tasks.controller';
 import { TaskLinksController } from './task-links.controller';
 import { TaskTag } from './task-tag.entity';
 import { Task } from './task.entity';
@@ -27,7 +28,7 @@ import { TasksService } from './tasks.service';
     ProjectsModule,
     AuditModule,
   ],
-  controllers: [TasksController, TaskLinksController],
+  controllers: [TasksController, TaskLinksController, MyTasksController],
   providers: [TasksService],
   exports: [TasksService, TypeOrmModule],
 })
