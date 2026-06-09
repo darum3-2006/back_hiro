@@ -66,6 +66,8 @@ export interface MyTaskResponse {
   content: string;
   statusCode: string;
   statusLabel: string;
+  /** ステータスマスタの表示色（プロジェクト設定）。UI のバッジ色に使う。 */
+  statusColor: string;
   priorityCode: string | null;
   deadline: string | null;
   projectId: string;
@@ -151,6 +153,7 @@ export class TasksService {
         't.content AS content',
         't.status_code AS statusCode',
         's.label AS statusLabel',
+        's.color AS statusColor',
         't.priority_code AS priorityCode',
         't.deadline AS deadline',
         't.project_id AS projectId',
@@ -162,6 +165,7 @@ export class TasksService {
         content: string;
         statusCode: string;
         statusLabel: string;
+        statusColor: string;
         priorityCode: string | null;
         deadline: string | null;
         projectId: string;
