@@ -160,6 +160,73 @@ describe('TasksService', () => {
     });
   });
 
+  describe('search', () => {
+    it('空クエリは即 [] を返す（DB を引かない）', async () => {
+      const result = await service.search(tenantId, '   ');
+      expect(result).toEqual([]);
+      expect(tasksRepo.createQueryBuilder).not.toHaveBeenCalled();
+    });
+
+    it('結果をマップし seq を数値化する', async () => {
+      const qb = {
+        innerJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        getRawMany: jest.fn().mockResolvedValue([
+          {
+            shortCode: 'abc',
+            seq: '15',
+            content: 'ログイン不具合',
+            statusCode: 'doing',
+            statusLabel: '対応中',
+            projectId: 'p1',
+            projectName: 'PJ',
+          },
+        ]),
+      };
+      tasksRepo.createQueryBuilder.mockReturnValue(qb as never);
+
+      const result = await service.search(tenantId, 'ログイン');
+
+      expect(result).toEqual([
+        {
+          shortCode: 'abc',
+          seq: 15,
+          content: 'ログイン不具合',
+          statusCode: 'doing',
+          statusLabel: '対応中',
+          projectId: 'p1',
+          projectName: 'PJ',
+        },
+      ]);
+      expect(qb.andWhere).toHaveBeenCalledWith('p.archived_at IS NULL');
+    });
+
+    it('#15 のような数値は seq 条件を含める', async () => {
+      const qb = {
+        innerJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        getRawMany: jest.fn().mockResolvedValue([]),
+      };
+      tasksRepo.createQueryBuilder.mockReturnValue(qb as never);
+
+      await service.search(tenantId, '#15');
+
+      const calls = qb.andWhere.mock.calls as Array<[string, Record<string, unknown>?]>;
+      const usedSeq = calls.some((c) => c[1]?.seq === 15);
+      expect(usedSeq).toBe(true);
+    });
+  });
+
   describe('remove', () => {
     it('対象を削除し監査ログ(delete)を記録', async () => {
       tasksRepo.findOne.mockResolvedValue({ ...baseTask });
