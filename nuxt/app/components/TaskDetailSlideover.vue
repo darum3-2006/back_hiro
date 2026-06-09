@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import dayjs from 'dayjs';
 import { apiCreateComment, apiUpdateComment } from '~/api/comments';
+import type { TaskActivity } from '~/types/activity';
+import type { Comment } from '~/types/comment';
 import type { Member } from '~/types/member';
 import type { Department, Tag, TaskPriority, TaskStatus } from '~/types/master';
 import type { Task, TaskLink } from '~/types/task';
@@ -48,6 +50,50 @@ const projectIdRef = computed(() => props.task?.projectId ?? '');
 const taskIdRef = computed<string | null>(() => props.task?.id ?? null);
 
 const { data: comments, refresh: refreshComments } = await useTaskComments(projectIdRef, taskIdRef);
+const { data: activities, refresh: refreshActivities } = await useTaskActivities(
+  projectIdRef,
+  taskIdRef,
+);
+
+// ===== Activity timeline（コメント＋変更履歴の統合） =====
+// 変更履歴の表示トグル（既定 OFF）。普段はコメント中心、ON で変更履歴も差し込む。
+// ユーザーの選択は localStorage に永続化する（KEEP_OPEN と同じ流儀）。
+const SHOW_ACTIVITY_KEY = 'task-detail:show-activity';
+const showActivity = ref(false);
+onMounted(() => {
+  showActivity.value = localStorage.getItem(SHOW_ACTIVITY_KEY) === '1';
+});
+watch(showActivity, (v) => {
+  localStorage.setItem(SHOW_ACTIVITY_KEY, v ? '1' : '0');
+});
+
+type TimelineItem =
+  | { kind: 'comment'; id: string; at: string; comment: Comment }
+  | { kind: 'activity'; id: string; at: string; activity: TaskActivity };
+
+const timeline = computed<TimelineItem[]>(() => {
+  const items: TimelineItem[] = comments.value.map((c) => ({
+    kind: 'comment',
+    id: `c:${c.id}`,
+    at: c.createdAt,
+    comment: c,
+  }));
+  if (showActivity.value) {
+    for (const a of activities.value) {
+      items.push({ kind: 'activity', id: `a:${a.id}`, at: a.createdAt, activity: a });
+    }
+  }
+  return items.sort((x, y) => dayjs(x.at).valueOf() - dayjs(y.at).valueOf());
+});
+
+// このパネル内でフィールドを編集すると親が PATCH → task.updatedAt が変わるので、
+// それを検知して履歴を取り直す。
+watch(
+  () => props.task?.updatedAt,
+  (next, prev) => {
+    if (next && next !== prev) refreshActivities();
+  },
+);
 
 // ===== Comments =====
 const commentBody = ref('');
@@ -644,71 +690,114 @@ const tagsList = computed(() => Object.values(props.tagMap));
         <USeparator />
 
         <div>
-          <p class="text-sm font-medium mb-2">
-            コメント <span class="text-muted">({{ comments.length }})</span>
-          </p>
+          <div class="mb-2 flex items-center justify-between">
+            <p class="text-sm font-medium">コメント・履歴</p>
+            <USwitch v-model="showActivity" size="sm" label="変更履歴" />
+          </div>
 
-          <div v-if="comments.length === 0" class="text-sm text-muted py-2">
-            まだコメントはありません。
+          <div v-if="timeline.length === 0" class="text-sm text-muted py-2">
+            まだコメントや履歴はありません。
           </div>
 
           <div v-else class="space-y-3">
-            <div v-for="c in comments" :key="c.id" class="flex gap-3 group">
-              <UAvatar :alt="memberMap[c.authorMemberId]?.displayName ?? '?'" size="sm" />
-              <div class="flex-1 min-w-0">
-                <div class="flex items-baseline gap-2">
-                  <span class="text-sm font-medium">
-                    {{ memberMap[c.authorMemberId]?.displayName ?? '不明' }}
-                  </span>
-                  <span class="text-xs text-muted">{{ fmtDateTime(c.createdAt) }}</span>
-                  <span v-if="isCommentEdited(c)" class="text-xs text-muted">
-                    (編集済み {{ fmtDateTime(c.updatedAt) }})
-                  </span>
-                  <UButton
-                    v-if="c.authorMemberId === currentMemberId && editingCommentId !== c.id"
-                    size="xs"
-                    color="neutral"
-                    variant="ghost"
-                    icon="i-lucide-pencil"
-                    class="ml-auto opacity-0 group-hover:opacity-100 transition"
-                    @click="startEditComment(c.id, c.body)"
-                  />
-                </div>
-
-                <div v-if="editingCommentId === c.id" class="mt-1 space-y-2">
-                  <UTextarea
-                    v-model="commentEditBuffer"
-                    autofocus
-                    :rows="3"
-                    autoresize
-                    class="w-full"
-                    @keydown.ctrl.enter.exact.prevent="saveCommentEdit"
-                    @keydown.meta.enter.exact.prevent="saveCommentEdit"
-                  />
-                  <div class="flex gap-2">
+            <template v-for="item in timeline" :key="item.id">
+              <!-- コメント -->
+              <div v-if="item.kind === 'comment'" class="flex gap-3 group">
+                <UAvatar
+                  :alt="memberMap[item.comment.authorMemberId]?.displayName ?? '?'"
+                  size="sm"
+                />
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-baseline gap-2">
+                    <span class="text-sm font-medium">
+                      {{ memberMap[item.comment.authorMemberId]?.displayName ?? '不明' }}
+                    </span>
+                    <span class="text-xs text-muted">{{
+                      fmtDateTime(item.comment.createdAt)
+                    }}</span>
+                    <span v-if="isCommentEdited(item.comment)" class="text-xs text-muted">
+                      (編集済み {{ fmtDateTime(item.comment.updatedAt) }})
+                    </span>
                     <UButton
-                      size="sm"
-                      color="primary"
-                      :loading="savingEdit"
-                      :disabled="!commentEditBuffer.trim()"
-                      label="保存"
-                      @click="saveCommentEdit"
-                    />
-                    <UButton
-                      size="sm"
+                      v-if="
+                        item.comment.authorMemberId === currentMemberId &&
+                        editingCommentId !== item.comment.id
+                      "
+                      size="xs"
                       color="neutral"
                       variant="ghost"
-                      label="キャンセル"
-                      @click="cancelCommentEdit"
+                      icon="i-lucide-pencil"
+                      class="ml-auto opacity-0 group-hover:opacity-100 transition"
+                      @click="startEditComment(item.comment.id, item.comment.body)"
                     />
                   </div>
-                </div>
 
-                <p v-else class="text-sm mt-0.5">
-                  <LinkedText :text="c.body" :tasks="tasks" />
-                </p>
+                  <div v-if="editingCommentId === item.comment.id" class="mt-1 space-y-2">
+                    <UTextarea
+                      v-model="commentEditBuffer"
+                      autofocus
+                      :rows="3"
+                      autoresize
+                      class="w-full"
+                      @keydown.ctrl.enter.exact.prevent="saveCommentEdit"
+                      @keydown.meta.enter.exact.prevent="saveCommentEdit"
+                    />
+                    <div class="flex gap-2">
+                      <UButton
+                        size="sm"
+                        color="primary"
+                        :loading="savingEdit"
+                        :disabled="!commentEditBuffer.trim()"
+                        label="保存"
+                        @click="saveCommentEdit"
+                      />
+                      <UButton
+                        size="sm"
+                        color="neutral"
+                        variant="ghost"
+                        label="キャンセル"
+                        @click="cancelCommentEdit"
+                      />
+                    </div>
+                  </div>
+
+                  <p v-else class="text-sm mt-0.5">
+                    <LinkedText :text="item.comment.body" :tasks="tasks" />
+                  </p>
+                </div>
               </div>
-            </div>
+
+              <!-- 変更履歴 -->
+              <div v-else class="flex gap-3">
+                <div class="flex size-8 shrink-0 items-center justify-center">
+                  <UIcon name="i-lucide-history" class="size-4 text-muted" />
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-baseline gap-2">
+                    <span class="text-sm font-medium">
+                      {{ item.activity.actor.name ?? '（削除済みユーザー）' }}
+                    </span>
+                    <span class="text-xs text-muted">{{
+                      fmtDateTime(item.activity.createdAt)
+                    }}</span>
+                  </div>
+                  <p v-if="item.activity.action === 'create'" class="mt-0.5 text-sm text-muted">
+                    タスクを作成
+                  </p>
+                  <p
+                    v-else-if="item.activity.action === 'delete'"
+                    class="mt-0.5 text-sm text-muted"
+                  >
+                    タスクを削除
+                  </p>
+                  <ul v-else class="mt-0.5 space-y-0.5 text-sm text-muted">
+                    <li v-for="(ch, idx) in item.activity.changes ?? []" :key="idx">
+                      {{ describeAuditChange(ch) }}
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </template>
           </div>
 
           <div class="mt-4 space-y-2">
