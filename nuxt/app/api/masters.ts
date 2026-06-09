@@ -7,6 +7,25 @@ import type { Department, MasterColor, Tag, TaskPriority, TaskStatus } from '~/t
 export const apiListDepartments = (api: typeof $fetch): Promise<Department[]> =>
   api<Department[]>('/departments');
 
+/** POST /api/departments（admin） */
+export const apiCreateDepartment = (
+  api: typeof $fetch,
+  input: { code: string; name: string },
+): Promise<Department> => api<Department>('/departments', { method: 'POST', body: input });
+
+/** PATCH /api/departments/:code（admin、名称のみ変更可） */
+export const apiUpdateDepartment = (
+  api: typeof $fetch,
+  code: string,
+  patch: { name: string },
+): Promise<Department> =>
+  api<Department>(`/departments/${encodeURIComponent(code)}`, { method: 'PATCH', body: patch });
+
+/** DELETE /api/departments/:code（admin） */
+export const apiDeleteDepartment = async (api: typeof $fetch, code: string): Promise<void> => {
+  await api(`/departments/${encodeURIComponent(code)}`, { method: 'DELETE' });
+};
+
 // ===== Task Statuses (project) =====
 
 /** GET /api/projects/:projectId/task-statuses */
