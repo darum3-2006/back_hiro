@@ -8,7 +8,20 @@ const { data: projects } = await useProjects();
 const { me } = useAuth();
 
 const today = dayjs().startOf('day');
-const soonEnd = today.add(7, 'day').endOf('day');
+
+// 期限間近とみなす日数（1〜30、既定 7）。カード右上のプルダウンで変更し、選択は localStorage に永続化。
+const SOON_DAYS_KEY = 'home:due-soon-days';
+const soonDays = ref(7);
+const soonDayOptions = Array.from({ length: 30 }, (_, i) => ({
+  label: `${i + 1}日`,
+  value: i + 1,
+}));
+const soonEnd = computed(() => today.add(soonDays.value, 'day').endOf('day'));
+onMounted(() => {
+  const saved = Number(localStorage.getItem(SOON_DAYS_KEY));
+  if (Number.isInteger(saved) && saved >= 1 && saved <= 30) soonDays.value = saved;
+});
+watch(soonDays, (v) => localStorage.setItem(SOON_DAYS_KEY, String(v)));
 
 // 期限超過を赤字にするかはプロジェクトごとの設定（highlightOverdueDeadline）に従う。
 // /me/tasks は非終端ステータスのみ返すので、ここでは期限が過去かだけ見れば良い。
@@ -24,10 +37,11 @@ const isOverdue = (t: MyTask): boolean =>
 const overdue = computed(() =>
   myTasks.value.filter((t) => t.deadline && dayjs(t.deadline).isBefore(today)),
 );
-// 期限間近: 今日〜7日以内
+// 期限間近: 今日〜soonDays 日以内
 const dueSoon = computed(() =>
   myTasks.value.filter(
-    (t) => t.deadline && !dayjs(t.deadline).isBefore(today) && !dayjs(t.deadline).isAfter(soonEnd),
+    (t) =>
+      t.deadline && !dayjs(t.deadline).isBefore(today) && !dayjs(t.deadline).isAfter(soonEnd.value),
   ),
 );
 
@@ -63,9 +77,16 @@ const byProject = computed(() => {
 
         <UCard>
           <template #header>
-            <div class="flex items-center gap-2 font-medium">
-              <UIcon name="i-lucide-alarm-clock" class="size-4 text-warning" />
-              期限切れ・期限間近
+            <div class="flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2 font-medium">
+                <UIcon name="i-lucide-alarm-clock" class="size-4 text-warning" />
+                期限切れ・期限間近
+              </div>
+              <div class="flex items-center gap-1.5 text-xs text-muted">
+                <span>期限間近</span>
+                <USelect v-model="soonDays" :items="soonDayOptions" size="xs" class="w-20" />
+                <span>以内</span>
+              </div>
             </div>
           </template>
 
@@ -73,7 +94,8 @@ const byProject = computed(() => {
             期限が迫っているタスクはありません 🎉
           </div>
           <div v-else class="space-y-4">
-            <div v-if="overdue.length">
+            <!-- 片方が 0 でも両方の見出しを出す（例: 期限切れあり・期限間近なし → 期限間近（0）） -->
+            <div>
               <p class="mb-1 text-xs font-medium text-error">期限切れ（{{ overdue.length }}）</p>
               <MyTaskRow
                 v-for="t in overdue"
@@ -82,8 +104,8 @@ const byProject = computed(() => {
                 :overdue="isOverdue(t)"
               />
             </div>
-            <div v-if="dueSoon.length">
-              <p class="mb-1 text-xs font-medium text-warning">7日以内（{{ dueSoon.length }}）</p>
+            <div>
+              <p class="mb-1 text-xs font-medium text-warning">期限間近（{{ dueSoon.length }}）</p>
               <MyTaskRow v-for="t in dueSoon" :key="t.shortCode" :task="t" />
             </div>
           </div>
