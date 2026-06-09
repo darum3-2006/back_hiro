@@ -64,15 +64,38 @@ watch(open, (v) => {
 </script>
 
 <template>
-  <UModal v-model:open="open" :ui="{ content: 'sm:max-w-2xl' }">
+  <!-- タスク詳細スライドオーバー(z-50)より前面に出す。重ねても薄くならないよう z を上げる -->
+  <UModal v-model:open="open" :ui="{ overlay: 'z-[60]', content: 'z-[60] sm:max-w-2xl' }">
     <template #content>
       <UCommandPalette
         v-model:search-term="searchTerm"
         :groups="groups"
         :loading="loading"
-        placeholder="タスクを検索（タイトル・説明・コード）…"
+        :close="true"
+        placeholder="タスクを検索（タイトル・説明・URL・コード）…"
         class="h-96"
-      />
+      >
+        <!-- 入力欄右の close 位置を「クリア」に転用。入力があるときだけ × を出す -->
+        <template #close>
+          <UButton
+            v-if="searchTerm"
+            icon="i-lucide-x"
+            color="neutral"
+            variant="ghost"
+            aria-label="検索ワードをクリア"
+            @click="searchTerm = ''"
+          />
+        </template>
+
+        <!-- 既定の「No data」「No matching data」を日本語に。入力前と該当なしで出し分ける -->
+        <template #empty="{ searchTerm: term }">
+          <div class="py-6 text-center text-sm text-muted">
+            <template v-if="loading">検索中…</template>
+            <template v-else-if="!term || !term.trim()">キーワードを入力してタスクを検索</template>
+            <template v-else>「{{ term }}」に一致するタスクはありません</template>
+          </div>
+        </template>
+      </UCommandPalette>
     </template>
   </UModal>
 </template>
