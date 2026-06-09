@@ -205,8 +205,8 @@ export class TasksService {
   }
 
   /**
-   * グローバル検索（テナント横断）。タイトル/説明の部分一致、short_code 完全一致、
-   * seq（#15 / 15）一致でタスクを引く。アーカイブ済みプロジェクトは除外。
+   * グローバル検索（テナント横断）。タイトル/説明/関連リンク(URL・ラベル)の部分一致、
+   * short_code 完全一致、seq（#15 / 15）一致でタスクを引く。アーカイブ済みプロジェクトは除外。
    */
   async search(tenantId: string, rawQuery: string, limit = 20): Promise<TaskSearchResult[]> {
     const q = rawQuery.trim();
@@ -224,7 +224,8 @@ export class TasksService {
       .where('p.tenant_id = :tenantId', { tenantId })
       .andWhere('p.archived_at IS NULL')
       .andWhere(
-        `(t.content LIKE :like OR t.description LIKE :like
+        // links は JSON 列。文字列化して LIKE すれば URL / ラベルの部分一致を拾える
+        `(t.content LIKE :like OR t.description LIKE :like OR t.links LIKE :like
           OR t.short_code = :code${seq !== null ? ' OR t.seq = :seq' : ''})`,
         seq !== null ? { like, code: q, seq } : { like, code: q },
       )
