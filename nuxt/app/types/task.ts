@@ -30,6 +30,17 @@ export interface Task {
   updatedAt: string;
 }
 
+/** グローバル検索（テナント横断）の結果 1 件。 */
+export interface TaskSearchResult {
+  shortCode: string;
+  seq: number;
+  content: string;
+  statusCode: string;
+  statusLabel: string;
+  projectId: string;
+  projectName: string;
+}
+
 /**
  * ホームダッシュボード用「自分のタスク」。プロジェクト横断のため
  * projectId / projectName を含み、表示に必要な最小限のみ。

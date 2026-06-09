@@ -1,5 +1,5 @@
 import type { TaskActivity } from '~/types/activity';
-import type { MyTask, Task, TaskLink } from '~/types/task';
+import type { MyTask, Task, TaskLink, TaskSearchResult } from '~/types/task';
 
 export interface CreateTaskInput {
   content: string;
@@ -35,6 +35,14 @@ const buildQuery = (filter: TaskFilter): string => {
   const qs = params.toString();
   return qs ? `?${qs}` : '';
 };
+
+/** GET /api/search/tasks?q= — タイトル/説明/コード横断でタスクを検索（テナント横断） */
+export const apiSearchTasks = (
+  api: typeof $fetch,
+  q: string,
+  limit = 20,
+): Promise<TaskSearchResult[]> =>
+  api<TaskSearchResult[]>(`/search/tasks?q=${encodeURIComponent(q)}&limit=${limit}`);
 
 /** GET /api/tasks/by-code/:code — 共有リンクの短縮コードからタスクを解決する */
 export const apiResolveTaskByCode = (

@@ -9,6 +9,14 @@ const currentProjectId = useCurrentProjectId();
 const projectCreateModalOpen = useProjectCreateModalOpen();
 const { me } = useAuth();
 
+// グローバル検索（Cmd/Ctrl+K で起動）
+const searchOpen = ref(false);
+defineShortcuts({
+  meta_k: () => {
+    searchOpen.value = true;
+  },
+});
+
 const activeProjects = computed(() => projects.value.filter((p) => !p.archivedAt));
 
 const currentProject = computed(() => projects.value.find((p) => p.id === currentProjectId.value));
@@ -63,6 +71,16 @@ const navItems = computed(() => {
   const groups = [
     // ホームは exact 一致のみ active（配下ルートで点灯させない）
     [{ label: 'ホーム', icon: 'i-lucide-house', to: `/${tk}`, exact: true }],
+    [
+      {
+        label: '検索',
+        icon: 'i-lucide-search',
+        // クリックでコマンドパレットを開く（Cmd/Ctrl+K でも起動）
+        onSelect: () => {
+          searchOpen.value = true;
+        },
+      },
+    ],
     [{ label: 'タスク一覧', icon: 'i-lucide-list-checks', to: tasksTo }],
     [{ label: 'プロジェクト', icon: 'i-lucide-folders', to: `/${tk}/projects` }],
   ];
@@ -172,4 +190,5 @@ const accountMenuItems = computed(() => [
 
   <ProjectCreateModal v-model:open="projectCreateModalOpen" @created="onProjectCreated" />
   <PasswordChangeModal v-model:open="passwordModalOpen" />
+  <GlobalSearch v-model:open="searchOpen" />
 </template>

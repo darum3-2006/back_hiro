@@ -83,6 +83,20 @@ export interface TaskActivityResponse {
   createdAt: Date;
 }
 
+/** グローバル検索の結果 1 件（テナント横断）。 */
+export interface TaskSearchResult {
+  shortCode: string;
+  seq: number;
+  content: string;
+  statusCode: string;
+  statusLabel: string;
+  projectId: string;
+  projectName: string;
+}
+
+// LIKE のメタ文字をエスケープ（ユーザー入力をリテラル一致させる）
+const escapeLike = (s: string): string => s.replace(/[\\%_]/g, (m) => `\\${m}`);
+
 @Injectable()
 export class TasksService {
   constructor(
@@ -188,6 +202,57 @@ export class TasksService {
       .getOne();
     if (!task) throw new NotFoundException('タスクが見つかりません');
     return { projectId: task.projectId, id: task.id };
+  }
+
+  /**
+   * グローバル検索（テナント横断）。タイトル/説明の部分一致、short_code 完全一致、
+   * seq（#15 / 15）一致でタスクを引く。アーカイブ済みプロジェクトは除外。
+   */
+  async search(tenantId: string, rawQuery: string, limit = 20): Promise<TaskSearchResult[]> {
+    const q = rawQuery.trim();
+    if (!q) return [];
+    const take = Math.min(Math.max(limit, 1), 50);
+    const like = `%${escapeLike(q)}%`;
+    // 「#15」「15」のような数値はプロジェクト内連番(seq)としても照合する
+    const seqMatch = /^#?(\d+)$/.exec(q);
+    const seq = seqMatch ? Number(seqMatch[1]) : null;
+
+    const qb = this.tasks
+      .createQueryBuilder('t')
+      .innerJoin('t.project', 'p')
+      .innerJoin(TaskStatus, 's', 's.project_id = t.project_id AND s.code = t.status_code')
+      .where('p.tenant_id = :tenantId', { tenantId })
+      .andWhere('p.archived_at IS NULL')
+      .andWhere(
+        `(t.content LIKE :like OR t.description LIKE :like
+          OR t.short_code = :code${seq !== null ? ' OR t.seq = :seq' : ''})`,
+        seq !== null ? { like, code: q, seq } : { like, code: q },
+      )
+      // 短縮コード完全一致を最優先、次いでタイトル一致、あとは新しい順
+      .orderBy('t.short_code = :code', 'DESC')
+      .addOrderBy('t.content LIKE :like', 'DESC')
+      .addOrderBy('t.created_at', 'DESC')
+      .select([
+        't.short_code AS shortCode',
+        't.seq AS seq',
+        't.content AS content',
+        't.status_code AS statusCode',
+        's.label AS statusLabel',
+        't.project_id AS projectId',
+        'p.name AS projectName',
+      ])
+      .limit(take);
+
+    const rows = await qb.getRawMany<{
+      shortCode: string;
+      seq: number;
+      content: string;
+      statusCode: string;
+      statusLabel: string;
+      projectId: string;
+      projectName: string;
+    }>();
+    return rows.map((r) => ({ ...r, seq: Number(r.seq) }));
   }
 
   async create(
