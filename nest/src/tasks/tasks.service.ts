@@ -124,9 +124,18 @@ export class TasksService {
     filter: TaskFilterDto = {},
   ): Promise<TaskResponse[]> {
     await this.projects.findByIdInTenant(tenantId, projectId);
-    const tasks = await this.queryBuilder(projectId, filter)
-      .orderBy('t.created_at', 'ASC')
-      .getMany();
+    const qb = this.queryBuilder(projectId, filter);
+    // 既定では完了（終端ステータス）タスクを除外する（一覧の取得ペイロード削減）。
+    // ステータスマスタの is_terminal を正とし、対応マスタが無い場合は未完了扱い（表示）。
+    // count は削除ガード等で全件数が要るため、この除外は listByProject だけに適用する。
+    if (!filter.includeCompleted) {
+      qb.leftJoin(
+        TaskStatus,
+        's',
+        's.project_id = t.project_id AND s.code = t.status_code',
+      ).andWhere('(s.is_terminal IS NULL OR s.is_terminal = false)');
+    }
+    const tasks = await qb.orderBy('t.created_at', 'ASC').getMany();
     return this.attachTagCodes(tasks);
   }
 

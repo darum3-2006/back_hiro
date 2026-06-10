@@ -35,7 +35,14 @@ const router = useRouter();
 const currentProjectId = useCurrentProjectId();
 const currentUserId = useCurrentUserId();
 
-const { data: tasks, refresh: refreshTasks } = await useTasks(currentProjectId);
+// 既定では完了タスクを取得しない（ペイロード削減）。完了表示 ON、または
+// ステータスを明示選択しているとき（終端ステータス選択もあり得る）は全件取得する。
+// 後段の showCompleted / statusFilter ref より前で評価するため URL クエリを直接見る。
+const includeCompleted = computed(
+  () => route.query.showCompleted === '1' || Boolean(route.query.status),
+);
+
+const { data: tasks, refresh: refreshTasks } = await useTasks(currentProjectId, includeCompleted);
 const { data: statuses } = await useTaskStatuses(currentProjectId);
 const { data: priorities } = await useTaskPriorities(currentProjectId);
 const { data: tags } = await useTags(currentProjectId);
