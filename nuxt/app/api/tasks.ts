@@ -25,6 +25,8 @@ export interface TaskFilter {
   assigneeMemberId?: string;
   requesterMemberId?: string;
   requestingDeptCode?: string;
+  /** 完了（終端ステータス）タスクも含めて取得するか。一覧でのみ使用 */
+  includeCompleted?: boolean;
 }
 
 const buildQuery = (filter: TaskFilter): string => {

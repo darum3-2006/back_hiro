@@ -20,6 +20,14 @@ describe('TasksService', () => {
   let projects: jest.Mocked<Pick<ProjectsService, 'findByIdInTenant'>>;
   let audit: jest.Mocked<Pick<AuditService, 'record' | 'listForEntity'>>;
   let em: { save: jest.Mock<Promise<Task>, [Task]>; remove: jest.Mock; getRepository: jest.Mock };
+  let filterQb: {
+    where: jest.Mock;
+    andWhere: jest.Mock;
+    leftJoin: jest.Mock;
+    orderBy: jest.Mock;
+    getMany: jest.Mock;
+    getCount: jest.Mock;
+  };
 
   const tenantId = 'tenant-1';
   const projectId = 'project-1';
@@ -78,9 +86,10 @@ describe('TasksService', () => {
       where: jest.fn().mockReturnThis(),
       getRawMany: jest.fn().mockResolvedValue([]),
     };
-    const filterQb = {
+    filterQb = {
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
+      leftJoin: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
       getMany: jest.fn().mockResolvedValue([]),
       getCount: jest.fn().mockResolvedValue(0),
@@ -158,6 +167,28 @@ describe('TasksService', () => {
 
       expect(result.id).toBe('t1');
       expect(result.tagCodes).toEqual([]);
+    });
+  });
+
+  describe('listByProject', () => {
+    const TERMINAL_CONDITION = '(s.is_terminal IS NULL OR s.is_terminal = false)';
+
+    it('既定では完了（終端ステータス）タスクを除外する', async () => {
+      await service.listByProject(tenantId, projectId);
+
+      expect(filterQb.leftJoin).toHaveBeenCalledWith(
+        TaskStatus,
+        's',
+        's.project_id = t.project_id AND s.code = t.status_code',
+      );
+      expect(filterQb.andWhere).toHaveBeenCalledWith(TERMINAL_CONDITION);
+    });
+
+    it('includeCompleted=true なら終端ステータスを除外しない', async () => {
+      await service.listByProject(tenantId, projectId, { includeCompleted: true });
+
+      expect(filterQb.leftJoin).not.toHaveBeenCalled();
+      expect(filterQb.andWhere).not.toHaveBeenCalledWith(TERMINAL_CONDITION);
     });
   });
 
