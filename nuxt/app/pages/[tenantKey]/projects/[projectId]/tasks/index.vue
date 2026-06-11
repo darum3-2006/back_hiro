@@ -778,6 +778,11 @@ const RESIZABLE_META = {
   },
 } as const;
 
+// 列幅の上限。手動ドラッグでも URL 由来でもこの値を超えさせない
+// （巨大値でレイアウトを破壊されるのを防ぐ）。TanStack の getSize() が
+// [minSize, maxSize] でクランプするため、各列に maxSize として付与する。
+const COLUMN_MAX_WIDTH = 1000;
+
 const columns: TableColumn<Task>[] = [
   { accessorKey: 'seq', header: sortHeader('No'), size: 64, minSize: 48, meta: RESIZABLE_META },
   {
@@ -951,6 +956,13 @@ const columns: TableColumn<Task>[] = [
     meta: RESIZABLE_META,
   },
 ];
+
+// 全列に共通の最大幅を付与（個別指定があればそれを尊重）。
+// これでヘッダーのドラッグリサイズも COLUMN_MAX_WIDTH で頭打ちになる。
+for (const c of columns) {
+  const col = c as { maxSize?: number };
+  col.maxSize = col.maxSize ?? COLUMN_MAX_WIDTH;
+}
 
 // 列幅は localStorage に永続化（プロジェクトごと）
 const columnSizingKey = computed(() => `tasks:column-sizing:${currentProjectId.value}`);
@@ -1141,6 +1153,91 @@ const DEFAULT_HIDDEN_COLUMNS: Record<string, boolean> = {
   updatedAt: false,
 };
 
+// ===== 列レイアウト（表示列 / 列順 / 列幅）を URL クエリに載せる =====
+// cols = 可視列をその順に並べたもの（表示/非表示と列順を 1 パラメータで表現）。
+// colw = 列幅を key:px のカンマ区切り（リサイズした列だけ）。
+// 優先順位は URL > localStorage > 既定。URL 由来で適用する間（初期化含む）は
+// localStorage / URL への書き戻しを抑止する（共有リンクを開いただけで個人の
+// 既定を上書きしたり、URL を勝手に汚したりしないため）。
+let applyingColumnLayout = false;
+
+const DEFAULT_VISIBLE_ORDER = DEFAULT_COLUMN_ORDER.filter(
+  (k) => DEFAULT_HIDDEN_COLUMNS[k] !== false,
+);
+
+/** 現在の列順 × 表示状態から「可視列をその順に並べた配列」を得る */
+const visibleColumnsInOrder = (): string[] =>
+  columnOrder.value.filter((k) => columnVisibility.value[k] !== false);
+
+/** cols クエリ値。既定レイアウトと一致するときは undefined（URL を汚さない） */
+const colsQueryValue = (): string | undefined => {
+  const visible = visibleColumnsInOrder();
+  return arraysEqual(visible, DEFAULT_VISIBLE_ORDER) ? undefined : visible.join(',');
+};
+
+/** colw クエリ値。リサイズ済みの列が無ければ undefined */
+const colwQueryValue = (): string | undefined => {
+  const entries = Object.entries(columnSizing.value);
+  if (entries.length === 0) return undefined;
+  // 生 state はドラッグ中に上限を超え得るので、URL に出す値も頭打ちにする
+  return entries.map(([k, w]) => `${k}:${Math.min(Math.round(w), COLUMN_MAX_WIDTH)}`).join(',');
+};
+
+/** cols クエリ → columnOrder / columnVisibility に反映（URL が表示列を完全に規定する） */
+const applyColsFromQuery = (raw: string) => {
+  const listed = raw.split(',').filter((k) => DEFAULT_COLUMN_ORDER.includes(k));
+  if (listed.length === 0) return;
+  const hidden = DEFAULT_COLUMN_ORDER.filter((k) => !listed.includes(k));
+  columnOrder.value = [...listed, ...hidden];
+  columnVisibility.value = Object.fromEntries(
+    DEFAULT_COLUMN_ORDER.map((k) => [k, listed.includes(k)]),
+  );
+};
+
+/** 列ごとの minSize（列定義由来）。URL 由来の幅クランプに使う */
+const COLUMN_MIN_SIZE: Record<string, number> = Object.fromEntries(
+  columns.map((c) => [
+    (c as { accessorKey?: string; id?: string }).accessorKey ?? (c as { id: string }).id,
+    (c as { minSize?: number }).minSize ?? 48,
+  ]),
+);
+
+/** colw クエリ → columnSizing に反映。値は [minSize, COLUMN_MAX_WIDTH] にクランプ */
+const applyColwFromQuery = (raw: string) => {
+  const next: Record<string, number> = {};
+  for (const pair of raw.split(',')) {
+    const [k, w] = pair.split(':');
+    const n = Number(w);
+    if (!k || !DEFAULT_COLUMN_ORDER.includes(k) || !Number.isFinite(n)) continue;
+    // 巨大値 / 負値 / 過小値はクランプして弾く（?colw=foo:999999 等での破壊を防ぐ）
+    const min = COLUMN_MIN_SIZE[k] ?? 48;
+    next[k] = Math.min(Math.max(Math.round(n), min), COLUMN_MAX_WIDTH);
+  }
+  columnSizing.value = next;
+};
+
+/** URL クエリ（cols / colw）から列レイアウトを適用する。適用中は書き戻しを抑止 */
+const applyColumnLayoutFromQuery = () => {
+  applyingColumnLayout = true;
+  const colsQ = queryString('cols');
+  if (colsQ) applyColsFromQuery(colsQ);
+  const colwQ = queryString('colw');
+  if (colwQ) applyColwFromQuery(colwQ);
+  void nextTick(() => {
+    applyingColumnLayout = false;
+  });
+};
+
+/** 現在の列レイアウトを URL クエリへ同期（変化があるときだけ replace） */
+const syncColumnLayoutToUrl = () => {
+  const cols = colsQueryValue();
+  const colw = colwQueryValue();
+  const changes: Record<string, string | undefined> = {};
+  if ((queryString('cols') || undefined) !== cols) changes.cols = cols;
+  if ((queryString('colw') || undefined) !== colw) changes.colw = colw;
+  if (Object.keys(changes).length > 0) updateQuery(changes);
+};
+
 const columnVisibilityItems = computed<DropdownMenuItem[]>(() =>
   Object.entries(COLUMN_LABELS).map(([key, label]) => ({
     label,
@@ -1155,35 +1252,56 @@ const columnVisibilityItems = computed<DropdownMenuItem[]>(() =>
 
 onMounted(() => {
   if (!import.meta.client) return;
-  try {
-    const raw = localStorage.getItem(columnSizingKey.value);
-    if (raw) columnSizing.value = JSON.parse(raw) as Record<string, number>;
-  } catch {
-    // ignore
+  // 初期化中は localStorage / URL への書き戻しを抑止する。
+  applyingColumnLayout = true;
+
+  // 列幅: URL(colw) > localStorage
+  const colwQ = queryString('colw');
+  if (colwQ) {
+    applyColwFromQuery(colwQ);
+  } else {
+    try {
+      const raw = localStorage.getItem(columnSizingKey.value);
+      if (raw) columnSizing.value = JSON.parse(raw) as Record<string, number>;
+    } catch {
+      // ignore
+    }
   }
-  try {
-    const raw = localStorage.getItem(columnVisibilityKey.value);
-    const stored = raw ? (JSON.parse(raw) as Record<string, boolean>) : null;
-    // 既存ユーザーの保存値に後から増えた列のキーが含まれないため、
-    // DEFAULT_HIDDEN_COLUMNS を下敷きにして保存値で上書きする
-    // （明示的に表示/非表示を選んでいればそちらを優先）。
-    columnVisibility.value = { ...DEFAULT_HIDDEN_COLUMNS, ...(stored ?? {}) };
-  } catch {
-    columnVisibility.value = { ...DEFAULT_HIDDEN_COLUMNS };
+
+  // 表示列 + 列順: URL(cols) > localStorage
+  const colsQ = queryString('cols');
+  if (colsQ) {
+    applyColsFromQuery(colsQ);
+  } else {
+    try {
+      const raw = localStorage.getItem(columnVisibilityKey.value);
+      const stored = raw ? (JSON.parse(raw) as Record<string, boolean>) : null;
+      // 既存ユーザーの保存値に後から増えた列のキーが含まれないため、
+      // DEFAULT_HIDDEN_COLUMNS を下敷きにして保存値で上書きする
+      // （明示的に表示/非表示を選んでいればそちらを優先）。
+      columnVisibility.value = { ...DEFAULT_HIDDEN_COLUMNS, ...(stored ?? {}) };
+    } catch {
+      columnVisibility.value = { ...DEFAULT_HIDDEN_COLUMNS };
+    }
+    try {
+      const raw = localStorage.getItem(columnOrderKey.value);
+      const stored = raw ? (JSON.parse(raw) as string[]) : null;
+      columnOrder.value = mergeColumnOrder(stored);
+    } catch {
+      columnOrder.value = [...DEFAULT_COLUMN_ORDER];
+    }
   }
-  try {
-    const raw = localStorage.getItem(columnOrderKey.value);
-    const stored = raw ? (JSON.parse(raw) as string[]) : null;
-    columnOrder.value = mergeColumnOrder(stored);
-  } catch {
-    columnOrder.value = [...DEFAULT_COLUMN_ORDER];
-  }
+
+  void nextTick(() => {
+    applyingColumnLayout = false;
+  });
 });
 
 watch(
   columnSizing,
   (v) => {
-    if (!import.meta.client) return;
+    // ドラッグ中は per-frame の setItem を避け、完了時にまとめて永続化する（下の watcher）
+    if (!import.meta.client || applyingColumnLayout || resizingColumnId.value) return;
     localStorage.setItem(columnSizingKey.value, JSON.stringify(v));
   },
   { deep: true },
@@ -1192,7 +1310,7 @@ watch(
 watch(
   columnVisibility,
   (v) => {
-    if (!import.meta.client) return;
+    if (!import.meta.client || applyingColumnLayout) return;
     localStorage.setItem(columnVisibilityKey.value, JSON.stringify(v));
   },
   { deep: true },
@@ -1201,10 +1319,42 @@ watch(
 watch(
   columnOrder,
   (v) => {
-    if (!import.meta.client) return;
+    if (!import.meta.client || applyingColumnLayout) return;
     localStorage.setItem(columnOrderKey.value, JSON.stringify(v));
   },
   { deep: true },
+);
+
+// 列レイアウトの変更を URL へ同期（localStorage への保存は上の watcher が担当）。
+// リサイズ中は columnSizing が毎フレーム更新されるため、ドラッグ中は URL 書き換え
+// （router.replace）を抑止し、ドラッグ完了時にまとめて 1 回だけ同期する。
+watch(
+  [columnVisibility, columnOrder, columnSizing],
+  () => {
+    if (!import.meta.client || applyingColumnLayout || resizingColumnId.value) return;
+    syncColumnLayoutToUrl();
+  },
+  { deep: true },
+);
+
+// リサイズ完了（ドラッグ終了）時に、列幅を localStorage と URL へまとめて反映する
+watch(resizingColumnId, (id, prev) => {
+  if (!import.meta.client || applyingColumnLayout) return;
+  if (prev && !id) {
+    localStorage.setItem(columnSizingKey.value, JSON.stringify(columnSizing.value));
+    syncColumnLayoutToUrl();
+  }
+});
+
+// 戻る/進む・共有リンクで URL が外から変わったら列レイアウトを合わせる。
+// 既に現在の状態と一致していれば何もしない（自分の URL 書き込みで来たケース）。
+watch(
+  () => [queryString('cols'), queryString('colw')] as const,
+  ([cols, colw]) => {
+    if (!import.meta.client || applyingColumnLayout) return;
+    if ((colsQueryValue() ?? '') === cols && (colwQueryValue() ?? '') === colw) return;
+    applyColumnLayoutFromQuery();
+  },
 );
 
 const updateTaskField = async (
