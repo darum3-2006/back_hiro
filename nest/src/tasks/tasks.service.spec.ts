@@ -41,6 +41,7 @@ describe('TasksService', () => {
     plannedCompletionDate: null,
     plannedReleaseDate: null,
     completedAt: null,
+    statusChangedAt: new Date('2026-01-01'),
     createdAt: new Date('2026-01-01'),
     updatedAt: new Date('2026-01-01'),
     deletedAt: null,
@@ -301,6 +302,19 @@ describe('TasksService', () => {
     });
   });
 
+  describe('create', () => {
+    it('statusChangedAt を作成時刻でセットする', async () => {
+      tasksRepo.findOne
+        .mockResolvedValueOnce(null) // nextShortCode: 採番コードは未使用
+        .mockResolvedValueOnce({ ...baseTask }); // 末尾 findInProject
+
+      await service.create(tenantId, projectId, { content: 'x', statusCode: 'todo' }, actor);
+
+      const saved = em.save.mock.calls[0]![0];
+      expect(saved.statusChangedAt).toBeInstanceOf(Date);
+    });
+  });
+
   describe('update', () => {
     it('content の trim と部分更新、監査ログ(update)を記録', async () => {
       const target = { ...baseTask, content: 'old' };
@@ -402,6 +416,32 @@ describe('TasksService', () => {
       const saved = em.save.mock.calls[0]![0];
       expect(saved.completedAt).toBe(completed);
       expect(statusesRepo.findOne).not.toHaveBeenCalled();
+    });
+
+    it('ステータス変更時に statusChangedAt を更新する', async () => {
+      const old = new Date('2026-01-01');
+      const target: Task = { ...baseTask, statusCode: 'todo', statusChangedAt: old };
+      tasksRepo.findOne
+        .mockResolvedValueOnce(target)
+        .mockResolvedValueOnce({ ...target, statusCode: 'doing' });
+      statusesRepo.findOne.mockResolvedValue({ isTerminal: false } as TaskStatus);
+
+      await service.update(tenantId, projectId, 't1', { statusCode: 'doing' }, actor);
+
+      const saved = em.save.mock.calls[0]![0];
+      expect(saved.statusChangedAt).toBeInstanceOf(Date);
+      expect(saved.statusChangedAt.getTime()).toBeGreaterThan(old.getTime());
+    });
+
+    it('statusCode 未指定なら statusChangedAt に触れない', async () => {
+      const changed = new Date('2026-01-01');
+      const target: Task = { ...baseTask, statusChangedAt: changed };
+      tasksRepo.findOne.mockResolvedValueOnce(target).mockResolvedValueOnce(target);
+
+      await service.update(tenantId, projectId, 't1', { content: 'x' }, actor);
+
+      const saved = em.save.mock.calls[0]![0];
+      expect(saved.statusChangedAt).toBe(changed);
     });
   });
 });

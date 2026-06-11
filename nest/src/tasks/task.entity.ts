@@ -141,6 +141,14 @@ export class Task extends BaseEntity {
   })
   completedAt!: Date | null;
 
+  @Column({
+    type: 'datetime',
+    precision: 6,
+    name: 'status_changed_at',
+    comment: '最新ステータス変更日時（新規作成時は作成時刻、以後ステータス変更のたび更新）',
+  })
+  statusChangedAt!: Date;
+
   @OneToMany(() => TaskTag, (tt) => tt.task)
   taskTags!: TaskTag[];
 }

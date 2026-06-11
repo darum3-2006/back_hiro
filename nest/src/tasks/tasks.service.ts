@@ -282,6 +282,8 @@ export class TasksService {
       plannedCompletionDate: dto.plannedCompletionDate ?? null,
       plannedReleaseDate: dto.plannedReleaseDate ?? null,
       completedAt,
+      // 新規作成時は初期ステータスの設定 = 最初のステータス変更とみなす
+      statusChangedAt: new Date(),
     });
     const saved = await this.tasks.manager.transaction(async (em) => {
       const s = await em.save(task);
@@ -326,6 +328,7 @@ export class TasksService {
         task.completedAt,
       );
       task.statusCode = dto.statusCode;
+      task.statusChangedAt = new Date();
     }
     if (dto.priorityCode !== undefined) task.priorityCode = dto.priorityCode ?? null;
     if (dto.assigneeMemberId !== undefined) task.assigneeMemberId = dto.assigneeMemberId ?? null;
