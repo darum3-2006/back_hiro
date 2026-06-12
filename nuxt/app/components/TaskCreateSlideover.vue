@@ -33,6 +33,7 @@ type Draft = Omit<
   | 'updatedAt'
   | 'seq'
   | 'completedAt'
+  | 'commentCount'
   | 'statusChangedAt'
 >;
 

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuditModule } from '../audit/audit.module';
+import { Comment } from '../comments/comment.entity';
 import { Department } from '../departments/department.entity';
 import { ProjectMember } from '../members/member.entity';
 import { Tag } from '../masters/tag.entity';
@@ -25,6 +26,7 @@ import { TasksService } from './tasks.service';
       TaskPriority,
       ProjectMember,
       Department,
+      Comment,
     ]),
     ProjectsModule,
     AuditModule,
