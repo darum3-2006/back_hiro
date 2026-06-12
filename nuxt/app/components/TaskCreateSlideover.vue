@@ -34,6 +34,7 @@ type Draft = Omit<
   | 'seq'
   | 'completedAt'
   | 'commentCount'
+  | 'statusChangedAt'
 >;
 
 const makeInitialDraft = (): Draft => ({

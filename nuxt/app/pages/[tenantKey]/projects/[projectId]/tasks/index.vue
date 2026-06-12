@@ -227,6 +227,9 @@ const deadlineFilter = useDateRangeFilter('deadlineFrom', 'deadlineTo');
 const plannedCompletionFilter = useDateRangeFilter('plannedCompletionFrom', 'plannedCompletionTo');
 const plannedReleaseFilter = useDateRangeFilter('plannedReleaseFrom', 'plannedReleaseTo');
 const completedAtFilter = useDateRangeFilter('completedAtFrom', 'completedAtTo');
+const statusChangedAtFilter = useDateRangeFilter('statusChangedFrom', 'statusChangedTo');
+const createdAtFilter = useDateRangeFilter('createdFrom', 'createdTo');
+const updatedAtFilter = useDateRangeFilter('updatedFrom', 'updatedTo');
 
 /**
  * タスクの日付列値 (date or datetime) が範囲に含まれるか。
@@ -259,6 +262,9 @@ const dateFilterChips = computed(() =>
     { label: '完了予定日', filter: plannedCompletionFilter },
     { label: 'リリース予定日', filter: plannedReleaseFilter },
     { label: '完了日時', filter: completedAtFilter },
+    { label: 'ステータス更新日時', filter: statusChangedAtFilter },
+    { label: '作成日時', filter: createdAtFilter },
+    { label: '更新日時', filter: updatedAtFilter },
   ]
     .filter((c) => c.filter.isActive.value)
     .map((c) => ({
@@ -349,6 +355,12 @@ const resetFilters = () => {
     plannedReleaseTo: undefined,
     completedAtFrom: undefined,
     completedAtTo: undefined,
+    statusChangedFrom: undefined,
+    statusChangedTo: undefined,
+    createdFrom: undefined,
+    createdTo: undefined,
+    updatedFrom: undefined,
+    updatedTo: undefined,
   });
 };
 
@@ -497,6 +509,9 @@ const filteredTasks = computed(() => {
     }
     if (!matchesDateRange(t.plannedReleaseDate, plannedReleaseFilter.range.value)) return false;
     if (!matchesDateRange(t.completedAt, completedAtFilter.range.value)) return false;
+    if (!matchesDateRange(t.statusChangedAt, statusChangedAtFilter.range.value)) return false;
+    if (!matchesDateRange(t.createdAt, createdAtFilter.range.value)) return false;
+    if (!matchesDateRange(t.updatedAt, updatedAtFilter.range.value)) return false;
     return true;
   });
 });
@@ -991,15 +1006,26 @@ const columns: TableColumn<Task>[] = [
     },
   },
   {
+    accessorKey: 'statusChangedAt',
+    header: sortAndDateFilterHeader(
+      'ステータス更新日時',
+      statusChangedAtFilter.isActive,
+      statusChangedAtFilter.range,
+    ),
+    size: 160,
+    minSize: 100,
+    meta: RESIZABLE_META,
+  },
+  {
     accessorKey: 'createdAt',
-    header: sortHeader('作成日時'),
+    header: sortAndDateFilterHeader('作成日時', createdAtFilter.isActive, createdAtFilter.range),
     size: 140,
     minSize: 100,
     meta: RESIZABLE_META,
   },
   {
     accessorKey: 'updatedAt',
-    header: sortHeader('更新日時'),
+    header: sortAndDateFilterHeader('更新日時', updatedAtFilter.isActive, updatedAtFilter.range),
     size: 140,
     minSize: 100,
     meta: RESIZABLE_META,
@@ -1185,6 +1211,7 @@ const COLUMN_LABELS: Record<string, string> = {
   description: '説明',
   links: 'リンク',
   completedAt: '完了日時',
+  statusChangedAt: 'ステータス更新日時',
   createdAt: '作成日時',
   updatedAt: '更新日時',
 };
@@ -1198,6 +1225,7 @@ const DEFAULT_HIDDEN_COLUMNS: Record<string, boolean> = {
   description: false,
   links: false,
   completedAt: false,
+  statusChangedAt: false,
   createdAt: false,
   updatedAt: false,
 };
@@ -1879,6 +1907,12 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
           <template #completedAt-cell="{ row }">
             <span class="text-xs text-muted tabular-nums">
               {{ row.original.completedAt ? fmtDateTime(row.original.completedAt) : '—' }}
+            </span>
+          </template>
+
+          <template #statusChangedAt-cell="{ row }">
+            <span class="text-xs text-muted tabular-nums">
+              {{ fmtDateTime(row.original.statusChangedAt) }}
             </span>
           </template>
 

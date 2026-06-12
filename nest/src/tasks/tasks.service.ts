@@ -52,6 +52,7 @@ export interface TaskResponse {
   plannedCompletionDate: string | null;
   plannedReleaseDate: string | null;
   completedAt: Date | null;
+  statusChangedAt: Date;
   tagCodes: string[];
   /** このタスクに付いたコメント件数（一覧のアイコン表示用） */
   commentCount: number;
@@ -658,6 +659,7 @@ export class TasksService {
       plannedCompletionDate: t.plannedCompletionDate,
       plannedReleaseDate: t.plannedReleaseDate,
       completedAt: t.completedAt,
+      statusChangedAt: t.statusChangedAt,
       tagCodes,
       commentCount,
       createdAt: t.createdAt,
