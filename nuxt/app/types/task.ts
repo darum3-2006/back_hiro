@@ -24,6 +24,8 @@ export interface Task {
   plannedReleaseDate: string | null;
   /** 完了日時。ステータスが完了扱い (isTerminal=true) の間だけ値を持つ */
   completedAt: string | null;
+  /** 最新ステータス変更日時（新規作成時は作成時刻、以後ステータス変更のたび更新） */
+  statusChangedAt: string;
   tagCodes: string[];
   description: string;
   createdAt: string;
