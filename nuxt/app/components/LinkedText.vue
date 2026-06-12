@@ -1,23 +1,48 @@
 <script setup lang="ts">
 import type { Task } from '~/types/task';
+import { isImageUrl } from '~/utils/image-url';
 
-const props = defineProps<{
-  /** 表示するテキスト（description / コメント本文など） */
-  text: string;
-  /** seq → id 解決のためのタスク一覧 */
-  tasks: Task[];
-}>();
+const props = withDefaults(
+  defineProps<{
+    /** 表示するテキスト（description / コメント本文など） */
+    text: string;
+    /** seq → id 解決のためのタスク一覧 */
+    tasks: Task[];
+    /** 画像 URL を縮小画像（サムネイル）で表示するか */
+    showImages?: boolean;
+  }>(),
+  { showImages: false },
+);
 
 interface Segment {
-  type: 'text' | 'link';
+  type: 'text' | 'task' | 'url';
   text: string;
+  /** type='task' のとき: 内部リンク先の連番 */
   seq?: number;
+  /** type='url' のとき: 外部リンクの href */
+  href?: string;
+  /** type='url' かつ画像 URL のとき true */
+  isImage?: boolean;
 }
 
-/** `#15` のような番号を検出して、tasks に該当 seq があれば内部リンクに分解 */
+// 読み込みに失敗した画像 URL。サムネイル → テキストリンクへフォールバックする。
+const failedImages = ref<Set<string>>(new Set());
+const onImageError = (href: string) => {
+  const next = new Set(failedImages.value);
+  next.add(href);
+  failedImages.value = next;
+};
+
+// URL 末尾に付きがちな句読点・閉じ括弧はリンクから除外してテキストへ戻す。
+const TRAILING_RE = /[.,;:!?。、）)\]」』】>]+$/;
+
+/** `#15`（内部リンク）と URL（外部リンク）を検出してセグメントへ分解 */
 const segments = computed<Segment[]>(() => {
   if (!props.text) return [];
-  const re = /#(\d+)/g;
+  // http(s):// の URL、または `#15` のような番号を検出する。
+  // URL を先に並べることで、URL 内の `#...` を番号として誤検出しない。
+  // 共有状態（lastIndex）を避けるため computed 内でローカルに生成する。
+  const re = /(https?:\/\/[^\s]+)|#(\d+)/g;
   const out: Segment[] = [];
   let lastIndex = 0;
   let m: RegExpExecArray | null;
@@ -25,12 +50,22 @@ const segments = computed<Segment[]>(() => {
     if (m.index > lastIndex) {
       out.push({ type: 'text', text: props.text.slice(lastIndex, m.index) });
     }
-    const seq = Number(m[1]);
-    const target = props.tasks.find((t) => t.seq === seq);
-    if (target) {
-      out.push({ type: 'link', text: m[0], seq: target.seq });
+    if (m[1] !== undefined) {
+      // URL: 末尾の句読点・閉じ括弧はリンクから外す
+      const raw = m[1];
+      const trail = TRAILING_RE.exec(raw);
+      const url = trail ? raw.slice(0, raw.length - trail[0].length) : raw;
+      out.push({ type: 'url', text: url, href: url, isImage: isImageUrl(url) });
+      if (trail) out.push({ type: 'text', text: trail[0] });
     } else {
-      out.push({ type: 'text', text: m[0] });
+      // `#番号`: tasks に該当 seq があれば内部リンク、無ければただのテキスト
+      const seq = Number(m[2]);
+      const target = props.tasks.find((t) => t.seq === seq);
+      if (target) {
+        out.push({ type: 'task', text: m[0], seq: target.seq });
+      } else {
+        out.push({ type: 'text', text: m[0] });
+      }
     }
     lastIndex = m.index + m[0].length;
   }
@@ -52,12 +87,34 @@ const linkTo = (seq: number) => ({
   <span class="whitespace-pre-wrap">
     <template v-for="(s, i) in segments" :key="i">
       <NuxtLink
-        v-if="s.type === 'link' && s.seq !== undefined"
+        v-if="s.type === 'task' && s.seq !== undefined"
         :to="linkTo(s.seq)"
         replace
         class="text-primary hover:underline"
         >{{ s.text }}</NuxtLink
       >
+      <a
+        v-else-if="s.type === 'url' && s.href"
+        :href="s.href"
+        target="_blank"
+        rel="noopener noreferrer"
+        :class="
+          showImages && s.isImage && !failedImages.has(s.href)
+            ? 'inline-block align-top'
+            : 'text-primary hover:underline break-all'
+        "
+        @click.stop
+      >
+        <img
+          v-if="showImages && s.isImage && !failedImages.has(s.href)"
+          :src="s.href"
+          :alt="s.text"
+          loading="lazy"
+          class="my-1 max-h-32 max-w-full rounded border border-default object-contain"
+          @error="onImageError(s.href)"
+        />
+        <template v-else>{{ s.text }}</template>
+      </a>
       <template v-else>{{ s.text }}</template>
     </template>
   </span>

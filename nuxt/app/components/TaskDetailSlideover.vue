@@ -7,6 +7,7 @@ import type { Member } from '~/types/member';
 import type { Department, Tag, TaskPriority, TaskStatus } from '~/types/master';
 import type { Task, TaskLink } from '~/types/task';
 import { fmtDate, fmtDateTime } from '~/utils/date';
+import { hasImageUrl } from '~/utils/image-url';
 import { resolveLinkLabelFromUrl } from '~/utils/link-label';
 import { isTaskDatePast } from '~/utils/task-overdue';
 
@@ -66,6 +67,20 @@ onMounted(() => {
 watch(showActivity, (v) => {
   localStorage.setItem(SHOW_ACTIVITY_KEY, v ? '1' : '0');
 });
+
+// 説明内の画像 URL を縮小画像で表示するか（既定 ON）。選択は localStorage に永続化。
+const SHOW_IMAGES_KEY = 'task-detail:show-images';
+const showImages = ref(true);
+onMounted(() => {
+  const v = localStorage.getItem(SHOW_IMAGES_KEY);
+  if (v !== null) showImages.value = v === '1';
+});
+watch(showImages, (v) => {
+  localStorage.setItem(SHOW_IMAGES_KEY, v ? '1' : '0');
+});
+
+// 説明に画像 URL があるときだけ「画像を表示する」スイッチを出す
+const descriptionHasImage = computed(() => hasImageUrl(props.task?.description ?? ''));
 
 type TimelineItem =
   | { kind: 'comment'; id: string; at: string; comment: Comment }
@@ -355,7 +370,15 @@ const tagsList = computed(() => Object.values(props.tagMap));
 
         <!-- 説明 (editable) -->
         <div>
-          <p class="text-xs text-muted mb-1">説明</p>
+          <div class="mb-1 flex items-center justify-between gap-2">
+            <p class="text-xs text-muted">説明</p>
+            <USwitch
+              v-if="descriptionHasImage"
+              v-model="showImages"
+              size="sm"
+              label="画像を表示する"
+            />
+          </div>
           <UTextarea
             v-if="editingField === 'description'"
             v-model="editBuffer"
@@ -364,6 +387,8 @@ const tagsList = computed(() => Object.values(props.tagMap));
             autoresize
             class="w-full"
             @blur="commitEdit"
+            @keydown.ctrl.enter.exact.prevent="commitEdit"
+            @keydown.meta.enter.exact.prevent="commitEdit"
             @keydown.escape.prevent="cancelEdit"
           />
           <div
@@ -371,7 +396,12 @@ const tagsList = computed(() => Object.values(props.tagMap));
             class="text-sm text-left w-full hover:bg-elevated/40 rounded px-1 -mx-1 min-h-6 cursor-text"
             @click="startEdit('description', task.description)"
           >
-            <LinkedText v-if="task.description" :text="task.description" :tasks="tasks" />
+            <LinkedText
+              v-if="task.description"
+              :text="task.description"
+              :tasks="tasks"
+              :show-images="showImages"
+            />
             <span v-else class="text-muted">クリックして説明を追加</span>
           </div>
         </div>
