@@ -39,11 +39,15 @@ const props = defineProps<{
   memberMap: Record<string, Member>;
   tagMap: Record<string, Tag>;
   departmentMap: Record<string, Department>;
+  /** true で開いたとき、コメント欄の先頭までスクロールする（一覧のコメントアイコン起点） */
+  focusComments?: boolean;
 }>();
 
 const emit = defineEmits<{
   'update:open': [boolean];
   'change-field': [Partial<Omit<Task, 'id' | 'projectId' | 'createdAt'>>];
+  /** focusComments を消費してスクロールしたことを親へ通知（再スクロール防止） */
+  focused: [];
 }>();
 
 const projectIdRef = computed(() => props.task?.projectId ?? '');
@@ -92,6 +96,22 @@ watch(
   () => props.task?.updatedAt,
   (next, prev) => {
     if (next && next !== prev) refreshActivities();
+  },
+);
+
+// コメントアイコンから開かれた場合、コメント欄の先頭までスクロールする。
+// USlideover の body はオープン時に描画されるため、nextTick + rAF で描画後に実行する。
+const commentsSection = useTemplateRef<HTMLElement>('commentsSection');
+watch(
+  () => [props.open, props.focusComments, taskIdRef.value] as const,
+  ([open, focus]) => {
+    if (!open || !focus) return;
+    void nextTick(() => {
+      requestAnimationFrame(() => {
+        commentsSection.value?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    });
+    emit('focused');
   },
 );
 
@@ -689,7 +709,7 @@ const tagsList = computed(() => Object.values(props.tagMap));
 
         <USeparator />
 
-        <div>
+        <div ref="commentsSection" class="scroll-mt-2">
           <div class="mb-2 flex items-center justify-between">
             <p class="text-sm font-medium">コメント・履歴</p>
             <USwitch v-model="showActivity" size="sm" label="変更履歴" />

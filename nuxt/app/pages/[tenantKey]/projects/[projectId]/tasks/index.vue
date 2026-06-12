@@ -385,8 +385,13 @@ watch(
 // task パラメータが消えた（スライドを閉じた）らキャッシュを捨てる。
 // closeSlideover で先に null にすると、URL が seq のまま selectedTask が null になり
 // normalizeTaskParam が「見つかりません」を誤発火するため、パラメータ消滅に同期させる。
+// コメントアイコンから開いたときだけ true。詳細スライドをコメント位置へスクロールさせる一回限りの意図。
+const focusComments = ref(false);
 watch(taskParam, (raw) => {
-  if (!raw) openTaskCache.value = null;
+  if (!raw) {
+    openTaskCache.value = null;
+    focusComments.value = false;
+  }
 });
 
 const selectedTask = computed<Task | null>(() => {
@@ -407,6 +412,13 @@ const setSelectedTaskSeq = (seq: number | null) => {
 };
 
 const openTask = (task: Task) => {
+  focusComments.value = false;
+  setSelectedTaskSeq(task.seq);
+};
+
+// コメントアイコンから開く: コメント位置までスクロールする意図を立ててから開く
+const openTaskComments = (task: Task) => {
+  focusComments.value = true;
   setSelectedTaskSeq(task.seq);
 };
 
@@ -1666,13 +1678,27 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
           </template>
 
           <template #content-cell="{ row }">
-            <button
-              class="text-left hover:underline block w-full truncate"
-              :title="row.original.content"
-              @click="openTask(row.original)"
-            >
-              {{ row.original.content }}
-            </button>
+            <div class="flex items-center gap-1 min-w-0">
+              <button
+                class="text-left hover:underline truncate min-w-0"
+                :title="row.original.content"
+                @click="openTask(row.original)"
+              >
+                {{ row.original.content }}
+              </button>
+              <UButton
+                v-if="row.original.commentCount > 0"
+                color="neutral"
+                variant="ghost"
+                size="xs"
+                icon="i-lucide-message-square"
+                :label="String(row.original.commentCount)"
+                :aria-label="`コメント ${row.original.commentCount} 件を表示`"
+                :title="`コメント ${row.original.commentCount} 件`"
+                class="shrink-0 gap-0.5 px-1 text-muted"
+                @click.stop="openTaskComments(row.original)"
+              />
+            </div>
           </template>
 
           <template #assigneeMemberId-cell="{ row }">
@@ -1908,6 +1934,8 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
     :member-map="memberMap"
     :tag-map="tagMap"
     :department-map="departmentMap"
+    :focus-comments="focusComments"
+    @focused="focusComments = false"
     @update:open="(v: boolean) => !v && closeSlideover()"
     @change-field="
       (patch: Partial<Task>) => selectedTask && updateTaskField(selectedTask.id, patch)

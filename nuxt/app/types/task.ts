@@ -25,6 +25,8 @@ export interface Task {
   /** 完了日時。ステータスが完了扱い (isTerminal=true) の間だけ値を持つ */
   completedAt: string | null;
   tagCodes: string[];
+  /** このタスクに付いたコメント件数（一覧のアイコン表示用） */
+  commentCount: number;
   description: string;
   createdAt: string;
   updatedAt: string;

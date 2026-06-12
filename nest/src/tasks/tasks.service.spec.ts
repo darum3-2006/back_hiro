@@ -3,6 +3,7 @@ import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import type { EntityManager, Repository } from 'typeorm';
 import { AuditService } from '../audit/audit.service';
+import { Comment } from '../comments/comment.entity';
 import { Department } from '../departments/department.entity';
 import { ProjectMember } from '../members/member.entity';
 import { Tag } from '../masters/tag.entity';
@@ -86,6 +87,13 @@ describe('TasksService', () => {
       where: jest.fn().mockReturnThis(),
       getRawMany: jest.fn().mockResolvedValue([]),
     };
+    const commentsQb = {
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      groupBy: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValue([]),
+    };
     filterQb = {
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
@@ -140,6 +148,10 @@ describe('TasksService', () => {
         {
           provide: getRepositoryToken(Department),
           useValue: { find: jest.fn().mockResolvedValue([]) },
+        },
+        {
+          provide: getRepositoryToken(Comment),
+          useValue: { createQueryBuilder: jest.fn(() => commentsQb) },
         },
         { provide: ProjectsService, useValue: projects },
         { provide: AuditService, useValue: audit },

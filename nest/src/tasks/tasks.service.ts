@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, In, Repository } from 'typeorm';
 import { AuditChange } from '../audit/audit-log.entity';
 import { AuditService } from '../audit/audit.service';
+import { Comment } from '../comments/comment.entity';
 import { Department } from '../departments/department.entity';
 import { ProjectMember } from '../members/member.entity';
 import { Tag } from '../masters/tag.entity';
@@ -52,6 +53,8 @@ export interface TaskResponse {
   plannedReleaseDate: string | null;
   completedAt: Date | null;
   tagCodes: string[];
+  /** このタスクに付いたコメント件数（一覧のアイコン表示用） */
+  commentCount: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -114,6 +117,8 @@ export class TasksService {
     private readonly members: Repository<ProjectMember>,
     @InjectRepository(Department)
     private readonly departments: Repository<Department>,
+    @InjectRepository(Comment)
+    private readonly comments: Repository<Comment>,
     private readonly projects: ProjectsService,
     private readonly audit: AuditService,
   ) {}
@@ -623,10 +628,19 @@ export class TasksService {
       arr.push(r.code);
       map.set(r.taskId, arr);
     }
-    return tasks.map((t) => this.toResponse(t, map.get(t.id) ?? []));
+    // コメント件数（task ごとに 1 クエリでまとめて集計）。コメントはハード削除なので生 COUNT で良い。
+    const countRows = await this.comments
+      .createQueryBuilder('c')
+      .select('c.task_id', 'taskId')
+      .addSelect('COUNT(*)', 'cnt')
+      .where('c.task_id IN (:...ids)', { ids })
+      .groupBy('c.task_id')
+      .getRawMany<{ taskId: string; cnt: string }>();
+    const countMap = new Map(countRows.map((r) => [r.taskId, Number(r.cnt)]));
+    return tasks.map((t) => this.toResponse(t, map.get(t.id) ?? [], countMap.get(t.id) ?? 0));
   }
 
-  private toResponse(t: Task, tagCodes: string[]): TaskResponse {
+  private toResponse(t: Task, tagCodes: string[], commentCount: number): TaskResponse {
     return {
       id: t.id,
       projectId: t.projectId,
@@ -645,6 +659,7 @@ export class TasksService {
       plannedReleaseDate: t.plannedReleaseDate,
       completedAt: t.completedAt,
       tagCodes,
+      commentCount,
       createdAt: t.createdAt,
       updatedAt: t.updatedAt,
     };
