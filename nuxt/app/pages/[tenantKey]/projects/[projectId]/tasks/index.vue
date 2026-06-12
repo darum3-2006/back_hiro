@@ -358,7 +358,8 @@ const resetFilters = () => {
 // 旧 URL は UUID を載せていたので、後方互換で id 解決も受け付ける（解決後 seq に正規化）。
 const taskParam = computed<string | null>(() => queryString('task') || null);
 
-const selectedTask = computed<Task | null>(() => {
+// 一覧から解決したタスク（取得対象＝既定では未完了のみ、に依存）
+const taskFromList = computed<Task | null>(() => {
   const raw = taskParam.value;
   if (!raw) return null;
   const n = Number(raw);
@@ -367,6 +368,35 @@ const selectedTask = computed<Task | null>(() => {
   }
   // 後方互換: 旧 URL の UUID
   return tasks.value.find((t) => t.id === raw) ?? null;
+});
+
+// 開いているタスクのキャッシュ。詳細スライドで完了（終端ステータス）にすると
+// 既定の一覧取得（未完了のみ）から外れて解決できなくなるため、直近の値を保持して
+// スライドを開いたままにする。一覧に居る間は最新へ同期する。
+const openTaskCache = ref<Task | null>(null);
+// immediate: 再読込/ディープリンクで初回から解決済みのケースもキャッシュに取り込む
+watch(
+  taskFromList,
+  (t) => {
+    if (t) openTaskCache.value = t;
+  },
+  { immediate: true },
+);
+// task パラメータが消えた（スライドを閉じた）らキャッシュを捨てる。
+// closeSlideover で先に null にすると、URL が seq のまま selectedTask が null になり
+// normalizeTaskParam が「見つかりません」を誤発火するため、パラメータ消滅に同期させる。
+watch(taskParam, (raw) => {
+  if (!raw) openTaskCache.value = null;
+});
+
+const selectedTask = computed<Task | null>(() => {
+  const raw = taskParam.value;
+  if (!raw) return null;
+  if (taskFromList.value) return taskFromList.value;
+  // 一覧から外れた場合でも、キャッシュが同じタスクを指していればそれを使う
+  const cached = openTaskCache.value;
+  if (cached && (String(cached.seq) === raw || cached.id === raw)) return cached;
+  return null;
 });
 
 // 該当タスクが解決できたときだけ開く（未存在の番号で空パネルを出さない）。
@@ -1368,7 +1398,9 @@ const updateTaskField = async (
   taskId: string,
   patch: Partial<Omit<Task, 'id' | 'projectId' | 'createdAt' | 'seq'>>,
 ) => {
-  await apiUpdateTask(api, currentProjectId.value, taskId, patch);
+  const updated = await apiUpdateTask(api, currentProjectId.value, taskId, patch);
+  // 開いているタスクなら、再取得で一覧から外れても詳細が最新を保てるようキャッシュ更新
+  if (openTaskCache.value?.id === updated.id) openTaskCache.value = updated;
   await refreshTasks();
 };
 
