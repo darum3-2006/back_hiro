@@ -51,6 +51,7 @@ export interface TaskResponse {
   plannedCompletionDate: string | null;
   plannedReleaseDate: string | null;
   completedAt: Date | null;
+  statusChangedAt: Date;
   tagCodes: string[];
   createdAt: Date;
   updatedAt: Date;
@@ -644,6 +645,7 @@ export class TasksService {
       plannedCompletionDate: t.plannedCompletionDate,
       plannedReleaseDate: t.plannedReleaseDate,
       completedAt: t.completedAt,
+      statusChangedAt: t.statusChangedAt,
       tagCodes,
       createdAt: t.createdAt,
       updatedAt: t.updatedAt,
