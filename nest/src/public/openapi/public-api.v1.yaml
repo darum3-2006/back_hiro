@@ -1,0 +1,316 @@
+openapi: 3.0.3
+info:
+  title: Backひろ 公開API
+  version: 1.0.0
+  description: |
+    Backひろ の公開API（read-only / Phase 1）。
+
+    ## 認証
+    APIキー認証。`Authorization: Bearer <api key>` ヘッダを付与する。
+    この公開API自体はトークンを発行しない（read-only）。
+    キーはアプリ画面（右上ユーザーメニュー →「APIキー」。admin / power_user のみ）で発行する。
+    平文は発行時に一度だけ表示され、サーバには sha256 ハッシュのみ保存される。
+    キーはユーザーに紐づき、アクセス範囲はそのユーザーの所属テナント・権限に固定される。
+
+    ## 識別子
+    - プロジェクトは `key`（例: `KAISYU`）で識別する。
+    - タスクはプロジェクト内連番 `seq`（表示用 `#N`）で識別する。
+    - 内部 UUID は公開しない。ステータス等のマスタは `code` のまま返す
+      （`code` → 表示名の解決用マスタAPIは後続フェーズで提供予定）。
+
+    ## レート制限
+    全体に IP 単位のレート制限あり（超過時 429）。
+
+servers:
+  - url: '{origin}/api'
+    description: API ベース URL（グローバルプレフィックス /api）
+    variables:
+      origin:
+        default: https://back-hiro.armabianca.com
+        description: 'スキーム + ホスト（例 https://app.example.com）'
+
+security:
+  - ApiKeyAuth: []
+
+tags:
+  - name: Projects
+    description: プロジェクト（読み取り）
+  - name: Tasks
+    description: タスク（読み取り）
+
+paths:
+  /v1/projects:
+    get:
+      tags: [Projects]
+      summary: プロジェクト一覧
+      description: APIキー所有ユーザーのテナントの、アーカイブされていないプロジェクトを返す。
+      operationId: listProjects
+      responses:
+        '200':
+          description: プロジェクト一覧
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Project'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /v1/projects/{key}/tasks:
+    get:
+      tags: [Tasks]
+      summary: タスク一覧
+      description: |
+        指定プロジェクトのタスクを返す。既定では完了（終端ステータス）タスクを除外する。
+        各フィルタは AND 条件。
+      operationId: listTasks
+      parameters:
+        - $ref: '#/components/parameters/ProjectKey'
+        - name: includeCompleted
+          in: query
+          description: 完了（終端ステータス）タスクも含める。`true` / `1` で有効。
+          required: false
+          schema:
+            type: boolean
+        - name: statusCode
+          in: query
+          required: false
+          schema: { type: string, maxLength: 64 }
+        - name: priorityCode
+          in: query
+          required: false
+          schema: { type: string, maxLength: 64 }
+        - name: tagCode
+          in: query
+          required: false
+          schema: { type: string, maxLength: 64 }
+        - name: flagCode
+          in: query
+          required: false
+          schema: { type: string, maxLength: 64 }
+        - name: assigneeMemberId
+          in: query
+          description: 担当メンバーの ID（UUID）。
+          required: false
+          schema: { type: string, format: uuid }
+        - name: requesterMemberId
+          in: query
+          description: 起票メンバーの ID（UUID）。
+          required: false
+          schema: { type: string, format: uuid }
+        - name: requestingDeptCode
+          in: query
+          required: false
+          schema: { type: string, maxLength: 64 }
+      responses:
+        '200':
+          description: タスク一覧
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Task'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /v1/projects/{key}/tasks/{seq}:
+    get:
+      tags: [Tasks]
+      summary: タスク取得
+      description: プロジェクト内連番（seq）でタスク 1 件を取得する。
+      operationId: getTask
+      parameters:
+        - $ref: '#/components/parameters/ProjectKey'
+        - name: seq
+          in: path
+          required: true
+          description: プロジェクト内連番（表示用 #N）。
+          schema: { type: integer, minimum: 1 }
+      responses:
+        '200':
+          description: タスク
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: http
+      scheme: bearer
+      description: '`Authorization: Bearer <api key>`。キーは bh_live_ で始まる。'
+
+  parameters:
+    ProjectKey:
+      name: key
+      in: path
+      required: true
+      description: プロジェクトの key（大文字小文字は区別しない／例 KAISYU）。
+      schema: { type: string }
+
+  responses:
+    BadRequest:
+      description: リクエスト不正（クエリのバリデーションエラー等）
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unauthorized:
+      description: APIキー未指定または無効
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: プロジェクトまたはタスクが見つからない
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    TooManyRequests:
+      description: レート制限超過
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+
+  schemas:
+    Project:
+      type: object
+      required: [key, name, description]
+      properties:
+        key:
+          type: string
+          example: KAISYU
+        name:
+          type: string
+          example: システム改修対応
+        description:
+          type: string
+          nullable: true
+
+    TaskLink:
+      type: object
+      required: [label, url]
+      properties:
+        label: { type: string }
+        url: { type: string, format: uri }
+
+    Task:
+      type: object
+      required:
+        - seq
+        - shortCode
+        - content
+        - description
+        - links
+        - statusCode
+        - priorityCode
+        - assigneeMemberId
+        - requesterMemberId
+        - requestingDeptCode
+        - tagCodes
+        - flagCodes
+        - deadline
+        - plannedStartDate
+        - plannedCompletionDate
+        - plannedReleaseDate
+        - completedAt
+        - statusChangedAt
+        - createdAt
+        - updatedAt
+      properties:
+        seq:
+          type: integer
+          description: プロジェクト内連番（表示用 #N）
+          example: 15
+        shortCode:
+          type: string
+          description: 共有リンク用の不透明な短縮コード（グローバル一意）
+        content:
+          type: string
+          description: 一覧用の概要 / タイトル
+        description:
+          type: string
+          description: 詳細説明（Markdown）
+        links:
+          type: array
+          items: { $ref: '#/components/schemas/TaskLink' }
+        statusCode:
+          type: string
+        priorityCode:
+          type: string
+          nullable: true
+        assigneeMemberId:
+          type: string
+          format: uuid
+          nullable: true
+          description: 担当メンバーの ID（ProjectMember）。User ではない。
+        requesterMemberId:
+          type: string
+          format: uuid
+          nullable: true
+        requestingDeptCode:
+          type: string
+          nullable: true
+        tagCodes:
+          type: array
+          items: { type: string }
+        flagCodes:
+          type: array
+          items: { type: string }
+        deadline:
+          type: string
+          format: date
+          nullable: true
+        plannedStartDate:
+          type: string
+          format: date
+          nullable: true
+        plannedCompletionDate:
+          type: string
+          format: date
+          nullable: true
+        plannedReleaseDate:
+          type: string
+          format: date
+          nullable: true
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: 完了日時（ステータスが完了扱いの間だけ値を持つ）
+        statusChangedAt:
+          type: string
+          format: date-time
+          description: 最新ステータス変更日時
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      properties:
+        statusCode: { type: integer, example: 401 }
+        message:
+          oneOf:
+            - type: string
+            - type: array
+              items: { type: string }
+        error: { type: string, example: Unauthorized }

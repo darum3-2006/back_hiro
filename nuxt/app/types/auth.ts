@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'member';
+export type UserRole = 'admin' | 'power_user' | 'member';
 
 export interface AuthTenant {
   id: string;

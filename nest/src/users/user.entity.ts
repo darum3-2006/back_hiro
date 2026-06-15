@@ -43,6 +43,33 @@ export class User extends BaseEntity {
     comment: 'テナント内ロール (admin = テナント管理者 / member = 通常)',
   })
   role!: UserRole;
+
+  @Column({
+    type: 'varchar',
+    length: 64,
+    name: 'api_key_hash',
+    nullable: true,
+    comment: '公開APIキーの sha256 ハッシュ（平文は保存しない）',
+  })
+  apiKeyHash!: string | null;
+
+  @Column({
+    type: 'varchar',
+    length: 16,
+    name: 'api_key_prefix',
+    nullable: true,
+    comment: '表示用のキー先頭プレフィックス',
+  })
+  apiKeyPrefix!: string | null;
+
+  @Column({
+    type: 'datetime',
+    precision: 6,
+    name: 'api_key_created_at',
+    nullable: true,
+    comment: 'APIキー発行日時',
+  })
+  apiKeyCreatedAt!: Date | null;
 }
 
-export type UserRole = 'admin' | 'member';
+export type UserRole = 'admin' | 'power_user' | 'member';

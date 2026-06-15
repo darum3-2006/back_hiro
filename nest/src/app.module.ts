@@ -13,6 +13,7 @@ import { DepartmentsModule } from './departments/departments.module';
 import { MastersModule } from './masters/masters.module';
 import { MembersModule } from './members/members.module';
 import { ProjectsModule } from './projects/projects.module';
+import { PublicModule } from './public/public.module';
 import { TasksModule } from './tasks/tasks.module';
 import { TenantsModule } from './tenants/tenants.module';
 import { UsersModule } from './users/users.module';
@@ -38,6 +39,7 @@ import { UsersModule } from './users/users.module';
     MastersModule,
     TasksModule,
     CommentsModule,
+    PublicModule,
   ],
   controllers: [AppController],
   providers: [

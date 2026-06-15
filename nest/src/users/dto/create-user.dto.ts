@@ -15,6 +15,6 @@ export class CreateUserDto {
   @MaxLength(72)
   password!: string;
 
-  @IsIn(['admin', 'member'])
-  role!: 'admin' | 'member';
+  @IsIn(['admin', 'power_user', 'member'])
+  role!: 'admin' | 'power_user' | 'member';
 }

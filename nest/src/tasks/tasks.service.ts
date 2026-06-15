@@ -164,6 +164,19 @@ export class TasksService {
     return withTags;
   }
 
+  /** 公開API用：プロジェクト内連番(seq)でタスクを引く。 */
+  async findBySeqInProject(
+    tenantId: string,
+    projectId: string,
+    seq: number,
+  ): Promise<TaskResponse> {
+    await this.projects.findByIdInTenant(tenantId, projectId);
+    const task = await this.tasks.findOne({ where: { projectId, seq } });
+    if (!task) throw new NotFoundException('タスクが見つかりません');
+    const [withTags] = await this.attachTagCodes([task]);
+    return withTags;
+  }
+
   /**
    * ホームダッシュボード用：自分（userId）が担当の「未完了」タスクをテナント横断で返す。
    * - 担当 = assignee メンバーの user_id が一致（メンバーはプロジェクトごとに別行）
