@@ -12,6 +12,7 @@ export interface UpdateProjectInput {
   /** true でアーカイブ、false で復元 */
   archived?: boolean;
   highlightOverdueDeadline?: boolean;
+  highlightOverduePlannedStart?: boolean;
   highlightOverduePlannedCompletion?: boolean;
   highlightOverduePlannedRelease?: boolean;
 }

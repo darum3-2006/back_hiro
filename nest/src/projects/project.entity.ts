@@ -47,6 +47,18 @@ export class Project extends BaseEntity {
 
   @Column({
     type: 'boolean',
+    name: 'highlight_overdue_planned_start',
+    default: false,
+    comment: '着手予定日超過の行を赤く強調する',
+    transformer: {
+      to: (v: boolean) => v,
+      from: (v: number | boolean | null) => Boolean(v),
+    },
+  })
+  highlightOverduePlannedStart!: boolean;
+
+  @Column({
+    type: 'boolean',
     name: 'highlight_overdue_planned_completion',
     default: false,
     comment: '完了予定日超過の行を赤く強調する',

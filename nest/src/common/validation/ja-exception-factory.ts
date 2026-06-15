@@ -34,6 +34,7 @@ const FIELD_LABELS: Record<string, string> = {
   requesterMemberId: '起票者',
   requestingDeptCode: '依頼部署',
   deadline: '期限',
+  plannedStartDate: '着手予定日',
   plannedCompletionDate: '完了予定日',
   plannedReleaseDate: 'リリース予定日',
   tagCodes: 'タグ',

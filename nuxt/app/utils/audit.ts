@@ -11,6 +11,7 @@ const FIELD_LABELS: Record<string, string> = {
   requester: '起票者',
   requestingDept: '起票部署',
   deadline: '期限',
+  plannedStartDate: '着手予定日',
   plannedCompletionDate: '完了予定日',
   plannedReleaseDate: 'リリース予定日',
   links: '関連リンク',
@@ -19,7 +20,12 @@ const FIELD_LABELS: Record<string, string> = {
 };
 
 // 日付として整形するフィールド
-const DATE_FIELDS = new Set(['deadline', 'plannedCompletionDate', 'plannedReleaseDate']);
+const DATE_FIELDS = new Set([
+  'deadline',
+  'plannedStartDate',
+  'plannedCompletionDate',
+  'plannedReleaseDate',
+]);
 
 const NONE = '（なし）';
 

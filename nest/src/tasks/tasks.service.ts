@@ -51,6 +51,7 @@ export interface TaskResponse {
   requesterMemberId: string | null;
   requestingDeptCode: string | null;
   deadline: string | null;
+  plannedStartDate: string | null;
   plannedCompletionDate: string | null;
   plannedReleaseDate: string | null;
   completedAt: Date | null;
@@ -301,6 +302,7 @@ export class TasksService {
       requesterMemberId: dto.requesterMemberId ?? null,
       requestingDeptCode: dto.requestingDeptCode ?? null,
       deadline: dto.deadline ?? null,
+      plannedStartDate: dto.plannedStartDate ?? null,
       plannedCompletionDate: dto.plannedCompletionDate ?? null,
       plannedReleaseDate: dto.plannedReleaseDate ?? null,
       completedAt,
@@ -363,6 +365,9 @@ export class TasksService {
       task.requestingDeptCode = dto.requestingDeptCode ?? null;
     }
     if (dto.deadline !== undefined) task.deadline = dto.deadline ?? null;
+    if (dto.plannedStartDate !== undefined) {
+      task.plannedStartDate = dto.plannedStartDate ?? null;
+    }
     if (dto.plannedCompletionDate !== undefined) {
       task.plannedCompletionDate = dto.plannedCompletionDate ?? null;
     }
@@ -619,6 +624,7 @@ export class TasksService {
       requesterMemberId: task.requesterMemberId,
       requestingDeptCode: task.requestingDeptCode,
       deadline: task.deadline,
+      plannedStartDate: task.plannedStartDate,
       plannedCompletionDate: task.plannedCompletionDate,
       plannedReleaseDate: task.plannedReleaseDate,
       links: task.links,
@@ -747,6 +753,7 @@ export class TasksService {
       requesterMemberId: t.requesterMemberId,
       requestingDeptCode: t.requestingDeptCode,
       deadline: t.deadline,
+      plannedStartDate: t.plannedStartDate,
       plannedCompletionDate: t.plannedCompletionDate,
       plannedReleaseDate: t.plannedReleaseDate,
       completedAt: t.completedAt,

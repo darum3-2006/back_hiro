@@ -62,6 +62,10 @@ export class UpdateTaskDto {
 
   @IsOptional()
   @IsDateString()
+  plannedStartDate?: string | null;
+
+  @IsOptional()
+  @IsDateString()
   plannedCompletionDate?: string | null;
 
   @IsOptional()

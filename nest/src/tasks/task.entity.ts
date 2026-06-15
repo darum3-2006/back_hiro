@@ -118,6 +118,14 @@ export class Task extends BaseEntity {
 
   @Column({
     type: 'date',
+    name: 'planned_start_date',
+    nullable: true,
+    comment: '着手予定日',
+  })
+  plannedStartDate!: string | null;
+
+  @Column({
+    type: 'date',
     name: 'planned_completion_date',
     nullable: true,
     comment: '完了予定日',

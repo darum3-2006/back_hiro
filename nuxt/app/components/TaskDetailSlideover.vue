@@ -21,6 +21,12 @@ const isOverdue = computed(() =>
   props.task ? isTaskDatePast(props.task.deadline, props.task.statusCode, props.statusMap) : false,
 );
 
+const isPlannedStartOverdue = computed(() =>
+  props.task
+    ? isTaskDatePast(props.task.plannedStartDate, props.task.statusCode, props.statusMap)
+    : false,
+);
+
 const isPlannedCompletionOverdue = computed(() =>
   props.task
     ? isTaskDatePast(props.task.plannedCompletionDate, props.task.statusCode, props.statusMap)
@@ -559,6 +565,22 @@ const flagsList = computed(() => Object.values(props.flagMap));
                 />
               </button>
             </SelectMenu>
+          </div>
+          <div>
+            <p class="text-xs text-muted mb-1">着手予定日</p>
+            <DatePopover
+              :model-value="task.plannedStartDate"
+              @update:model-value="
+                (v: string | null) => emit('change-field', { plannedStartDate: v })
+              "
+            >
+              <button
+                class="text-sm tabular-nums hover:underline cursor-pointer text-left"
+                :class="isPlannedStartOverdue ? 'text-error font-medium' : ''"
+              >
+                {{ fmtDate(task.plannedStartDate) }}
+              </button>
+            </DatePopover>
           </div>
           <div>
             <p class="text-xs text-muted mb-1">完了予定日</p>

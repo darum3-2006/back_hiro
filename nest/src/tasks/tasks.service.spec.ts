@@ -49,6 +49,7 @@ describe('TasksService', () => {
     requesterMemberId: null,
     requestingDeptCode: null,
     deadline: null,
+    plannedStartDate: null,
     plannedCompletionDate: null,
     plannedReleaseDate: null,
     completedAt: null,

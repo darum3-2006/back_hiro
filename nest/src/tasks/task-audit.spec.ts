@@ -18,6 +18,7 @@ const snapshot = (over: Partial<TaskFieldSnapshot> = {}): TaskFieldSnapshot => (
   requesterMemberId: null,
   requestingDeptCode: null,
   deadline: null,
+  plannedStartDate: null,
   plannedCompletionDate: null,
   plannedReleaseDate: null,
   links: [],

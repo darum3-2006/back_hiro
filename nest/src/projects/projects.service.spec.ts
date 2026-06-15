@@ -109,6 +109,7 @@ describe('ProjectsService', () => {
       description: null,
       archivedAt: null,
       highlightOverdueDeadline: false,
+      highlightOverduePlannedStart: false,
       highlightOverduePlannedCompletion: false,
       highlightOverduePlannedRelease: false,
       createdAt: new Date('2026-01-01'),
