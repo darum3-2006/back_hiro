@@ -1,5 +1,6 @@
 import {
   apiListDepartments,
+  apiListFlags,
   apiListTags,
   apiListTaskPriorities,
   apiListTaskStatuses,
@@ -39,6 +40,15 @@ export const useTags = (projectId: Ref<string>) => {
   return useAsyncData(
     () => `tags:${projectId.value}`,
     () => apiListTags(api, projectId.value),
+    { default: () => [], watch: [projectId] },
+  );
+};
+
+export const useFlags = (projectId: Ref<string>) => {
+  const api = useApi();
+  return useAsyncData(
+    () => `flags:${projectId.value}`,
+    () => apiListFlags(api, projectId.value),
     { default: () => [], watch: [projectId] },
   );
 };

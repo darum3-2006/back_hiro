@@ -15,6 +15,7 @@ const FIELD_LABELS: Record<string, string> = {
   plannedReleaseDate: 'リリース予定日',
   links: '関連リンク',
   tags: 'タグ',
+  flags: 'フラグ',
 };
 
 // 日付として整形するフィールド

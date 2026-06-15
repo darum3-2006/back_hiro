@@ -6,11 +6,13 @@ import { AuditService } from '../audit/audit.service';
 import { Comment } from '../comments/comment.entity';
 import { Department } from '../departments/department.entity';
 import { ProjectMember } from '../members/member.entity';
+import { Flag } from '../masters/flag.entity';
 import { Tag } from '../masters/tag.entity';
 import { TaskPriority } from '../masters/task-priority.entity';
 import { TaskStatus } from '../masters/task-status.entity';
 import type { Project } from '../projects/project.entity';
 import { ProjectsService } from '../projects/projects.service';
+import { TaskFlag } from './task-flag.entity';
 import { TaskTag } from './task-tag.entity';
 import { Task } from './task.entity';
 import { TasksService } from './tasks.service';
@@ -64,13 +66,23 @@ describe('TasksService', () => {
     };
     audit = { record: jest.fn(), listForEntity: jest.fn().mockResolvedValue([]) };
 
-    // 監査記録・タグ置換は呼び出し側トランザクション内で行うため、共有 em を用意。
+    // 監査記録・タグ/フラグ置換は呼び出し側トランザクション内で行うため、共有 em を用意。
     const tagEm = { find: jest.fn().mockResolvedValue([]) };
     const taskTagEm = { delete: jest.fn(), save: jest.fn(), create: jest.fn((x: unknown) => x) };
+    const flagEm = { find: jest.fn().mockResolvedValue([]) };
+    const taskFlagEm = { delete: jest.fn(), save: jest.fn(), create: jest.fn((x: unknown) => x) };
     em = {
       save: jest.fn((e: Task): Promise<Task> => Promise.resolve({ ...e, id: e.id ?? 't1' })),
       remove: jest.fn(),
-      getRepository: jest.fn((entity: unknown) => (entity === Tag ? tagEm : taskTagEm)),
+      getRepository: jest.fn((entity: unknown) =>
+        entity === Tag
+          ? tagEm
+          : entity === Flag
+            ? flagEm
+            : entity === TaskFlag
+              ? taskFlagEm
+              : taskTagEm,
+      ),
     };
     const transaction = jest.fn(async (cb: (m: EntityManager) => Promise<unknown>) =>
       cb(em as unknown as EntityManager),
@@ -82,6 +94,12 @@ describe('TasksService', () => {
       getRawOne: jest.fn().mockResolvedValue({ maxSeq: 5 }),
     };
     const tagQb = {
+      innerJoin: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValue([]),
+    };
+    const flagJoinQb = {
       innerJoin: jest.fn().mockReturnThis(),
       select: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
@@ -130,6 +148,16 @@ describe('TasksService', () => {
           },
         },
         { provide: getRepositoryToken(Tag), useValue: { find: jest.fn().mockResolvedValue([]) } },
+        { provide: getRepositoryToken(Flag), useValue: { find: jest.fn().mockResolvedValue([]) } },
+        {
+          provide: getRepositoryToken(TaskFlag),
+          useValue: {
+            manager: { transaction },
+            createQueryBuilder: jest.fn(() => flagJoinQb),
+            delete: jest.fn(),
+            save: jest.fn(),
+          },
+        },
         {
           provide: getRepositoryToken(TaskStatus),
           useValue: {

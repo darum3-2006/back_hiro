@@ -14,6 +14,7 @@ export interface CreateTaskInput {
   plannedCompletionDate?: string | null;
   plannedReleaseDate?: string | null;
   tagCodes?: string[];
+  flagCodes?: string[];
 }
 
 export type UpdateTaskInput = Partial<CreateTaskInput>;
@@ -22,6 +23,7 @@ export interface TaskFilter {
   statusCode?: string;
   priorityCode?: string;
   tagCode?: string;
+  flagCode?: string;
   assigneeMemberId?: string;
   requesterMemberId?: string;
   requestingDeptCode?: string;

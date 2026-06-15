@@ -27,6 +27,7 @@ export interface Task {
   /** 最新ステータス変更日時（新規作成時は作成時刻、以後ステータス変更のたび更新） */
   statusChangedAt: string;
   tagCodes: string[];
+  flagCodes: string[];
   /** このタスクに付いたコメント件数（一覧のアイコン表示用） */
   commentCount: number;
   description: string;

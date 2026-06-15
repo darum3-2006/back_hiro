@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { apiCreateTask } from '~/api/tasks';
 import type { Member } from '~/types/member';
-import type { Department, Tag, TaskPriority, TaskStatus } from '~/types/master';
+import type { Department, Flag, Tag, TaskPriority, TaskStatus } from '~/types/master';
 import type { Task, TaskLink } from '~/types/task';
 import { resolveLinkLabelFromUrl } from '~/utils/link-label';
 
@@ -14,6 +14,7 @@ const props = defineProps<{
   statuses: TaskStatus[];
   priorities: TaskPriority[];
   tags: Tag[];
+  flags: Flag[];
   members: Member[];
   departments: Department[];
 }>();
@@ -50,6 +51,7 @@ const makeInitialDraft = (): Draft => ({
   plannedCompletionDate: null,
   plannedReleaseDate: null,
   tagCodes: [],
+  flagCodes: [],
 });
 
 const draft = ref<Draft>(makeInitialDraft());
@@ -125,6 +127,7 @@ const submit = async () => {
       plannedCompletionDate: draft.value.plannedCompletionDate,
       plannedReleaseDate: draft.value.plannedReleaseDate,
       tagCodes: draft.value.tagCodes,
+      flagCodes: draft.value.flagCodes,
     });
     emit('created', task);
     if (keepOpen.value) {
@@ -366,6 +369,31 @@ const departmentSelectItems = computed(() =>
                 color="neutral"
                 variant="outline"
                 label="+ タグ"
+              />
+            </button>
+          </TagPicker>
+        </div>
+
+        <div>
+          <p class="text-xs text-muted mb-1">フラグ</p>
+          <TagPicker
+            :tags="flags"
+            :selected="draft.flagCodes"
+            @update:selected="(codes: string[]) => (draft.flagCodes = codes)"
+          >
+            <button class="flex flex-wrap gap-1 cursor-pointer min-w-12">
+              <UBadge
+                v-for="code in draft.flagCodes"
+                :key="code"
+                :color="flags.find((f) => f.code === code)?.color ?? 'neutral'"
+                variant="soft"
+                :label="flags.find((f) => f.code === code)?.name ?? code"
+              />
+              <UBadge
+                v-if="draft.flagCodes.length === 0"
+                color="neutral"
+                variant="outline"
+                label="+ フラグ"
               />
             </button>
           </TagPicker>

@@ -6,6 +6,7 @@ const emptyLabels = (): TaskChangeLabels => ({
   member: new Map(),
   dept: new Map(),
   tag: new Map(),
+  flag: new Map(),
 });
 
 const snapshot = (over: Partial<TaskFieldSnapshot> = {}): TaskFieldSnapshot => ({
@@ -21,6 +22,7 @@ const snapshot = (over: Partial<TaskFieldSnapshot> = {}): TaskFieldSnapshot => (
   plannedReleaseDate: null,
   links: [],
   tagCodes: [],
+  flagCodes: [],
   ...over,
 });
 
@@ -111,6 +113,32 @@ describe('buildTaskChanges', () => {
     );
     expect(changes).toEqual([
       { field: 'tags', old: 'bug', new: 'bug,feat', oldLabel: 'バグ', newLabel: 'バグ, 機能' },
+    ]);
+  });
+
+  it('flags も順序非依存で比較し、変化時に code/label を連結', () => {
+    const labels = emptyLabels();
+    labels.flag.set('sprint', '今スプリント').set('check', '要確認');
+    expect(
+      buildTaskChanges(
+        snapshot({ flagCodes: ['sprint', 'check'] }),
+        snapshot({ flagCodes: ['check', 'sprint'] }),
+        labels,
+      ),
+    ).toEqual([]);
+    const changes = buildTaskChanges(
+      snapshot({ flagCodes: ['sprint'] }),
+      snapshot({ flagCodes: ['sprint', 'check'] }),
+      labels,
+    );
+    expect(changes).toEqual([
+      {
+        field: 'flags',
+        old: 'sprint',
+        new: 'sprint,check',
+        oldLabel: '今スプリント',
+        newLabel: '今スプリント, 要確認',
+      },
     ]);
   });
 

@@ -4,7 +4,7 @@ import { apiCreateComment, apiUpdateComment } from '~/api/comments';
 import type { TaskActivity } from '~/types/activity';
 import type { Comment } from '~/types/comment';
 import type { Member } from '~/types/member';
-import type { Department, Tag, TaskPriority, TaskStatus } from '~/types/master';
+import type { Department, Flag, Tag, TaskPriority, TaskStatus } from '~/types/master';
 import type { Task, TaskLink } from '~/types/task';
 import { fmtDate, fmtDateTime } from '~/utils/date';
 import { hasImageUrl } from '~/utils/image-url';
@@ -39,6 +39,7 @@ const props = defineProps<{
   priorityMap: Record<string, TaskPriority>;
   memberMap: Record<string, Member>;
   tagMap: Record<string, Tag>;
+  flagMap: Record<string, Flag>;
   departmentMap: Record<string, Department>;
   /** true で開いたとき、コメント欄の先頭までスクロールする（一覧のコメントアイコン起点） */
   focusComments?: boolean;
@@ -331,6 +332,7 @@ const departmentSelectItems = computed(() =>
 );
 
 const tagsList = computed(() => Object.values(props.tagMap));
+const flagsList = computed(() => Object.values(props.flagMap));
 </script>
 
 <template>
@@ -615,6 +617,31 @@ const tagsList = computed(() => Object.values(props.tagMap));
                 color="neutral"
                 variant="outline"
                 label="+ タグ"
+              />
+            </button>
+          </TagPicker>
+        </div>
+
+        <div>
+          <p class="text-xs text-muted mb-1">フラグ</p>
+          <TagPicker
+            :tags="flagsList"
+            :selected="task.flagCodes"
+            @update:selected="(codes: string[]) => emit('change-field', { flagCodes: codes })"
+          >
+            <button class="flex flex-wrap gap-1 cursor-pointer">
+              <UBadge
+                v-for="code in task.flagCodes"
+                :key="code"
+                :color="flagMap[code]?.color ?? 'neutral'"
+                variant="soft"
+                :label="flagMap[code]?.name ?? code"
+              />
+              <UBadge
+                v-if="task.flagCodes.length === 0"
+                color="neutral"
+                variant="outline"
+                label="+ フラグ"
               />
             </button>
           </TagPicker>

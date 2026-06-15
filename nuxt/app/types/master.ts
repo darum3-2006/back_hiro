@@ -37,6 +37,13 @@ export interface Tag {
   color: MasterColor;
 }
 
+export interface Flag {
+  projectId: string;
+  code: string;
+  name: string;
+  color: MasterColor;
+}
+
 export interface Department {
   code: string;
   name: string;
