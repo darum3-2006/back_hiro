@@ -117,9 +117,9 @@ describe('FlagsService', () => {
     it('存在しない code は NotFound', async () => {
       repo.findOne.mockResolvedValue(null);
 
-      await expect(service.detachFromAllTasks(tenantId, projectId, actor, 'unknown')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.detachFromAllTasks(tenantId, projectId, actor, 'unknown'),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 

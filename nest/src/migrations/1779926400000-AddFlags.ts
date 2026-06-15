@@ -40,12 +40,8 @@ export class AddFlags1779926400000 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(
-      `ALTER TABLE \`task_flags\` DROP FOREIGN KEY \`fk_task_flags_flag\``,
-    );
-    await queryRunner.query(
-      `ALTER TABLE \`task_flags\` DROP FOREIGN KEY \`fk_task_flags_task\``,
-    );
+    await queryRunner.query(`ALTER TABLE \`task_flags\` DROP FOREIGN KEY \`fk_task_flags_flag\``);
+    await queryRunner.query(`ALTER TABLE \`task_flags\` DROP FOREIGN KEY \`fk_task_flags_task\``);
     await queryRunner.query(`ALTER TABLE \`flags\` DROP FOREIGN KEY \`fk_flags_project\``);
     await queryRunner.query(`DROP TABLE \`task_flags\``);
     await queryRunner.query(`DROP TABLE \`flags\``);
