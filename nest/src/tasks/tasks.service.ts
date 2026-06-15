@@ -7,6 +7,7 @@ import { AuditService } from '../audit/audit.service';
 import { Comment } from '../comments/comment.entity';
 import { Department } from '../departments/department.entity';
 import { ProjectMember } from '../members/member.entity';
+import { Flag } from '../masters/flag.entity';
 import { Tag } from '../masters/tag.entity';
 import { TaskPriority } from '../masters/task-priority.entity';
 import { TaskStatus } from '../masters/task-status.entity';
@@ -15,6 +16,7 @@ import { CreateTaskDto } from './dto/create-task.dto';
 import { TaskFilterDto } from './dto/task-filter.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { buildTaskChanges, TaskChangeLabels, TaskFieldSnapshot } from './task-audit';
+import { TaskFlag } from './task-flag.entity';
 import { TaskTag } from './task-tag.entity';
 import { Task, TaskLink } from './task.entity';
 
@@ -54,6 +56,7 @@ export interface TaskResponse {
   completedAt: Date | null;
   statusChangedAt: Date;
   tagCodes: string[];
+  flagCodes: string[];
   /** このタスクに付いたコメント件数（一覧のアイコン表示用） */
   commentCount: number;
   createdAt: Date;
@@ -110,6 +113,10 @@ export class TasksService {
     private readonly taskTags: Repository<TaskTag>,
     @InjectRepository(Tag)
     private readonly tags: Repository<Tag>,
+    @InjectRepository(Flag)
+    private readonly flags: Repository<Flag>,
+    @InjectRepository(TaskFlag)
+    private readonly taskFlags: Repository<TaskFlag>,
     @InjectRepository(TaskStatus)
     private readonly statuses: Repository<TaskStatus>,
     @InjectRepository(TaskPriority)
@@ -305,6 +312,9 @@ export class TasksService {
       if (dto.tagCodes && dto.tagCodes.length > 0) {
         await this.replaceTaskTags(projectId, s.id, dto.tagCodes, em);
       }
+      if (dto.flagCodes && dto.flagCodes.length > 0) {
+        await this.replaceTaskFlags(projectId, s.id, dto.flagCodes, em);
+      }
       await this.audit.record(
         {
           tenantId,
@@ -330,7 +340,8 @@ export class TasksService {
   ): Promise<TaskResponse> {
     const task = await this.findEntityInProject(tenantId, projectId, id);
     const beforeTagCodes = await this.getTagCodes(task.id);
-    const before = this.snapshotOf(task, beforeTagCodes);
+    const beforeFlagCodes = await this.getFlagCodes(task.id);
+    const before = this.snapshotOf(task, beforeTagCodes, beforeFlagCodes);
 
     if (dto.content !== undefined) task.content = dto.content.trim();
     if (dto.description !== undefined) task.description = dto.description;
@@ -364,7 +375,11 @@ export class TasksService {
       dto.tagCodes !== undefined
         ? await this.resolveValidTagCodes(projectId, dto.tagCodes)
         : beforeTagCodes;
-    const after = this.snapshotOf(task, afterTagCodes);
+    const afterFlagCodes =
+      dto.flagCodes !== undefined
+        ? await this.resolveValidFlagCodes(projectId, dto.flagCodes)
+        : beforeFlagCodes;
+    const after = this.snapshotOf(task, afterTagCodes, afterFlagCodes);
     const labels = await this.resolveChangeLabels(tenantId, projectId, before, after);
     const changes = buildTaskChanges(before, after, labels);
 
@@ -372,6 +387,9 @@ export class TasksService {
       await em.save(task);
       if (dto.tagCodes !== undefined) {
         await this.replaceTaskTags(projectId, task.id, dto.tagCodes, em);
+      }
+      if (dto.flagCodes !== undefined) {
+        await this.replaceTaskFlags(projectId, task.id, dto.flagCodes, em);
       }
       if (changes.length > 0) {
         await this.audit.record(
@@ -522,6 +540,32 @@ export class TasksService {
     return this.taskTags.manager.transaction(run);
   }
 
+  /**
+   * flag_codes 配列に従って task_flags を全置換。
+   * 不正な flagCode（同プロジェクト内に存在しない）は黙って無視。
+   * manager を渡すと呼び出し側のトランザクションに参加する（未指定なら自前で張る）。
+   */
+  private async replaceTaskFlags(
+    projectId: string,
+    taskId: string,
+    flagCodes: string[],
+    manager?: EntityManager,
+  ): Promise<void> {
+    const run = async (em: EntityManager) => {
+      const flagsRepo = em.getRepository(Flag);
+      const flagsInProject = await flagsRepo.find({
+        where: { projectId, code: In(flagCodes) },
+      });
+      const tfRepo = em.getRepository(TaskFlag);
+      await tfRepo.delete({ taskId });
+      if (flagsInProject.length === 0) return;
+      const rows = flagsInProject.map((f) => tfRepo.create({ taskId, flagId: f.id }));
+      await tfRepo.save(rows);
+    };
+    if (manager) return run(manager);
+    return this.taskFlags.manager.transaction(run);
+  }
+
   /** 監査差分用に、タスクの現在のタグコード一覧を返す。 */
   private async getTagCodes(taskId: string): Promise<string[]> {
     const rows = await this.taskTags
@@ -529,6 +573,17 @@ export class TasksService {
       .innerJoin(Tag, 'tag', 'tag.id = tt.tag_id')
       .select('tag.code', 'code')
       .where('tt.task_id = :taskId', { taskId })
+      .getRawMany<{ code: string }>();
+    return rows.map((r) => r.code);
+  }
+
+  /** 監査差分用に、タスクの現在のフラグコード一覧を返す。 */
+  private async getFlagCodes(taskId: string): Promise<string[]> {
+    const rows = await this.taskFlags
+      .createQueryBuilder('tf')
+      .innerJoin(Flag, 'flag', 'flag.id = tf.flag_id')
+      .select('flag.code', 'code')
+      .where('tf.task_id = :taskId', { taskId })
       .getRawMany<{ code: string }>();
     return rows.map((r) => r.code);
   }
@@ -543,8 +598,18 @@ export class TasksService {
     return rows.map((r) => r.code);
   }
 
-  /** Task エンティティと tagCodes から監査差分用スナップショットを作る。 */
-  private snapshotOf(task: Task, tagCodes: string[]): TaskFieldSnapshot {
+  /** 指定コードのうち同プロジェクトに実在するフラグだけを返す。 */
+  private async resolveValidFlagCodes(projectId: string, codes: string[]): Promise<string[]> {
+    if (codes.length === 0) return [];
+    const rows = await this.flags.find({
+      where: { projectId, code: In(codes) },
+      select: { code: true },
+    });
+    return rows.map((r) => r.code);
+  }
+
+  /** Task エンティティと tagCodes / flagCodes から監査差分用スナップショットを作る。 */
+  private snapshotOf(task: Task, tagCodes: string[], flagCodes: string[]): TaskFieldSnapshot {
     return {
       content: task.content,
       description: task.description,
@@ -558,6 +623,7 @@ export class TasksService {
       plannedReleaseDate: task.plannedReleaseDate,
       links: task.links,
       tagCodes,
+      flagCodes,
     };
   }
 
@@ -586,8 +652,9 @@ export class TasksService {
     ]);
     const deptCodes = uniq([before.requestingDeptCode, after.requestingDeptCode]);
     const tagCodes = uniq([...before.tagCodes, ...after.tagCodes]);
+    const flagCodes = uniq([...before.flagCodes, ...after.flagCodes]);
 
-    const [statuses, priorities, members, depts, tags] = await Promise.all([
+    const [statuses, priorities, members, depts, tags, flagRows] = await Promise.all([
       statusCodes.length
         ? this.statuses.find({ where: { projectId, code: In(statusCodes) } })
         : Promise.resolve([]),
@@ -603,6 +670,9 @@ export class TasksService {
       tagCodes.length
         ? this.tags.find({ where: { projectId, code: In(tagCodes) } })
         : Promise.resolve([]),
+      flagCodes.length
+        ? this.flags.find({ where: { projectId, code: In(flagCodes) } })
+        : Promise.resolve([]),
     ]);
 
     return {
@@ -611,6 +681,7 @@ export class TasksService {
       member: new Map(members.map((m) => [m.id, m.displayName])),
       dept: new Map(depts.map((d) => [d.code, d.name])),
       tag: new Map(tags.map((t) => [t.code, t.name])),
+      flag: new Map(flagRows.map((f) => [f.code, f.name])),
     };
   }
 
@@ -629,6 +700,19 @@ export class TasksService {
       arr.push(r.code);
       map.set(r.taskId, arr);
     }
+    // フラグコード（task ごと、タグと同じ流儀で 1 クエリ）
+    const flagRows = await this.taskFlags
+      .createQueryBuilder('tf')
+      .innerJoin(Flag, 'flag', 'flag.id = tf.flag_id')
+      .select(['tf.task_id AS taskId', 'flag.code AS code'])
+      .where('tf.task_id IN (:...ids)', { ids })
+      .getRawMany<{ taskId: string; code: string }>();
+    const flagMap = new Map<string, string[]>();
+    for (const r of flagRows) {
+      const arr = flagMap.get(r.taskId) ?? [];
+      arr.push(r.code);
+      flagMap.set(r.taskId, arr);
+    }
     // コメント件数（task ごとに 1 クエリでまとめて集計）。コメントはハード削除なので生 COUNT で良い。
     const countRows = await this.comments
       .createQueryBuilder('c')
@@ -638,10 +722,17 @@ export class TasksService {
       .groupBy('c.task_id')
       .getRawMany<{ taskId: string; cnt: string }>();
     const countMap = new Map(countRows.map((r) => [r.taskId, Number(r.cnt)]));
-    return tasks.map((t) => this.toResponse(t, map.get(t.id) ?? [], countMap.get(t.id) ?? 0));
+    return tasks.map((t) =>
+      this.toResponse(t, map.get(t.id) ?? [], flagMap.get(t.id) ?? [], countMap.get(t.id) ?? 0),
+    );
   }
 
-  private toResponse(t: Task, tagCodes: string[], commentCount: number): TaskResponse {
+  private toResponse(
+    t: Task,
+    tagCodes: string[],
+    flagCodes: string[],
+    commentCount: number,
+  ): TaskResponse {
     return {
       id: t.id,
       projectId: t.projectId,
@@ -661,6 +752,7 @@ export class TasksService {
       completedAt: t.completedAt,
       statusChangedAt: t.statusChangedAt,
       tagCodes,
+      flagCodes,
       commentCount,
       createdAt: t.createdAt,
       updatedAt: t.updatedAt,
@@ -688,6 +780,16 @@ export class TasksService {
           WHERE g.code = :tagCode
         )`,
         { projectId, tagCode: filter.tagCode },
+      );
+    }
+    if (filter.flagCode) {
+      qb.andWhere(
+        `t.id IN (
+          SELECT tf.task_id FROM task_flags tf
+          INNER JOIN flags fl ON fl.id = tf.flag_id AND fl.project_id = :projectId
+          WHERE fl.code = :flagCode
+        )`,
+        { projectId, flagCode: filter.flagCode },
       );
     }
     return qb;

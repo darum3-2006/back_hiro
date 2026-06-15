@@ -46,6 +46,7 @@ const { data: tasks, refresh: refreshTasks } = await useTasks(currentProjectId, 
 const { data: statuses } = await useTaskStatuses(currentProjectId);
 const { data: priorities } = await useTaskPriorities(currentProjectId);
 const { data: tags } = await useTags(currentProjectId);
+const { data: flags } = await useFlags(currentProjectId);
 const { data: members } = await useMembers(currentProjectId);
 const { data: departments } = await useDepartments();
 const { data: projects } = await useProjects();
@@ -60,6 +61,7 @@ const currentMemberId = computed<string | null>(() => {
 const statusMap = computed(() => Object.fromEntries(statuses.value.map((s) => [s.code, s])));
 const priorityMap = computed(() => Object.fromEntries(priorities.value.map((p) => [p.code, p])));
 const tagMap = computed(() => Object.fromEntries(tags.value.map((t) => [t.code, t])));
+const flagMap = computed(() => Object.fromEntries(flags.value.map((f) => [f.code, f])));
 const memberMap = computed(() => Object.fromEntries(members.value.map((m) => [m.id, m])));
 const departmentMap = computed(() => Object.fromEntries(departments.value.map((d) => [d.code, d])));
 
@@ -100,11 +102,13 @@ const statusFilter = ref<string[]>(queryArray('status'));
 const priorityFilter = ref<string[]>(queryArray('priority'));
 const assigneeFilter = ref<string[]>(queryArray('assignee'));
 const tagFilter = ref<string[]>(queryArray('tag'));
+const flagFilter = ref<string[]>(queryArray('flag'));
 
 const appliedStatusFilter = ref<string[]>([...statusFilter.value]);
 const appliedPriorityFilter = ref<string[]>([...priorityFilter.value]);
 const appliedAssigneeFilter = ref<string[]>([...assigneeFilter.value]);
 const appliedTagFilter = ref<string[]>([...tagFilter.value]);
+const appliedFlagFilter = ref<string[]>([...flagFilter.value]);
 
 const arraysEqual = (a: string[], b: string[]) =>
   a.length === b.length && a.every((v, i) => v === b[i]);
@@ -130,6 +134,9 @@ const scheduleApply = () => {
       if (!arraysEqual(appliedTagFilter.value, tagFilter.value)) {
         appliedTagFilter.value = [...tagFilter.value];
       }
+      if (!arraysEqual(appliedFlagFilter.value, flagFilter.value)) {
+        appliedFlagFilter.value = [...flagFilter.value];
+      }
       syncFiltersToUrl();
     });
   });
@@ -148,11 +155,18 @@ const syncFiltersToUrl = () => {
   if (!arraysEqual(tagFilter.value, queryArray('tag'))) {
     setQueryArray('tag', tagFilter.value);
   }
+  if (!arraysEqual(flagFilter.value, queryArray('flag'))) {
+    setQueryArray('flag', flagFilter.value);
+  }
 };
 
-watch([statusFilter, priorityFilter, assigneeFilter, tagFilter], () => scheduleApply(), {
-  deep: true,
-});
+watch(
+  [statusFilter, priorityFilter, assigneeFilter, tagFilter, flagFilter],
+  () => scheduleApply(),
+  {
+    deep: true,
+  },
+);
 
 // 戻る/進む・ディープリンク等で URL が外から変わったら ref を合わせる
 const bindFromUrl = (filter: Ref<string[]>, key: string) => {
@@ -169,7 +183,9 @@ const bindFromUrl = (filter: Ref<string[]>, key: string) => {
               ? appliedPriorityFilter
               : key === 'assignee'
                 ? appliedAssigneeFilter
-                : appliedTagFilter;
+                : key === 'tag'
+                  ? appliedTagFilter
+                  : appliedFlagFilter;
         target.value = [...v];
       }
     },
@@ -180,6 +196,7 @@ bindFromUrl(statusFilter, 'status');
 bindFromUrl(priorityFilter, 'priority');
 bindFromUrl(assigneeFilter, 'assignee');
 bindFromUrl(tagFilter, 'tag');
+bindFromUrl(flagFilter, 'flag');
 
 // ===== 日付範囲フィルタ =====
 // 期限 / 完了予定日 / リリース予定日 / 完了日時 を URL クエリと双方向同期する。
@@ -321,6 +338,14 @@ const tagFilterItems = computed(() => {
   return tags.value.filter((t) => codes.has(t.code)).map((t) => ({ label: t.name, value: t.code }));
 });
 
+/** フラグフィルタ用: 実際にタスクに付いているフラグのみ */
+const flagFilterItems = computed(() => {
+  const codes = new Set(tasks.value.flatMap((t) => t.flagCodes));
+  return flags.value
+    .filter((f) => codes.has(f.code))
+    .map((f) => ({ label: f.name, value: f.code }));
+});
+
 /** 完了系ステータスを表示するか（既定 false）。URL クエリで保持 */
 const showCompleted = computed<boolean>({
   get: () => queryString('showCompleted') === '1',
@@ -334,6 +359,7 @@ const hasActiveFilter = computed(() =>
     priorityFilter.value.length > 0 ||
     assigneeFilter.value.length > 0 ||
     tagFilter.value.length > 0 ||
+    flagFilter.value.length > 0 ||
     showCompleted.value ||
     hasActiveDateFilter.value,
   ),
@@ -346,6 +372,7 @@ const resetFilters = () => {
     priority: undefined,
     assignee: undefined,
     tag: undefined,
+    flag: undefined,
     showCompleted: undefined,
     deadlineFrom: undefined,
     deadlineTo: undefined,
@@ -439,6 +466,7 @@ const closeSlideover = () => {
 };
 
 const createSlideoverOpen = ref(false);
+const flagOpsOpen = ref(false);
 const toast = useToast();
 
 // URL の task パラメータを検証・正規化する。
@@ -476,6 +504,7 @@ const filteredTasks = computed(() => {
   const prioritySet = new Set(appliedPriorityFilter.value);
   const assigneeSet = new Set(appliedAssigneeFilter.value);
   const tagSet = new Set(appliedTagFilter.value);
+  const flagSet = new Set(appliedFlagFilter.value);
 
   return tasks.value.filter((t) => {
     // ステータスフィルタが選択されていればそれを最優先（完了系も含めて表示）
@@ -502,6 +531,7 @@ const filteredTasks = computed(() => {
       if (!matchesNone && !matchesId) return false;
     }
     if (tagSet.size > 0 && !t.tagCodes.some((c) => tagSet.has(c))) return false;
+    if (flagSet.size > 0 && !t.flagCodes.some((c) => flagSet.has(c))) return false;
     // 日付範囲フィルタ。null 値は範囲指定中は除外。
     if (!matchesDateRange(t.deadline, deadlineFilter.range.value)) return false;
     if (!matchesDateRange(t.plannedCompletionDate, plannedCompletionFilter.range.value)) {
@@ -905,6 +935,14 @@ const columns: TableColumn<Task>[] = [
     meta: RESIZABLE_META,
   },
   {
+    accessorKey: 'flagCodes',
+    header: plainHeader('フラグ'),
+    enableSorting: false,
+    size: 200,
+    minSize: 80,
+    meta: RESIZABLE_META,
+  },
+  {
     accessorKey: 'deadline',
     header: sortAndDateFilterHeader('期限', deadlineFilter.isActive, deadlineFilter.range),
     size: 120,
@@ -1203,6 +1241,7 @@ const COLUMN_LABELS: Record<string, string> = {
   statusCode: 'ステータス',
   priorityCode: '優先度',
   tagCodes: 'タグ',
+  flagCodes: 'フラグ',
   deadline: '期限',
   plannedCompletionDate: '完了予定日',
   plannedReleaseDate: 'リリース予定日',
@@ -1512,6 +1551,13 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
             </template>
           </UPopover>
           <UButton
+            color="neutral"
+            variant="outline"
+            icon="i-lucide-bookmark"
+            label="フラグ操作"
+            @click="flagOpsOpen = true"
+          />
+          <UButton
             color="primary"
             icon="i-lucide-plus"
             label="新規タスク"
@@ -1636,6 +1682,28 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
               variant="ghost"
               aria-label="タグフィルタをクリア"
               @click="tagFilter = []"
+            />
+          </div>
+          <div class="flex items-center gap-1">
+            <USelectMenu
+              v-model="flagFilter"
+              :items="flagFilterItems"
+              value-key="value"
+              multiple
+              placeholder="すべてのフラグ"
+              icon="i-lucide-bookmark"
+              searchable
+              search-placeholder="フラグ名で検索…"
+              class="w-44"
+            />
+            <UButton
+              v-if="flagFilter.length > 0"
+              icon="i-lucide-x"
+              size="xs"
+              color="neutral"
+              variant="ghost"
+              aria-label="フラグフィルタをクリア"
+              @click="flagFilter = []"
             />
           </div>
           <UCheckbox
@@ -1820,6 +1888,34 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
             </TagPicker>
           </template>
 
+          <template #flagCodes-cell="{ row }">
+            <TagPicker
+              :tags="flags"
+              :selected="row.original.flagCodes"
+              @update:selected="
+                (codes: string[]) => updateTaskField(row.original.id, { flagCodes: codes })
+              "
+            >
+              <button class="flex flex-wrap gap-1 cursor-pointer min-w-12">
+                <UBadge
+                  v-for="code in row.original.flagCodes"
+                  :key="code"
+                  :color="flagMap[code]?.color ?? 'neutral'"
+                  variant="soft"
+                  size="sm"
+                  :label="flagMap[code]?.name ?? code"
+                />
+                <UBadge
+                  v-if="row.original.flagCodes.length === 0"
+                  color="neutral"
+                  variant="outline"
+                  label="+ フラグ"
+                  size="sm"
+                />
+              </button>
+            </TagPicker>
+          </template>
+
           <template #deadline-cell="{ row }">
             <DatePopover
               :model-value="row.original.deadline"
@@ -1967,6 +2063,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
     :priority-map="priorityMap"
     :member-map="memberMap"
     :tag-map="tagMap"
+    :flag-map="flagMap"
     :department-map="departmentMap"
     :focus-comments="focusComments"
     @focused="focusComments = false"
@@ -1983,8 +2080,16 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
     :statuses="statuses"
     :priorities="priorities"
     :tags="tags"
+    :flags="flags"
     :members="members"
     :departments="departments"
     @created="onTaskCreated"
+  />
+
+  <FlagOpsDialog
+    v-model:open="flagOpsOpen"
+    :project-id="currentProjectId"
+    :flags="flags"
+    @done="refreshTasks"
   />
 </template>

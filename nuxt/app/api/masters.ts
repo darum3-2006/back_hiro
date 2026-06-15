@@ -1,5 +1,5 @@
 import { apiCountTasks } from '~/api/tasks';
-import type { Department, MasterColor, Tag, TaskPriority, TaskStatus } from '~/types/master';
+import type { Department, Flag, MasterColor, Tag, TaskPriority, TaskStatus } from '~/types/master';
 
 // ===== Departments (tenant) =====
 
@@ -201,4 +201,72 @@ export const countTagReferences = async (
   code: string,
 ): Promise<{ tasks: number }> => ({
   tasks: await apiCountTasks(api, projectId, { tagCode: code }),
+});
+
+// ===== Flags (project) =====
+
+/** GET /api/projects/:projectId/flags */
+export const apiListFlags = (api: typeof $fetch, projectId: string): Promise<Flag[]> =>
+  api<Flag[]>(`/projects/${projectId}/flags`);
+
+/** POST /api/projects/:projectId/flags */
+export const apiCreateFlag = (
+  api: typeof $fetch,
+  projectId: string,
+  input: { name: string; color: MasterColor },
+): Promise<Flag> => api<Flag>(`/projects/${projectId}/flags`, { method: 'POST', body: input });
+
+/** PATCH /api/projects/:projectId/flags/:code */
+export const apiUpdateFlag = (
+  api: typeof $fetch,
+  projectId: string,
+  code: string,
+  patch: { name?: string; color?: MasterColor },
+): Promise<Flag> =>
+  api<Flag>(`/projects/${projectId}/flags/${code}`, { method: 'PATCH', body: patch });
+
+/** DELETE /api/projects/:projectId/flags/:code */
+export const apiDeleteFlag = async (
+  api: typeof $fetch,
+  projectId: string,
+  code: string,
+): Promise<void> => {
+  await api(`/projects/${projectId}/flags/${code}`, { method: 'DELETE' });
+};
+
+/** DELETE /api/projects/:projectId/flags/:code/assignments — フラグ定義は残し全タスクから外す */
+export const apiDetachFlagFromAllTasks = async (
+  api: typeof $fetch,
+  projectId: string,
+  code: string,
+): Promise<void> => {
+  await api(`/projects/${projectId}/flags/${code}/assignments`, { method: 'DELETE' });
+};
+
+/** POST /api/projects/:projectId/flags/:code/copy — code が付いた全タスクへ targetCode を追加（code は残す） */
+export const apiCopyFlag = async (
+  api: typeof $fetch,
+  projectId: string,
+  code: string,
+  targetCode: string,
+): Promise<void> => {
+  await api(`/projects/${projectId}/flags/${code}/copy`, { method: 'POST', body: { targetCode } });
+};
+
+/** POST /api/projects/:projectId/flags/:code/move — code が付いた全タスクで code を外し targetCode を付与 */
+export const apiMoveFlag = async (
+  api: typeof $fetch,
+  projectId: string,
+  code: string,
+  targetCode: string,
+): Promise<void> => {
+  await api(`/projects/${projectId}/flags/${code}/move`, { method: 'POST', body: { targetCode } });
+};
+
+export const countFlagReferences = async (
+  api: typeof $fetch,
+  projectId: string,
+  code: string,
+): Promise<{ tasks: number }> => ({
+  tasks: await apiCountTasks(api, projectId, { flagCode: code }),
 });

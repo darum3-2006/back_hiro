@@ -39,6 +39,11 @@ const tabs = computed(() => [
       icon: 'i-lucide-tag',
       to: `${settingsBase.value}/tags`,
     },
+    {
+      label: 'フラグ',
+      icon: 'i-lucide-bookmark',
+      to: `${settingsBase.value}/flags`,
+    },
   ],
 ]);
 </script>

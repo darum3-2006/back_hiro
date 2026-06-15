@@ -31,6 +31,11 @@ export class TaskFilterDto {
   tagCode?: string;
 
   @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  flagCode?: string;
+
+  @IsOptional()
   @IsUUID()
   assigneeMemberId?: string;
 

@@ -71,4 +71,10 @@ export class CreateTaskDto {
   @ArrayUnique()
   @IsString({ each: true })
   tagCodes?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsString({ each: true })
+  flagCodes?: string[];
 }

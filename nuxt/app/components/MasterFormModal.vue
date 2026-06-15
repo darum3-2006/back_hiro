@@ -9,7 +9,7 @@ export interface MasterFormPayload {
 
 const props = defineProps<{
   open: boolean;
-  type: 'status' | 'priority' | 'tag';
+  type: 'status' | 'priority' | 'tag' | 'flag';
   initial: MasterFormPayload | null;
 }>();
 
@@ -31,10 +31,10 @@ watch(
 );
 
 const titleNoun = computed(
-  () => ({ status: 'ステータス', priority: '優先度', tag: 'タグ' })[props.type],
+  () => ({ status: 'ステータス', priority: '優先度', tag: 'タグ', flag: 'フラグ' })[props.type],
 );
 const labelText = computed(
-  () => ({ status: 'ラベル', priority: 'ラベル', tag: '名前' })[props.type],
+  () => ({ status: 'ラベル', priority: 'ラベル', tag: '名前', flag: '名前' })[props.type],
 );
 const showIsTerminal = computed(() => props.type === 'status');
 const isEdit = computed(() => Boolean(props.initial));
