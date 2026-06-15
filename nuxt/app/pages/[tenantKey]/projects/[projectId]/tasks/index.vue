@@ -241,6 +241,7 @@ const useDateRangeFilter = (queryKeyFrom: string, queryKeyTo: string) => {
 };
 
 const deadlineFilter = useDateRangeFilter('deadlineFrom', 'deadlineTo');
+const plannedStartFilter = useDateRangeFilter('plannedStartFrom', 'plannedStartTo');
 const plannedCompletionFilter = useDateRangeFilter('plannedCompletionFrom', 'plannedCompletionTo');
 const plannedReleaseFilter = useDateRangeFilter('plannedReleaseFrom', 'plannedReleaseTo');
 const completedAtFilter = useDateRangeFilter('completedAtFrom', 'completedAtTo');
@@ -276,6 +277,7 @@ const formatDateRangeChip = (range: DateRangeValue): string => {
 const dateFilterChips = computed(() =>
   [
     { label: '期限', filter: deadlineFilter },
+    { label: '着手予定日', filter: plannedStartFilter },
     { label: '完了予定日', filter: plannedCompletionFilter },
     { label: 'リリース予定日', filter: plannedReleaseFilter },
     { label: '完了日時', filter: completedAtFilter },
@@ -376,6 +378,8 @@ const resetFilters = () => {
     showCompleted: undefined,
     deadlineFrom: undefined,
     deadlineTo: undefined,
+    plannedStartFrom: undefined,
+    plannedStartTo: undefined,
     plannedCompletionFrom: undefined,
     plannedCompletionTo: undefined,
     plannedReleaseFrom: undefined,
@@ -534,6 +538,7 @@ const filteredTasks = computed(() => {
     if (flagSet.size > 0 && !t.flagCodes.some((c) => flagSet.has(c))) return false;
     // 日付範囲フィルタ。null 値は範囲指定中は除外。
     if (!matchesDateRange(t.deadline, deadlineFilter.range.value)) return false;
+    if (!matchesDateRange(t.plannedStartDate, plannedStartFilter.range.value)) return false;
     if (!matchesDateRange(t.plannedCompletionDate, plannedCompletionFilter.range.value)) {
       return false;
     }
@@ -955,6 +960,22 @@ const columns: TableColumn<Task>[] = [
     },
   },
   {
+    accessorKey: 'plannedStartDate',
+    header: sortAndDateFilterHeader(
+      '着手予定日',
+      plannedStartFilter.isActive,
+      plannedStartFilter.range,
+    ),
+    size: 120,
+    minSize: 80,
+    meta: RESIZABLE_META,
+    sortingFn: (a: Row<Task>, b: Row<Task>) => {
+      const da = a.original.plannedStartDate ?? '9999-12-31';
+      const db = b.original.plannedStartDate ?? '9999-12-31';
+      return da.localeCompare(db);
+    },
+  },
+  {
     accessorKey: 'plannedCompletionDate',
     header: sortAndDateFilterHeader(
       '完了予定日',
@@ -1243,6 +1264,7 @@ const COLUMN_LABELS: Record<string, string> = {
   tagCodes: 'タグ',
   flagCodes: 'フラグ',
   deadline: '期限',
+  plannedStartDate: '着手予定日',
   plannedCompletionDate: '完了予定日',
   plannedReleaseDate: 'リリース予定日',
   requesterMemberId: '起票者',
@@ -1257,6 +1279,7 @@ const COLUMN_LABELS: Record<string, string> = {
 
 /** デフォルトで非表示にする列（ユーザーが切り替えれば永続化） */
 const DEFAULT_HIDDEN_COLUMNS: Record<string, boolean> = {
+  plannedStartDate: false,
   plannedCompletionDate: false,
   plannedReleaseDate: false,
   requesterMemberId: false,
@@ -1486,6 +1509,10 @@ const updateTaskField = async (
 const isOverdue = (task: Task): boolean =>
   (currentProject.value?.highlightOverdueDeadline ?? false) &&
   isTaskDatePast(task.deadline, task.statusCode, statusMap.value);
+
+const isPlannedStartOverdue = (task: Task): boolean =>
+  (currentProject.value?.highlightOverduePlannedStart ?? false) &&
+  isTaskDatePast(task.plannedStartDate, task.statusCode, statusMap.value);
 
 const isPlannedCompletionOverdue = (task: Task): boolean =>
   (currentProject.value?.highlightOverduePlannedCompletion ?? false) &&
@@ -1928,6 +1955,22 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
                 :class="isOverdue(row.original) ? 'text-error font-medium' : ''"
               >
                 {{ row.original.deadline ?? '—' }}
+              </button>
+            </DatePopover>
+          </template>
+
+          <template #plannedStartDate-cell="{ row }">
+            <DatePopover
+              :model-value="row.original.plannedStartDate"
+              @update:model-value="
+                (v: string | null) => updateTaskField(row.original.id, { plannedStartDate: v })
+              "
+            >
+              <button
+                class="text-sm tabular-nums hover:underline cursor-pointer min-w-16 text-left"
+                :class="isPlannedStartOverdue(row.original) ? 'text-error font-medium' : ''"
+              >
+                {{ row.original.plannedStartDate ?? '—' }}
               </button>
             </DatePopover>
           </template>

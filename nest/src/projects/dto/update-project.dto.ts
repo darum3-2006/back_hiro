@@ -23,6 +23,10 @@ export class UpdateProjectDto {
 
   @IsOptional()
   @IsBoolean()
+  highlightOverduePlannedStart?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
   highlightOverduePlannedCompletion?: boolean;
 
   @IsOptional()

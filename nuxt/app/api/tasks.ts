@@ -11,6 +11,7 @@ export interface CreateTaskInput {
   requesterMemberId?: string | null;
   requestingDeptCode?: string | null;
   deadline?: string | null;
+  plannedStartDate?: string | null;
   plannedCompletionDate?: string | null;
   plannedReleaseDate?: string | null;
   tagCodes?: string[];

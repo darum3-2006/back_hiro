@@ -56,11 +56,13 @@ const cancelEdit = () => {
 
 type HighlightField =
   | 'highlightOverdueDeadline'
+  | 'highlightOverduePlannedStart'
   | 'highlightOverduePlannedCompletion'
   | 'highlightOverduePlannedRelease';
 
 const highlightToggles: { field: HighlightField; label: string }[] = [
   { field: 'highlightOverdueDeadline', label: '期限超過の行を赤く強調する' },
+  { field: 'highlightOverduePlannedStart', label: '着手予定日超過の行を赤く強調する' },
   { field: 'highlightOverduePlannedCompletion', label: '完了予定日超過の行を赤く強調する' },
   { field: 'highlightOverduePlannedRelease', label: 'リリース予定日超過の行を赤く強調する' },
 ];

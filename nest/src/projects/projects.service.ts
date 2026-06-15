@@ -53,6 +53,9 @@ export class ProjectsService {
     if (dto.highlightOverdueDeadline !== undefined) {
       project.highlightOverdueDeadline = dto.highlightOverdueDeadline;
     }
+    if (dto.highlightOverduePlannedStart !== undefined) {
+      project.highlightOverduePlannedStart = dto.highlightOverduePlannedStart;
+    }
     if (dto.highlightOverduePlannedCompletion !== undefined) {
       project.highlightOverduePlannedCompletion = dto.highlightOverduePlannedCompletion;
     }

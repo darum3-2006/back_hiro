@@ -20,6 +20,7 @@ export interface Task {
   priorityCode: string | null;
   statusCode: string;
   deadline: string | null;
+  plannedStartDate: string | null;
   plannedCompletionDate: string | null;
   plannedReleaseDate: string | null;
   /** 完了日時。ステータスが完了扱い (isTerminal=true) の間だけ値を持つ */
