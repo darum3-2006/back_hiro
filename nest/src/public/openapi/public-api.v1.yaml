@@ -15,8 +15,9 @@ info:
     ## 識別子
     - プロジェクトは `key`（例: `KAISYU`）で識別する。
     - タスクはプロジェクト内連番 `seq`（表示用 `#N`）で識別する。
-    - 内部 UUID は公開しない。ステータス等のマスタは `code` のまま返す
-      （`code` → 表示名の解決用マスタAPIは後続フェーズで提供予定）。
+    - 内部 UUID は公開しない。ステータス等のマスタは `code` のまま返す。
+      `code` / メンバー `id` → 表示名の解決は各マスタ取得エンドポイント
+      （statuses / priorities / tags / flags / members / departments）を参照する。
 
     ## レート制限
     全体に IP 単位のレート制限あり（超過時 429）。
@@ -37,6 +38,8 @@ tags:
     description: プロジェクト（読み取り）
   - name: Tasks
     description: タスク（読み取り）
+  - name: Masters
+    description: マスタ（code/id 解決用・読み取り）
 
 paths:
   /v1/projects:
@@ -149,6 +152,123 @@ paths:
           $ref: '#/components/responses/NotFound'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+
+  /v1/projects/{key}/statuses:
+    get:
+      tags: [Masters]
+      summary: ステータスマスタ一覧
+      description: タスクの statusCode を解決するためのステータス一覧。
+      operationId: listStatuses
+      parameters:
+        - $ref: '#/components/parameters/ProjectKey'
+      responses:
+        '200':
+          description: ステータス一覧
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Status' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /v1/projects/{key}/priorities:
+    get:
+      tags: [Masters]
+      summary: 優先度マスタ一覧
+      description: タスクの priorityCode を解決するための優先度一覧。
+      operationId: listPriorities
+      parameters:
+        - $ref: '#/components/parameters/ProjectKey'
+      responses:
+        '200':
+          description: 優先度一覧
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Priority' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /v1/projects/{key}/tags:
+    get:
+      tags: [Masters]
+      summary: タグマスタ一覧
+      description: タスクの tagCodes を解決するためのタグ一覧。
+      operationId: listTags
+      parameters:
+        - $ref: '#/components/parameters/ProjectKey'
+      responses:
+        '200':
+          description: タグ一覧
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Tag' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /v1/projects/{key}/flags:
+    get:
+      tags: [Masters]
+      summary: フラグマスタ一覧
+      description: タスクの flagCodes を解決するためのフラグ一覧。
+      operationId: listFlags
+      parameters:
+        - $ref: '#/components/parameters/ProjectKey'
+      responses:
+        '200':
+          description: フラグ一覧
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Flag' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /v1/projects/{key}/members:
+    get:
+      tags: [Masters]
+      summary: メンバー一覧
+      description: タスクの assigneeMemberId / requesterMemberId を解決するためのメンバー一覧。
+      operationId: listMembers
+      parameters:
+        - $ref: '#/components/parameters/ProjectKey'
+      responses:
+        '200':
+          description: メンバー一覧
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Member' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /v1/departments:
+    get:
+      tags: [Masters]
+      summary: 部署マスタ一覧
+      description: タスクの requestingDeptCode を解決するための部署一覧（テナント単位）。
+      operationId: listDepartments
+      responses:
+        '200':
+          description: 部署一覧
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Department' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
 
 components:
   securitySchemes:
@@ -303,6 +423,58 @@ components:
         updatedAt:
           type: string
           format: date-time
+
+    Status:
+      type: object
+      required: [code, label, color, order, isTerminal]
+      properties:
+        code: { type: string }
+        label: { type: string }
+        color: { type: string, description: 表示色 }
+        order: { type: integer, description: 表示順（小さい順） }
+        isTerminal: { type: boolean, description: 完了扱いのステータスか }
+
+    Priority:
+      type: object
+      required: [code, label, color, order]
+      properties:
+        code: { type: string }
+        label: { type: string }
+        color: { type: string }
+        order: { type: integer }
+
+    Tag:
+      type: object
+      required: [code, name, color]
+      properties:
+        code: { type: string }
+        name: { type: string }
+        color: { type: string }
+
+    Flag:
+      type: object
+      required: [code, name, color]
+      properties:
+        code: { type: string }
+        name: { type: string }
+        color: { type: string }
+
+    Member:
+      type: object
+      required: [id, displayName]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: メンバー ID（assigneeMemberId / requesterMemberId が参照）
+        displayName: { type: string }
+
+    Department:
+      type: object
+      required: [code, name]
+      properties:
+        code: { type: string }
+        name: { type: string }
 
     Error:
       type: object
