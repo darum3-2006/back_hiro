@@ -35,6 +35,27 @@ export class UsersService {
     return this.users.findOne({ where: { id } });
   }
 
+  /** 公開APIキー認証用：ハッシュからユーザーを引く。 */
+  findByApiKeyHash(apiKeyHash: string): Promise<User | null> {
+    return this.users.findOne({ where: { apiKeyHash } });
+  }
+
+  /** APIキーを発行/再生成する（ハッシュとプレフィックスを保存、発行日時を更新）。 */
+  async setApiKey(userId: string, hash: string, prefix: string): Promise<void> {
+    await this.users.update(
+      { id: userId },
+      { apiKeyHash: hash, apiKeyPrefix: prefix, apiKeyCreatedAt: new Date() },
+    );
+  }
+
+  /** APIキーを失効させる。 */
+  async clearApiKey(userId: string): Promise<void> {
+    await this.users.update(
+      { id: userId },
+      { apiKeyHash: null, apiKeyPrefix: null, apiKeyCreatedAt: null },
+    );
+  }
+
   listByTenant(tenantId: string): Promise<User[]> {
     return this.users.find({
       where: { tenantId },

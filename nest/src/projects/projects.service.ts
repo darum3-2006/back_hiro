@@ -25,6 +25,15 @@ export class ProjectsService {
     return project;
   }
 
+  /** 公開API用：プロジェクト key（大文字化して照合）でテナント内のプロジェクトを引く。 */
+  async findByKeyInTenant(tenantId: string, key: string): Promise<Project> {
+    const project = await this.projects.findOne({
+      where: { tenantId, key: key.trim().toUpperCase() },
+    });
+    if (!project) throw new NotFoundException('プロジェクトが見つかりません');
+    return project;
+  }
+
   async create(tenantId: string, dto: CreateProjectDto): Promise<Project> {
     const key = dto.key.trim().toUpperCase();
     const existing = await this.projects.findOne({ where: { tenantId, key } });

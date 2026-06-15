@@ -55,10 +55,10 @@ const canSubmit = computed(() => {
   );
 });
 
-const roleItems = [
-  { value: 'admin', label: '管理者 (admin)' },
-  { value: 'member', label: '通常 (member)' },
-];
+const roleItems = USER_ROLES.map((value) => ({
+  value,
+  label: `${USER_ROLE_LABEL[value]} (${value})`,
+}));
 
 const submit = async () => {
   if (!canSubmit.value) return;
@@ -143,7 +143,7 @@ const submit = async () => {
               class="justify-between"
               trailing-icon="i-lucide-chevrons-up-down"
             >
-              {{ draft.role === 'admin' ? '管理者 (admin)' : '通常 (member)' }}
+              {{ USER_ROLE_LABEL[draft.role] }} ({{ draft.role }})
             </UButton>
           </SelectMenu>
         </UFormField>

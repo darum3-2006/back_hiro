@@ -124,9 +124,9 @@ const columns: TableColumn<User>[] = [
         </template>
         <template #role-cell="{ row }">
           <UBadge
-            :color="row.original.role === 'admin' ? 'primary' : 'neutral'"
+            :color="USER_ROLE_COLOR[row.original.role]"
             variant="subtle"
-            :label="row.original.role === 'admin' ? '管理者' : '通常'"
+            :label="USER_ROLE_LABEL[row.original.role]"
           />
         </template>
         <template #actions-cell="{ row }">

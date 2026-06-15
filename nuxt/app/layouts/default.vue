@@ -106,9 +106,10 @@ const onLogout = () => {
 };
 
 const passwordModalOpen = ref(false);
+const apiKeyModalOpen = ref(false);
 
-const accountMenuItems = computed(() => [
-  [
+const accountMenuItems = computed(() => {
+  const account = [
     {
       label: 'パスワード変更',
       icon: 'i-lucide-key-round',
@@ -116,15 +117,19 @@ const accountMenuItems = computed(() => [
         passwordModalOpen.value = true;
       },
     },
-  ],
-  [
-    {
-      label: 'ログアウト',
-      icon: 'i-lucide-log-out',
-      onSelect: onLogout,
-    },
-  ],
-]);
+  ];
+  // APIキーは admin / power_user のみ発行・利用できる
+  if (canUseApiKey(me.value?.role)) {
+    account.push({
+      label: 'APIキー',
+      icon: 'i-lucide-key',
+      onSelect: () => {
+        apiKeyModalOpen.value = true;
+      },
+    });
+  }
+  return [account, [{ label: 'ログアウト', icon: 'i-lucide-log-out', onSelect: onLogout }]];
+});
 </script>
 
 <template>
@@ -193,5 +198,6 @@ const accountMenuItems = computed(() => [
 
   <ProjectCreateModal v-model:open="projectCreateModalOpen" @created="onProjectCreated" />
   <PasswordChangeModal v-model:open="passwordModalOpen" />
+  <ApiKeyModal v-model:open="apiKeyModalOpen" />
   <GlobalSearch v-model:open="searchOpen" />
 </template>

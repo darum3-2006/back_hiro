@@ -49,7 +49,7 @@ export interface Department {
   name: string;
 }
 
-export type UserRole = 'admin' | 'member';
+export type UserRole = 'admin' | 'power_user' | 'member';
 
 export interface User {
   id: string;
