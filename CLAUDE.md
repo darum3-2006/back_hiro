@@ -16,6 +16,14 @@ back_hiro/
 └── docs/    設計ドキュメント
 ```
 
+## セットアップ
+
+クローン後に 1 回だけ、pre-commit フックを有効化する（コミット時に nest / nuxt の変更を Prettier で自動整形し、CI の `format:check` 落ちを防ぐ）:
+
+```
+git config core.hooksPath .githooks
+```
+
 ## よく使うコマンド
 
 ### nuxt/

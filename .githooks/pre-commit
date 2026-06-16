@@ -1,0 +1,24 @@
+#!/bin/sh
+# コミット時にステージ済みファイルを Prettier で自動整形する。
+# nest / nuxt それぞれに変更があれば、その配下で `pnpm format` を実行し、
+# 元々ステージされていたファイルだけ整形差分を取り込んで再ステージする。
+#
+# 有効化（クローン後に 1 回だけ）:
+#   git config core.hooksPath .githooks
+set -e
+
+format_dir() {
+  dir="$1"
+  changed=$(git diff --cached --name-only --diff-filter=ACM | grep "^$dir/" || true)
+  [ -z "$changed" ] && return 0
+  echo "pre-commit: prettier ($dir)"
+  (cd "$dir" && pnpm format >/dev/null)
+  # pnpm format は配下全体を整形するが、再ステージは元々ステージ済みのファイルのみ
+  # （無関係な未ステージ変更を巻き込まないため）。
+  echo "$changed" | while IFS= read -r f; do
+    [ -f "$f" ] && git add -- "$f"
+  done
+}
+
+format_dir nest
+format_dir nuxt
