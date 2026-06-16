@@ -1746,7 +1746,11 @@ const shareView = async (view: SavedView) => {
   const url = `${window.location.origin}/${currentTenantKey.value}/v/${view.shortCode}`;
   try {
     await navigator.clipboard.writeText(url);
-    toast.add({ title: 'ビューのリンクをコピーしました', color: 'success', icon: 'i-lucide-check' });
+    toast.add({
+      title: 'ビューのリンクをコピーしました',
+      color: 'success',
+      icon: 'i-lucide-check',
+    });
   } catch {
     toast.add({ title: 'コピーに失敗しました', color: 'error' });
   }

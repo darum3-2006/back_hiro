@@ -23,9 +23,7 @@ const emit = defineEmits<{
   delete: [string];
 }>();
 
-const selectedView = computed(
-  () => props.views.find((v) => v.id === props.selectedViewId) ?? null,
-);
+const selectedView = computed(() => props.views.find((v) => v.id === props.selectedViewId) ?? null);
 
 /** 当該ビューを現在ユーザーが編集できるか（owner 本人 / 孤児 shared を admin が引き取り） */
 const canEdit = (view: SavedView): boolean =>
@@ -223,12 +221,7 @@ const items = computed<DropdownMenuItem[][]>(() => {
       </template>
       <template #footer>
         <div class="flex justify-end gap-2 w-full">
-          <UButton
-            color="neutral"
-            variant="ghost"
-            label="キャンセル"
-            @click="modalOpen = false"
-          />
+          <UButton color="neutral" variant="ghost" label="キャンセル" @click="modalOpen = false" />
           <UButton
             color="primary"
             :disabled="!canSubmit"
@@ -248,12 +241,7 @@ const items = computed<DropdownMenuItem[][]>(() => {
             label="キャンセル"
             @click="deleteModalOpen = false"
           />
-          <UButton
-            color="error"
-            icon="i-lucide-trash-2"
-            label="削除"
-            @click="confirmDelete"
-          />
+          <UButton color="error" icon="i-lucide-trash-2" label="削除" @click="confirmDelete" />
         </div>
       </template>
     </UModal>
