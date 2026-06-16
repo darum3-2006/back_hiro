@@ -31,7 +31,9 @@ export class AddSavedViews1780185600000 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`ALTER TABLE \`saved_views\` DROP FOREIGN KEY \`fk_saved_views_owner\``);
+    await queryRunner.query(
+      `ALTER TABLE \`saved_views\` DROP FOREIGN KEY \`fk_saved_views_owner\``,
+    );
     await queryRunner.query(
       `ALTER TABLE \`saved_views\` DROP FOREIGN KEY \`fk_saved_views_project\``,
     );

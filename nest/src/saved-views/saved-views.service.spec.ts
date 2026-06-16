@@ -137,17 +137,17 @@ describe('SavedViewsService', () => {
     it('他人の private は存在を秘して NotFound', async () => {
       repo.findOne.mockResolvedValue({ ...baseView });
 
-      await expect(
-        service.update(tenantId, projectId, 'v1', other, { name: 'x' }),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.update(tenantId, projectId, 'v1', other, { name: 'x' })).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('他人の shared は閲覧できるが編集は Forbidden', async () => {
       repo.findOne.mockResolvedValue({ ...baseView, visibility: 'shared' });
 
-      await expect(
-        service.update(tenantId, projectId, 'v1', other, { name: 'x' }),
-      ).rejects.toThrow(ForbiddenException);
+      await expect(service.update(tenantId, projectId, 'v1', other, { name: 'x' })).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it('owner=null の孤児 shared は ProjectMember admin が引き取り可', async () => {
@@ -163,15 +163,19 @@ describe('SavedViewsService', () => {
       repo.findOne.mockResolvedValue({ ...baseView, ownerUserId: null, visibility: 'shared' });
       members.assertProjectAdmin.mockRejectedValue(new ForbiddenException());
 
-      await expect(
-        service.update(tenantId, projectId, 'v1', other, { name: 'x' }),
-      ).rejects.toThrow(ForbiddenException);
+      await expect(service.update(tenantId, projectId, 'v1', other, { name: 'x' })).rejects.toThrow(
+        ForbiddenException,
+      );
     });
   });
 
   describe('duplicate', () => {
     it('shared ビューを自分の private として複製する', async () => {
-      repo.findOne.mockResolvedValue({ ...baseView, ownerUserId: owner.userId, visibility: 'shared' });
+      repo.findOne.mockResolvedValue({
+        ...baseView,
+        ownerUserId: owner.userId,
+        visibility: 'shared',
+      });
 
       const result = await service.duplicate(tenantId, projectId, 'v1', other);
 
