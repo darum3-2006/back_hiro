@@ -50,12 +50,79 @@ Tenant
 
 ## ビュー設計の方針
 
-- 現在のタスク一覧UIは「デフォルトビュー」と位置付け
-- 将来的に **カスタムビュー（共有）** 機能を追加予定
-  - 想定: SavedView エンティティ（`projectId`, `name`, `ownerUserId or null=共有`, `columns`, `filters`, `sort`, `viewType`）
-- **MVP 範囲外**：MVP ではタスク一覧の columns / filters / sort はハードコード
+タスク一覧の表示状態（列・フィルタ・ソート）は 3 層で扱う。
 
-**運用ルール:** タスク一覧のフィルタやソートを実装する際、将来 SavedView から動的に組み立てやすいよう shape を意識する（visibleColumns, filters, sort の3要素）
+1. **ハードコード既定** — 列定義（19列）と `DEFAULT_HIDDEN_COLUMNS` はフロント（`tasks/index.vue`）に正本を置く
+2. **作業状態（一時）** — ユーザーがその場でいじった列/フィルタ/ソート。URL クエリ（共有リンク用）＋ localStorage に保持。保存されない
+3. **SavedView（永続）** — 名前付きで保存し、プロジェクト内で共有もできるビュー
+
+### SavedView（`saved_views` テーブル）
+
+1 プロジェクトに複数行。`config`（json）に列・フィルタ・ソートを一括格納する。
+
+| カラム | 型 | 備考 |
+| --- | --- | --- |
+| `id` | uuid PK | |
+| `project_id` | varchar(36) FK→`projects` | `ON DELETE CASCADE` |
+| `owner_user_id` | varchar(36) FK→`users`, nullable | `ON DELETE SET NULL`（孤児化を許容） |
+| `short_code` | varchar(16) UNIQUE | 共有リンク用の不透明な短縮コード（base62/10桁、グローバル一意。生成は `common/short-code.ts` を Task と共用） |
+| `name` | varchar(100) | 表示名 |
+| `visibility` | varchar(16) | `'private'`（既定） / `'shared'` |
+| `config` | json | 列+フィルタ+ソート一式（`type: 'json'`、既存 `task.links` と同作法） |
+| `display_order` | int | 一覧の並び順 |
+
+`config` の shape（既存のタスク一覧の URL クエリ shape に揃える）:
+
+```jsonc
+{
+  "columns": {
+    "order": ["seq", "content", "..."],      // 列順（columnId 配列）
+    "visibility": { "createdAt": false },     // 表示/非表示
+    "sizing": { "content": 360 }              // 列幅(px)
+  },
+  "filters": {                                 // status/priority/assignee/tag/flag(複数選択)、showCompleted、各種日付範囲
+    "status": [], "priority": [], "assignee": [], "tag": [], "flag": [],
+    "showCompleted": false
+  },
+  "sort": { "columnId": "deadline", "dir": "asc" }   // 単一列
+}
+```
+
+**権限:**
+
+| 操作 | 誰が |
+| --- | --- |
+| 一覧取得 | 自分の `private` 全部 ＋ プロジェクトの `shared` 全部 |
+| 作成 | 全プロジェクトメンバー |
+| 編集 / 削除 | `owner` のみ。**ただし `owner_user_id IS NULL` かつ `shared` は ProjectMember `admin` が引き取り可** |
+| 複製（自分のビュー化） | 閲覧できる人は誰でも（共有ビューを使う経路） |
+
+**API**（`tasks` と同じスコープ作法。`@CurrentUser()` で tenantId、Service は `(tenantId, projectId, …)`、`projects.findByIdInTenant` でスコープ確認）:
+
+```
+GET    /projects/:projectId/saved-views
+POST   /projects/:projectId/saved-views
+PATCH  /projects/:projectId/saved-views/:id
+DELETE /projects/:projectId/saved-views/:id
+GET    /saved-views/by-code/:code   # 共有リンクの解決（projectId 不要・テナント横断、Task の by-code と同作法）
+```
+
+**共有リンク（短縮URL）:** `shared` ビューのみ「リンクを共有」可能。`/:tenantKey/v/:shortCode`（`pages/[tenantKey]/v/[code].vue`）で受け、`by-code` で解決して `…/tasks?view=:viewId` へリダイレクト→該当ビューを選択適用する。`by-code` は `shared` または自分の `private` のみ解決（他人の `private` は 404）。
+
+**フロント挙動:**
+
+- 一覧上部のドロップダウンでビューを切替。選択すると `config` を復元
+- **初期表示**：`?view=:id`（共有リンク経由）＞ `tasks:last-view:{projectId}`（localStorage の前回ビュー）＞ ハードコード既定列
+- 未保存の作業状態は URL＋localStorage に逃がし、「保存」「新規ビューとして保存」を提示
+- 優先順位：`URL（共有リンク） > 選択中の SavedView > ハードコード既定`
+- 列の増減は既存 `mergeColumnOrder` で吸収（未知列は無視、新列は既定ルール）
+
+**運用ルール:** タスク一覧のフィルタ/ソート/列を実装・変更する際は、SavedView の `config` shape（`columns` / `filters` / `sort` の 3 要素）と互換が保たれるよう意識する。
+
+### スコープ外（将来）
+
+- プロジェクト既定ビューの admin 指定（全員が同じビューから開始）
+- カンバン等の `viewType`
 
 ## フロントの API 境界
 
