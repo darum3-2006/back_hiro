@@ -3,8 +3,15 @@ import { h, resolveComponent } from 'vue';
 import type { ColumnSizingInfoState, Row } from '@tanstack/vue-table';
 import type { DropdownMenuItem, TableColumn } from '@nuxt/ui';
 import { VueDraggable } from 'vue-draggable-plus';
+import {
+  apiCreateSavedView,
+  apiDeleteSavedView,
+  apiDuplicateSavedView,
+  apiUpdateSavedView,
+} from '~/api/saved-views';
 import { apiUpdateTask } from '~/api/tasks';
 import type { DateRangeValue } from '~/components/DateRangeFilter.vue';
+import type { SavedView, SavedViewConfig, SavedViewVisibility } from '~/types/saved-view';
 import type { Task } from '~/types/task';
 import { fmtDate, fmtDateTime } from '~/utils/date';
 import { isTaskDatePast } from '~/utils/task-overdue';
@@ -50,6 +57,7 @@ const { data: flags } = await useFlags(currentProjectId);
 const { data: members } = await useMembers(currentProjectId);
 const { data: departments } = await useDepartments();
 const { data: projects } = await useProjects();
+const { data: savedViews, refresh: refreshSavedViews } = await useSavedViews(currentProjectId);
 const currentProject = computed(() => projects.value.find((p) => p.id === currentProjectId.value));
 
 const currentMemberId = computed<string | null>(() => {
@@ -1394,6 +1402,33 @@ onMounted(() => {
   // 初期化中は localStorage / URL への書き戻しを抑止する。
   applyingColumnLayout = true;
 
+  // 選択中ビューの復元。
+  // - URL に ?view=:id があれば（選択後の状態 / 共有リンク）それを選択中として復元する。
+  //   さらに列/フィルタ等の状態が URL に無ければ config を適用して再現する（共有リンク直後）。
+  //   状態が URL にあるならそれを正とし、選択だけ復元して下の URL 復元へ進む（編集中の dirty を保つ）。
+  // - ?view が無く、状態も無い素の遷移なら「前回使ったビュー」を再現する。
+  const viewIdInUrl = queryString('view');
+  const hasUrlState = urlHasViewState();
+  if (viewIdInUrl) {
+    const view = savedViews.value.find((v) => v.id === viewIdInUrl);
+    if (view) {
+      selectedViewId.value = view.id;
+      if (!hasUrlState) {
+        // applyViewConfig 内で applyingColumnLayout のリセットまで行う
+        applyViewConfig(view.config, view.id);
+        return;
+      }
+    }
+  } else if (!hasUrlState) {
+    const lastId = localStorage.getItem(lastViewKey.value);
+    const view = lastId ? savedViews.value.find((v) => v.id === lastId) : null;
+    if (view) {
+      selectedViewId.value = view.id;
+      applyViewConfig(view.config, view.id);
+      return;
+    }
+  }
+
   // 列幅: URL(colw) > localStorage
   const colwQ = queryString('colw');
   if (colwQ) {
@@ -1496,6 +1531,245 @@ watch(
   },
 );
 
+// ===== 保存ビュー (SavedView) =====
+// 表示状態は全て URL クエリにシリアライズされている。capture = クエリ + 列 ref の
+// 読み取り、apply = 列 ref を直接セット + フィルタ/ソートを URL へ全置換。
+const { me } = useAuth();
+const currentTenantKey = useCurrentTenantKey();
+
+const lastViewKey = computed(() => `tasks:last-view:${currentProjectId.value}`);
+const selectedViewId = ref<string | null>(null);
+
+// 孤児化した共有ビュー（owner=null）を引き取れる権限（テナント admin or プロジェクト admin）
+const canManageShared = computed(() => {
+  if (me.value?.role === 'admin') return true;
+  const uid = currentUserId.value;
+  return members.value.some((m) => m.userId === uid && m.role === 'admin');
+});
+
+// capture/apply 対象のフィルタ系クエリキー
+const FILTER_QUERY_KEYS = [
+  'search',
+  'status',
+  'priority',
+  'assignee',
+  'tag',
+  'flag',
+  'showCompleted',
+  'deadlineFrom',
+  'deadlineTo',
+  'plannedStartFrom',
+  'plannedStartTo',
+  'plannedCompletionFrom',
+  'plannedCompletionTo',
+  'plannedReleaseFrom',
+  'plannedReleaseTo',
+  'completedAtFrom',
+  'completedAtTo',
+  'statusChangedFrom',
+  'statusChangedTo',
+  'createdFrom',
+  'createdTo',
+  'updatedFrom',
+  'updatedTo',
+] as const;
+
+const VIEW_STATE_KEYS = ['cols', 'colw', 'sort', 'sortDir', ...FILTER_QUERY_KEYS];
+
+/** URL に表示状態（列/フィルタ/ソート）が載っているか。共有リンクで開いたケースの判定に使う */
+const urlHasViewState = (): boolean => VIEW_STATE_KEYS.some((k) => queryString(k));
+
+/** 現在の表示状態を SavedViewConfig に取り出す */
+const captureViewConfig = (): SavedViewConfig => {
+  const filters: Record<string, string> = {};
+  for (const k of FILTER_QUERY_KEYS) {
+    const v = queryString(k);
+    if (v) filters[k] = v;
+  }
+  const sortId = queryString('sort');
+  return {
+    columns: {
+      order: [...columnOrder.value],
+      visibility: { ...columnVisibility.value },
+      sizing: { ...columnSizing.value },
+    },
+    filters,
+    sort: sortId
+      ? { columnId: sortId, dir: queryString('sortDir') === 'desc' ? 'desc' : 'asc' }
+      : null,
+  };
+};
+
+/**
+ * SavedViewConfig を表示状態へ適用（列は ref を直接、フィルタ/ソート/列クエリは URL を全置換）。
+ * viewId を渡すと選択中ビューとして URL に `?view=:id` を残し、リロードでも選択を復元できる。
+ */
+const applyViewConfig = (config: SavedViewConfig, viewId?: string) => {
+  applyingColumnLayout = true;
+  columnOrder.value = mergeColumnOrder(config.columns.order);
+  columnVisibility.value = { ...DEFAULT_HIDDEN_COLUMNS, ...config.columns.visibility };
+  columnSizing.value = { ...config.columns.sizing };
+
+  const query: Record<string, string> = {};
+  for (const [k, v] of Object.entries(config.filters)) {
+    if (v) query[k] = String(v);
+  }
+  if (config.sort) {
+    query.sort = config.sort.columnId;
+    query.sortDir = config.sort.dir;
+  }
+  const cols = colsQueryValue();
+  if (cols) query.cols = cols;
+  const colw = colwQueryValue();
+  if (colw) query.colw = colw;
+  if (viewId) query.view = viewId;
+  const task = queryString('task');
+  if (task) query.task = task;
+  void router.replace({ query });
+  void nextTick(() => {
+    applyingColumnLayout = false;
+  });
+};
+
+/**
+ * dirty 判定用の正規化。URL 経由のラウンドトリップ（cols=可視列のみ / colw=丸め・クランプ）
+ * で表現が変わっても一致するよう、「URL に載る実質的な形」へ寄せて比較する。
+ * - 列は可視列の順序のみ（非表示列の順序は URL に載らないので無視）
+ * - 列幅は colw と同じく丸め＋[min, max] クランプ
+ */
+const canonConfig = (c: SavedViewConfig): string => {
+  const sortEntries = (o: Record<string, unknown>) =>
+    Object.entries(o).sort(([a], [b]) => a.localeCompare(b));
+  const visible = c.columns.order.filter((k) => c.columns.visibility[k] !== false);
+  const sizing = Object.fromEntries(
+    sortEntries(c.columns.sizing).map(([k, w]) => {
+      const min = COLUMN_MIN_SIZE[k] ?? 48;
+      return [k, Math.min(Math.max(Math.round(Number(w)), min), COLUMN_MAX_WIDTH)];
+    }),
+  );
+  return JSON.stringify({
+    visible,
+    sizing,
+    filters: Object.fromEntries(sortEntries(c.filters)),
+    sort: c.sort,
+  });
+};
+
+/** 現在の状態が選択中ビューと異なるか（未保存の変更インジケータ用） */
+const dirty = computed(() => {
+  const view = savedViews.value.find((v) => v.id === selectedViewId.value);
+  if (!view) return false;
+  return canonConfig(view.config) !== canonConfig(captureViewConfig());
+});
+
+const selectView = (id: string) => {
+  const view = savedViews.value.find((v) => v.id === id);
+  if (!view) return;
+  selectedViewId.value = id;
+  if (import.meta.client) localStorage.setItem(lastViewKey.value, id);
+  applyViewConfig(view.config, view.id);
+};
+
+/** 選択を解除しハードコード既定へ戻す */
+const clearView = () => {
+  selectedViewId.value = null;
+  if (import.meta.client) localStorage.removeItem(lastViewKey.value);
+  applyingColumnLayout = true;
+  columnOrder.value = [...DEFAULT_COLUMN_ORDER];
+  columnVisibility.value = { ...DEFAULT_HIDDEN_COLUMNS };
+  columnSizing.value = {};
+  const task = queryString('task');
+  void router.replace({ query: task ? { task } : {} });
+  void nextTick(() => {
+    applyingColumnLayout = false;
+  });
+};
+
+const saveCurrentView = async () => {
+  const id = selectedViewId.value;
+  if (!id) return;
+  try {
+    await apiUpdateSavedView(api, currentProjectId.value, id, { config: captureViewConfig() });
+    await refreshSavedViews();
+    toast.add({ title: 'ビューを保存しました', color: 'success' });
+  } catch {
+    toast.add({ title: 'ビューの保存に失敗しました', color: 'error' });
+  }
+};
+
+const createView = async (payload: { name: string; visibility: SavedViewVisibility }) => {
+  try {
+    const created = await apiCreateSavedView(api, currentProjectId.value, {
+      name: payload.name,
+      visibility: payload.visibility,
+      config: captureViewConfig(),
+    });
+    await refreshSavedViews();
+    selectedViewId.value = created.id;
+    if (import.meta.client) localStorage.setItem(lastViewKey.value, created.id);
+    toast.add({ title: 'ビューを作成しました', color: 'success' });
+  } catch {
+    toast.add({ title: 'ビューの作成に失敗しました', color: 'error' });
+  }
+};
+
+const renameView = async (payload: {
+  id: string;
+  name: string;
+  visibility: SavedViewVisibility;
+}) => {
+  try {
+    await apiUpdateSavedView(api, currentProjectId.value, payload.id, {
+      name: payload.name,
+      visibility: payload.visibility,
+    });
+    await refreshSavedViews();
+    toast.add({ title: 'ビューを更新しました', color: 'success' });
+  } catch {
+    toast.add({ title: 'ビューの更新に失敗しました', color: 'error' });
+  }
+};
+
+const duplicateView = async (id: string) => {
+  try {
+    const copy = await apiDuplicateSavedView(api, currentProjectId.value, id);
+    await refreshSavedViews();
+    selectView(copy.id);
+    toast.add({ title: 'ビューを複製しました', color: 'success' });
+  } catch {
+    toast.add({ title: 'ビューの複製に失敗しました', color: 'error' });
+  }
+};
+
+/** 共有ビューの短縮リンクをクリップボードへコピーする */
+const shareView = async (view: SavedView) => {
+  const url = `${window.location.origin}/${currentTenantKey.value}/v/${view.shortCode}`;
+  try {
+    await navigator.clipboard.writeText(url);
+    toast.add({
+      title: 'ビューのリンクをコピーしました',
+      color: 'success',
+      icon: 'i-lucide-check',
+    });
+  } catch {
+    toast.add({ title: 'コピーに失敗しました', color: 'error' });
+  }
+};
+
+const deleteView = async (id: string) => {
+  try {
+    await apiDeleteSavedView(api, currentProjectId.value, id);
+    if (selectedViewId.value === id) {
+      selectedViewId.value = null;
+      if (import.meta.client) localStorage.removeItem(lastViewKey.value);
+    }
+    await refreshSavedViews();
+    toast.add({ title: 'ビューを削除しました', color: 'success' });
+  } catch {
+    toast.add({ title: 'ビューの削除に失敗しました', color: 'error' });
+  }
+};
+
 const updateTaskField = async (
   taskId: string,
   patch: Partial<Omit<Task, 'id' | 'projectId' | 'createdAt' | 'seq'>>,
@@ -1531,6 +1805,21 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
           <UDashboardSidebarCollapse />
         </template>
         <template #right>
+          <TaskViewSwitcher
+            :views="savedViews"
+            :selected-view-id="selectedViewId"
+            :current-user-id="currentUserId"
+            :can-manage-shared="canManageShared"
+            :dirty="dirty"
+            @select="selectView"
+            @clear="clearView"
+            @save="saveCurrentView"
+            @save-as="createView"
+            @rename="renameView"
+            @duplicate="duplicateView"
+            @share="shareView"
+            @delete="deleteView"
+          />
           <UButton
             color="neutral"
             variant="outline"
