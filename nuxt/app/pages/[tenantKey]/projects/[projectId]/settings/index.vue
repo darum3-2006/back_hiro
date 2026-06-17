@@ -172,7 +172,7 @@ const performArchive = async () => {
       </div>
     </template>
 
-    <UModal
+    <AppModal
       v-model:open="archiveModalOpen"
       title="プロジェクトをアーカイブ"
       :description="`「${project.name}」をアーカイブしますか？`"
@@ -194,6 +194,6 @@ const performArchive = async () => {
           />
         </div>
       </template>
-    </UModal>
+    </AppModal>
   </div>
 </template>

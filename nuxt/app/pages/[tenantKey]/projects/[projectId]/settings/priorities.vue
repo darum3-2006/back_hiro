@@ -182,7 +182,7 @@ const buildActions = (item: TaskPriority): DropdownMenuItem[][] => [
       @submit="onSubmit"
     />
 
-    <UModal
+    <AppModal
       v-model:open="deleteModalOpen"
       title="優先度を削除"
       :description="deleteTarget ? `「${deleteTarget.label}」を削除しますか？` : ''"
@@ -219,6 +219,6 @@ const buildActions = (item: TaskPriority): DropdownMenuItem[][] => [
           />
         </div>
       </template>
-    </UModal>
+    </AppModal>
   </div>
 </template>

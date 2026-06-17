@@ -181,7 +181,7 @@ const columns: TableColumn<Department>[] = [
         @saved="onSaved"
       />
 
-      <UModal
+      <AppModal
         v-model:open="deleteModalOpen"
         title="部署を削除"
         :description="
@@ -207,7 +207,7 @@ const columns: TableColumn<Department>[] = [
             />
           </div>
         </template>
-      </UModal>
+      </AppModal>
     </template>
   </UDashboardPanel>
 </template>

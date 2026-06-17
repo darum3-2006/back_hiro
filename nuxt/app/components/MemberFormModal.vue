@@ -95,7 +95,7 @@ const submit = async () => {
 </script>
 
 <template>
-  <UModal
+  <AppModal
     :open="open"
     :title="isEdit ? 'メンバーを編集' : '新規メンバー'"
     @update:open="(v: boolean) => emit('update:open', v)"
@@ -174,5 +174,5 @@ const submit = async () => {
         />
       </div>
     </template>
-  </UModal>
+  </AppModal>
 </template>

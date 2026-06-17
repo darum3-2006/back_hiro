@@ -76,7 +76,7 @@ const copyKey = async () => {
 </script>
 
 <template>
-  <UModal
+  <AppModal
     :open="open"
     title="公開API キー"
     description="公開API（/api/v1）の認証に使うキーです。Authorization: Bearer ヘッダに指定します。"
@@ -168,5 +168,5 @@ const copyKey = async () => {
         </div>
       </div>
     </template>
-  </UModal>
+  </AppModal>
 </template>

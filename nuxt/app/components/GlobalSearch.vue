@@ -65,7 +65,7 @@ watch(open, (v) => {
 
 <template>
   <!-- タスク詳細スライドオーバー(z-50)より前面に出す。重ねても薄くならないよう z を上げる -->
-  <UModal v-model:open="open" :ui="{ overlay: 'z-[60]', content: 'z-[60] sm:max-w-2xl' }">
+  <AppModal v-model:open="open" :ui="{ overlay: 'z-[60]', content: 'z-[60] sm:max-w-2xl' }">
     <template #content>
       <UCommandPalette
         v-model:search-term="searchTerm"
@@ -97,5 +97,5 @@ watch(open, (v) => {
         </template>
       </UCommandPalette>
     </template>
-  </UModal>
+  </AppModal>
 </template>

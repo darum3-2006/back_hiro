@@ -196,7 +196,7 @@ const columns: TableColumn<Member>[] = [
       @saved="onSaved"
     />
 
-    <UModal
+    <AppModal
       v-model:open="deleteModalOpen"
       title="メンバーを削除"
       :description="deleteTarget ? `「${deleteTarget.displayName}」を削除しますか？` : ''"
@@ -242,6 +242,6 @@ const columns: TableColumn<Member>[] = [
           />
         </div>
       </template>
-    </UModal>
+    </AppModal>
   </div>
 </template>
