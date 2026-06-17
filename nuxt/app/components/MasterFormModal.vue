@@ -52,7 +52,7 @@ const submit = () => {
 </script>
 
 <template>
-  <UModal
+  <AppModal
     :open="open"
     :title="isEdit ? `${titleNoun}を編集` : `新規${titleNoun}`"
     @update:open="(v: boolean) => emit('update:open', v)"
@@ -90,5 +90,5 @@ const submit = () => {
         />
       </div>
     </template>
-  </UModal>
+  </AppModal>
 </template>

@@ -156,7 +156,7 @@ const columns: TableColumn<Tag>[] = [
       @submit="onSubmit"
     />
 
-    <UModal
+    <AppModal
       v-model:open="deleteModalOpen"
       title="タグを削除"
       :description="deleteTarget ? `「${deleteTarget.name}」を削除しますか？` : ''"
@@ -193,6 +193,6 @@ const columns: TableColumn<Tag>[] = [
           />
         </div>
       </template>
-    </UModal>
+    </AppModal>
   </div>
 </template>

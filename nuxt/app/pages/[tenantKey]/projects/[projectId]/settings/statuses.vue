@@ -191,7 +191,7 @@ const buildActions = (item: TaskStatus): DropdownMenuItem[][] => [
       @submit="onSubmit"
     />
 
-    <UModal
+    <AppModal
       v-model:open="deleteModalOpen"
       title="ステータスを削除"
       :description="deleteTarget ? `「${deleteTarget.label}」を削除しますか？` : ''"
@@ -228,6 +228,6 @@ const buildActions = (item: TaskStatus): DropdownMenuItem[][] => [
           />
         </div>
       </template>
-    </UModal>
+    </AppModal>
   </div>
 </template>

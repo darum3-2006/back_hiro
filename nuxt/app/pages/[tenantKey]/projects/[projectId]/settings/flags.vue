@@ -272,7 +272,7 @@ const columns: TableColumn<Flag>[] = [
       @submit="onSubmit"
     />
 
-    <UModal
+    <AppModal
       v-model:open="opModalOpen"
       :title="opSource ? `フラグを${opNoun}` : ''"
       :description="
@@ -319,9 +319,9 @@ const columns: TableColumn<Flag>[] = [
           />
         </div>
       </template>
-    </UModal>
+    </AppModal>
 
-    <UModal
+    <AppModal
       v-model:open="detachModalOpen"
       title="フラグを全タスクから外す"
       :description="detachTarget ? `「${detachTarget.name}」を全タスクから外しますか？` : ''"
@@ -359,9 +359,9 @@ const columns: TableColumn<Flag>[] = [
           />
         </div>
       </template>
-    </UModal>
+    </AppModal>
 
-    <UModal
+    <AppModal
       v-model:open="deleteModalOpen"
       title="フラグを削除"
       :description="deleteTarget ? `「${deleteTarget.name}」を削除しますか？` : ''"
@@ -398,6 +398,6 @@ const columns: TableColumn<Flag>[] = [
           />
         </div>
       </template>
-    </UModal>
+    </AppModal>
   </div>
 </template>

@@ -118,7 +118,7 @@ const run = async () => {
 </script>
 
 <template>
-  <UModal
+  <AppModal
     :open="open"
     title="フラグ操作"
     description="元フラグが付いた全タスクに対して、別フラグの追加・付け替え・解除をまとめて行います。"
@@ -173,5 +173,5 @@ const run = async () => {
         <UButton color="primary" :loading="running" :disabled="!canRun" label="実行" @click="run" />
       </div>
     </template>
-  </UModal>
+  </AppModal>
 </template>

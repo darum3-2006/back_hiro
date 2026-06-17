@@ -140,7 +140,7 @@ const columns: TableColumn<User>[] = [
 
       <UserFormModal v-model:open="formModalOpen" :user="editingUser" @saved="onSaved" />
 
-      <UModal
+      <AppModal
         v-model:open="deleteModalOpen"
         title="ユーザーを削除"
         :description="
@@ -164,7 +164,7 @@ const columns: TableColumn<User>[] = [
             />
           </div>
         </template>
-      </UModal>
+      </AppModal>
     </template>
   </UDashboardPanel>
 </template>

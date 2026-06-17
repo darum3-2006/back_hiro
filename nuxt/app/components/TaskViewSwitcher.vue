@@ -65,19 +65,10 @@ const onCompositionEnd = () => {
   composing.value = false;
 };
 
-/** IME 変換確定の Enter で誤送信しないよう、変換中は無視する */
+/** IME 変換確定の Enter で誤送信しないよう、変換中は無視する（ESC は AppModal が抑止） */
 const onNameEnter = (e: KeyboardEvent) => {
   if (composing.value || e.isComposing) return;
   submitModal();
-};
-
-/**
- * IME 変換キャンセルの ESC でモーダルが閉じないようにする。
- * Reka UI は escapeKeyDown が preventDefault されていなければ dismiss するので、
- * 変換中だけ preventDefault して閉じる動作を抑止する（:content 経由で DialogContent に bind）。
- */
-const onEscapeKeyDown = (e: Event) => {
-  if (composing.value || (e as KeyboardEvent).isComposing) e.preventDefault();
 };
 
 const submitModal = () => {
@@ -192,10 +183,9 @@ const items = computed<DropdownMenuItem[][]>(() => {
       </UButton>
     </UDropdownMenu>
 
-    <UModal
+    <AppModal
       :open="modalOpen"
       :title="modalMode === 'create' ? '新規ビューとして保存' : 'ビューを編集'"
-      :content="{ onEscapeKeyDown }"
       @update:open="(v: boolean) => (modalOpen = v)"
     >
       <template #body>
@@ -230,9 +220,9 @@ const items = computed<DropdownMenuItem[][]>(() => {
           />
         </div>
       </template>
-    </UModal>
+    </AppModal>
 
-    <UModal v-model:open="deleteModalOpen" title="ビューを削除" :description="deleteDescription">
+    <AppModal v-model:open="deleteModalOpen" title="ビューを削除" :description="deleteDescription">
       <template #footer>
         <div class="flex justify-end gap-2 w-full">
           <UButton
@@ -244,6 +234,6 @@ const items = computed<DropdownMenuItem[][]>(() => {
           <UButton color="error" icon="i-lucide-trash-2" label="削除" @click="confirmDelete" />
         </div>
       </template>
-    </UModal>
+    </AppModal>
   </div>
 </template>
