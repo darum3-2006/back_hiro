@@ -4,7 +4,6 @@ import type { Task } from '~/types/task';
 import {
   GANTT_GROUP_DEFS,
   GANTT_ROW_SORTS,
-  isScheduled,
   type Granularity,
   type GroupByKey,
   type RowSortKey,
@@ -75,23 +74,26 @@ const granularityItems = [
   { label: '月', value: 'month' },
 ];
 
-// ===== スケジュール済み / 未スケジュール =====
-const scheduled = computed(() => filteredTasks.value.filter(isScheduled));
-const unscheduled = computed(() => filteredTasks.value.filter((t) => !isScheduled(t)));
-
-// 表示期間（着手予定の最小〜完了予定の最大。今日を含め前後に余白）
+// 表示期間（着手予定・完了予定・期限の最小〜最大。今日を含め前後に余白）。
+// 予定日が無いタスクも行は出す（バーが空なだけ）ので、期限だけでも期間に含める。
 const domainStart = computed(() => {
   const today = dayjs().format('YYYY-MM-DD');
-  const starts = scheduled.value.map((t) => t.plannedStartDate as string);
-  let min = starts.length ? starts.reduce((a, b) => (a < b ? a : b)) : today;
-  if (today < min) min = today;
+  let min = today;
+  for (const t of filteredTasks.value) {
+    for (const d of [t.plannedStartDate, t.plannedCompletionDate, t.deadline]) {
+      if (d && d < min) min = d;
+    }
+  }
   return dayjs(min).subtract(3, 'day').format('YYYY-MM-DD');
 });
 const domainEnd = computed(() => {
   const today = dayjs().format('YYYY-MM-DD');
-  const ends = scheduled.value.map((t) => t.plannedCompletionDate as string);
-  let max = ends.length ? ends.reduce((a, b) => (a > b ? a : b)) : today;
-  if (today > max) max = today;
+  let max = today;
+  for (const t of filteredTasks.value) {
+    for (const d of [t.plannedStartDate, t.plannedCompletionDate, t.deadline]) {
+      if (d && d > max) max = d;
+    }
+  }
   return dayjs(max).add(7, 'day').format('YYYY-MM-DD');
 });
 
@@ -105,8 +107,9 @@ const ctx = computed(() => ({
   tags: tags.value,
 }));
 
+// 予定日未設定のタスクも含めて全件をグループ化（バーが空の行として並ぶ）
 const groups = computed(() => {
-  const built = GANTT_GROUP_DEFS[groupBy.value].build(scheduled.value, ctx.value);
+  const built = GANTT_GROUP_DEFS[groupBy.value].build(filteredTasks.value, ctx.value);
   const compare = GANTT_ROW_SORTS[rowSort.value].compare;
   return built.map((g) => ({ ...g, tasks: [...g.tasks].sort(compare) }));
 });
@@ -117,8 +120,6 @@ const openTask = (task: Task) => {
     `/${currentTenantKey.value}/projects/${currentProjectId.value}/tasks?task=${task.seq}`,
   );
 };
-
-const showUnscheduled = ref(false);
 </script>
 
 <template>
@@ -154,10 +155,10 @@ const showUnscheduled = ref(false);
       <TaskFilterBar :filters="filters" :total="tasks.length" :filtered="filteredTasks.length" />
 
       <EmptyState
-        v-if="scheduled.length === 0"
+        v-if="filteredTasks.length === 0"
         icon="i-lucide-chart-gantt"
         title="表示できるタスクがありません"
-        description="着手予定日と完了予定日の両方が設定されたタスクがガントに表示されます"
+        description="フィルタ条件に一致するタスクがありません"
       />
       <GanttChart
         v-else
@@ -167,33 +168,6 @@ const showUnscheduled = ref(false);
         :show-group-header="groupBy !== 'none'"
         @select="openTask"
       />
-
-      <!-- 未スケジュール（予定日が未設定でバーを引けないタスク） -->
-      <div v-if="unscheduled.length > 0" class="border-t border-default">
-        <button
-          type="button"
-          class="flex items-center gap-2 w-full px-4 py-2 text-sm text-muted hover:bg-elevated/40"
-          @click="showUnscheduled = !showUnscheduled"
-        >
-          <UIcon
-            :name="showUnscheduled ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'"
-            class="size-4"
-          />
-          未スケジュール（{{ unscheduled.length }}）
-        </button>
-        <div v-if="showUnscheduled" class="pb-2">
-          <button
-            v-for="task in unscheduled"
-            :key="task.id"
-            type="button"
-            class="flex items-center gap-2 w-full px-6 py-1.5 text-sm text-left hover:bg-elevated/40"
-            @click="openTask(task)"
-          >
-            <span class="shrink-0 text-xs text-muted tabular-nums">#{{ task.seq }}</span>
-            <span class="truncate">{{ task.content }}</span>
-          </button>
-        </div>
-      </div>
     </template>
   </UDashboardPanel>
 </template>

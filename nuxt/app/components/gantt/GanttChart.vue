@@ -2,7 +2,7 @@
 import type { GanttScale } from '~/composables/useGanttScale';
 import type { TaskStatus } from '~/types/master';
 import type { Task } from '~/types/task';
-import { ganttBarColorClass, type GanttGroup } from '~/utils/gantt';
+import { ganttBarColorClass, isScheduled, type GanttGroup } from '~/utils/gantt';
 
 const props = defineProps<{
   groups: GanttGroup[];
@@ -95,6 +95,7 @@ const barStyle = (task: Task) => {
               :style="{ left: `${todayX}px` }"
             />
             <button
+              v-if="isScheduled(task)"
               type="button"
               class="absolute rounded px-1 text-left text-xs text-white truncate shadow-sm"
               :class="ganttBarColorClass(statusMap[task.statusCode]?.color)"
