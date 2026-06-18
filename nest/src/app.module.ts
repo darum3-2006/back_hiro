@@ -12,6 +12,7 @@ import { CommentsModule } from './comments/comments.module';
 import { DepartmentsModule } from './departments/departments.module';
 import { MastersModule } from './masters/masters.module';
 import { MembersModule } from './members/members.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { ProjectsModule } from './projects/projects.module';
 import { PublicModule } from './public/public.module';
 import { SavedViewsModule } from './saved-views/saved-views.module';
@@ -38,6 +39,7 @@ import { UsersModule } from './users/users.module';
     DepartmentsModule,
     MembersModule,
     MastersModule,
+    NotificationsModule,
     TasksModule,
     CommentsModule,
     PublicModule,

@@ -8,6 +8,7 @@ import { Flag } from '../masters/flag.entity';
 import { Tag } from '../masters/tag.entity';
 import { TaskPriority } from '../masters/task-priority.entity';
 import { TaskStatus } from '../masters/task-status.entity';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { ProjectsModule } from '../projects/projects.module';
 import { MyTasksController } from './my-tasks.controller';
 import { SearchController } from './search.controller';
@@ -34,6 +35,7 @@ import { TasksService } from './tasks.service';
     ]),
     ProjectsModule,
     AuditModule,
+    NotificationsModule,
   ],
   controllers: [TasksController, TaskLinksController, MyTasksController, SearchController],
   providers: [TasksService],

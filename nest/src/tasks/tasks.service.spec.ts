@@ -11,6 +11,7 @@ import { Tag } from '../masters/tag.entity';
 import { TaskPriority } from '../masters/task-priority.entity';
 import { TaskStatus } from '../masters/task-status.entity';
 import type { Project } from '../projects/project.entity';
+import { NotificationsService } from '../notifications/notifications.service';
 import { ProjectsService } from '../projects/projects.service';
 import { TaskFlag } from './task-flag.entity';
 import { TaskTag } from './task-tag.entity';
@@ -184,6 +185,10 @@ describe('TasksService', () => {
         },
         { provide: ProjectsService, useValue: projects },
         { provide: AuditService, useValue: audit },
+        {
+          provide: NotificationsService,
+          useValue: { onTaskCreated: jest.fn(), onTaskChanged: jest.fn() },
+        },
       ],
     }).compile();
 
