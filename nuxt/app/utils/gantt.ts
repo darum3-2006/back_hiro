@@ -181,6 +181,9 @@ export const ganttBarColorClass = (color: MasterColor | undefined): string => {
   return color ? map[color] : 'bg-primary';
 };
 
-/** ガントに描画できる（着手予定日・完了予定日が両方ある）か */
-export const isScheduled = (t: Task): boolean =>
-  Boolean(t.plannedStartDate && t.plannedCompletionDate);
+/**
+ * ガントにバーを描画できるか（着手予定日・完了予定日のどちらか一方でもあれば可）。
+ * 片方だけのときは、欠けた側をもう片方で補って 1 日幅の点バーにする（GanttChart 側）。
+ */
+export const hasPlannedBar = (t: Task): boolean =>
+  Boolean(t.plannedStartDate || t.plannedCompletionDate);

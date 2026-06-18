@@ -2,7 +2,7 @@
 import type { GanttScale } from '~/composables/useGanttScale';
 import type { TaskStatus } from '~/types/master';
 import type { Task } from '~/types/task';
-import { ganttBarColorClass, isScheduled, type GanttGroup } from '~/utils/gantt';
+import { ganttBarColorClass, hasPlannedBar, type GanttGroup } from '~/utils/gantt';
 
 const props = defineProps<{
   groups: GanttGroup[];
@@ -22,11 +22,15 @@ const ROW_H = 36;
 const HEAD_H = 32;
 const BAR_H = 20;
 
+// 着手予定/完了予定のどちらかが欠けていても、もう片方で補って描く（片方だけ＝1 日幅の点）。
+// 月粒度で 1 日が極小になっても見える/押せるよう、最小幅を確保する。
+const MIN_BAR_W = 8;
 const barStyle = (task: Task) => {
-  const left = xOf(task.plannedStartDate) ?? 0;
+  const from = task.plannedStartDate ?? task.plannedCompletionDate;
+  const to = task.plannedCompletionDate ?? task.plannedStartDate;
   return {
-    left: `${left}px`,
-    width: `${widthOf(task.plannedStartDate, task.plannedCompletionDate)}px`,
+    left: `${xOf(from) ?? 0}px`,
+    width: `${Math.max(widthOf(from, to), MIN_BAR_W)}px`,
     top: `${(ROW_H - BAR_H) / 2}px`,
     height: `${BAR_H}px`,
   };
@@ -95,7 +99,7 @@ const barStyle = (task: Task) => {
               :style="{ left: `${todayX}px` }"
             />
             <button
-              v-if="isScheduled(task)"
+              v-if="hasPlannedBar(task)"
               type="button"
               class="absolute rounded px-1 text-left text-xs text-white truncate shadow-sm"
               :class="ganttBarColorClass(statusMap[task.statusCode]?.color)"
