@@ -6,6 +6,7 @@ import { AuditService } from '../audit/audit.service';
 import { Comment } from '../comments/comment.entity';
 import { Department } from '../departments/department.entity';
 import { ProjectMember } from '../members/member.entity';
+import { NotificationsService } from '../notifications/notifications.service';
 import { Flag } from '../masters/flag.entity';
 import { Tag } from '../masters/tag.entity';
 import { TaskPriority } from '../masters/task-priority.entity';
@@ -119,6 +120,7 @@ export class TasksService {
     private readonly comments: Repository<Comment>,
     private readonly projects: ProjectsService,
     private readonly audit: AuditService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async listByProject(
@@ -332,6 +334,8 @@ export class TasksService {
       );
       return s;
     });
+    // 通知はトランザクション外でベストエフォート生成（失敗してもタスク作成は成立させる）
+    await this.notifications.onTaskCreated(tenantId, saved, actingUserId);
     return this.findInProject(tenantId, projectId, saved.id);
   }
 
@@ -413,6 +417,9 @@ export class TasksService {
         );
       }
     });
+    if (changes.length > 0) {
+      await this.notifications.onTaskChanged(tenantId, task, changes, actingUserId);
+    }
     return this.findInProject(tenantId, projectId, task.id);
   }
 
