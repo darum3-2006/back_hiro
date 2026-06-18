@@ -121,6 +121,13 @@ const apiKeyModalOpen = ref(false);
 const accountMenuItems = computed(() => {
   const account = [
     {
+      label: 'マイページ',
+      icon: 'i-lucide-user',
+      onSelect: () => {
+        navigateTo(`/${currentTenantKey.value}/me`);
+      },
+    },
+    {
       label: 'パスワード変更',
       icon: 'i-lucide-key-round',
       onSelect: () => {
@@ -181,6 +188,7 @@ const accountMenuItems = computed(() => {
       </template>
 
       <template #footer="{ collapsed }">
+        <NotificationBell :collapsed="collapsed" />
         <UDropdownMenu
           :items="accountMenuItems"
           :ui="{ content: collapsed ? undefined : 'w-(--reka-dropdown-menu-trigger-width)' }"
