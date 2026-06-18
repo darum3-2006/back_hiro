@@ -3,13 +3,16 @@ import {
   Controller,
   Get,
   HttpCode,
+  type MessageEvent,
   Param,
   ParseUUIDPipe,
   Patch,
   Post,
   Query,
+  Sse,
   UseGuards,
 } from '@nestjs/common';
+import { interval, map, merge, type Observable } from 'rxjs';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
@@ -26,6 +29,19 @@ export class NotificationsController {
   list(@CurrentUser() user: AuthenticatedUser, @Query('limit') limit?: string) {
     const n = limit ? Math.min(Math.max(Number(limit) || 30, 1), 100) : 30;
     return this.notifications.listForUser(user.tenantId, user.userId, n);
+  }
+
+  /**
+   * GET /api/notifications/stream — SSE で新着通知を push（EventSource）。
+   * EventSource はヘッダを送れないため ?token= で認証する。25 秒ごとに ping で接続維持。
+   */
+  @Sse('stream')
+  stream(@CurrentUser() user: AuthenticatedUser): Observable<MessageEvent> {
+    const notifs = this.notifications
+      .stream(user.userId)
+      .pipe(map((n): MessageEvent => ({ data: n })));
+    const ping = interval(25_000).pipe(map((): MessageEvent => ({ type: 'ping', data: '' })));
+    return merge(notifs, ping);
   }
 
   /** GET /api/notifications/unread-count */

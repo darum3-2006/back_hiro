@@ -25,7 +25,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private readonly users: UsersService,
   ) {
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      // 通常は Authorization ヘッダ。SSE(EventSource)はヘッダを付けられないため
+      // クエリ ?token= もフォールバックで受け付ける。
+      jwtFromRequest: ExtractJwt.fromExtractors([
+        ExtractJwt.fromAuthHeaderAsBearerToken(),
+        ExtractJwt.fromUrlQueryParameter('token'),
+      ]),
       ignoreExpiration: false,
       secretOrKey: config.getOrThrow<string>('JWT_SECRET'),
     });
