@@ -188,26 +188,28 @@ const accountMenuItems = computed(() => {
       </template>
 
       <template #footer="{ collapsed }">
-        <NotificationBell :collapsed="collapsed" />
-        <UDropdownMenu
-          :items="accountMenuItems"
-          :ui="{ content: collapsed ? undefined : 'w-(--reka-dropdown-menu-trigger-width)' }"
-        >
-          <UButton
-            color="neutral"
-            variant="ghost"
-            :block="!collapsed"
-            :square="collapsed"
-            :class="collapsed ? undefined : 'justify-start gap-2'"
-            :aria-label="`アカウントメニュー: ${me?.name ?? ''}`"
+        <div class="flex w-full flex-col gap-1" :class="collapsed ? 'items-center' : undefined">
+          <NotificationBell :collapsed="collapsed" />
+          <UDropdownMenu
+            :items="accountMenuItems"
+            :ui="{ content: collapsed ? undefined : 'w-(--reka-dropdown-menu-trigger-width)' }"
           >
-            <UIcon name="i-lucide-circle-user-round" class="size-5 text-muted shrink-0" />
-            <template v-if="!collapsed">
-              <span class="text-sm truncate flex-1 text-left">{{ me?.name ?? '' }}</span>
-              <UIcon name="i-lucide-chevrons-up-down" class="size-4 text-muted shrink-0" />
-            </template>
-          </UButton>
-        </UDropdownMenu>
+            <UButton
+              color="neutral"
+              variant="ghost"
+              :block="!collapsed"
+              :square="collapsed"
+              :class="collapsed ? undefined : 'justify-start gap-2'"
+              :aria-label="`アカウントメニュー: ${me?.name ?? ''}`"
+            >
+              <UIcon name="i-lucide-circle-user-round" class="size-5 text-muted shrink-0" />
+              <template v-if="!collapsed">
+                <span class="text-sm truncate flex-1 text-left">{{ me?.name ?? '' }}</span>
+                <UIcon name="i-lucide-chevrons-up-down" class="size-4 text-muted shrink-0" />
+              </template>
+            </UButton>
+          </UDropdownMenu>
+        </div>
       </template>
     </UDashboardSidebar>
 
