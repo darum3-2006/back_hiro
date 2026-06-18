@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import dayjs from 'dayjs';
+import { apiUpdateTask } from '~/api/tasks';
 import type { Task } from '~/types/task';
 import {
   GANTT_GROUP_DEFS,
@@ -9,17 +10,18 @@ import {
   type RowSortKey,
 } from '~/utils/gantt';
 
+const api = useApi();
 const route = useRoute();
 const router = useRouter();
 const currentProjectId = useCurrentProjectId();
-const currentTenantKey = useCurrentTenantKey();
+const currentUserId = useCurrentUserId();
 
 // 既定では完了タスクを取得しない（タスク一覧と同じ挙動）
 const includeCompleted = computed(
   () => route.query.showCompleted === '1' || Boolean(route.query.status),
 );
 
-const { data: tasks } = await useTasks(currentProjectId, includeCompleted);
+const { data: tasks, refresh: refreshTasks } = await useTasks(currentProjectId, includeCompleted);
 const { data: statuses } = await useTaskStatuses(currentProjectId);
 const { data: priorities } = await useTaskPriorities(currentProjectId);
 const { data: tags } = await useTags(currentProjectId);
@@ -29,6 +31,19 @@ const { data: departments } = await useDepartments();
 
 const filters = useTaskFilters({ tasks, statuses, priorities, members, tags, flags });
 const { filteredTasks, statusMap } = filters;
+
+// 詳細スライドオーバー用のマップ（一覧と同じ）
+const priorityMap = computed(() => Object.fromEntries(priorities.value.map((p) => [p.code, p])));
+const memberMap = computed(() => Object.fromEntries(members.value.map((m) => [m.id, m])));
+const tagMap = computed(() => Object.fromEntries(tags.value.map((t) => [t.code, t])));
+const flagMap = computed(() => Object.fromEntries(flags.value.map((f) => [f.code, f])));
+const departmentMap = computed(() => Object.fromEntries(departments.value.map((d) => [d.code, d])));
+
+const currentMemberId = computed<string | null>(() => {
+  const uid = currentUserId.value;
+  if (!uid) return null;
+  return members.value.find((m) => m.userId === uid)?.id ?? null;
+});
 
 // ===== ガント固有の表示状態（URL クエリ保持・将来 SavedView 化しやすい形） =====
 const queryString = (key: string): string => (route.query[key] as string | undefined) ?? '';
@@ -114,11 +129,58 @@ const groups = computed(() => {
   return built.map((g) => ({ ...g, tasks: [...g.tasks].sort(compare) }));
 });
 
-// バー/ラベルのクリックで一覧の該当タスク詳細を開く（v1 は読取専用）
+// ===== タスク詳細スライドオーバー: URL クエリ(?task=seq)で連動（一覧と同じ作法） =====
+const taskParam = computed<string | null>(() => queryString('task') || null);
+
+const taskFromList = computed<Task | null>(() => {
+  const raw = taskParam.value;
+  if (!raw) return null;
+  const n = Number(raw);
+  if (Number.isInteger(n) && n > 0) {
+    return tasks.value.find((t) => t.seq === n) ?? null;
+  }
+  return tasks.value.find((t) => t.id === raw) ?? null;
+});
+
+// 完了にして一覧から外れてもスライドを開いたままにするためのキャッシュ
+const openTaskCache = ref<Task | null>(null);
+watch(
+  taskFromList,
+  (t) => {
+    if (t) openTaskCache.value = t;
+  },
+  { immediate: true },
+);
+watch(taskParam, (raw) => {
+  if (!raw) openTaskCache.value = null;
+});
+
+const selectedTask = computed<Task | null>(() => {
+  const raw = taskParam.value;
+  if (!raw) return null;
+  if (taskFromList.value) return taskFromList.value;
+  const cached = openTaskCache.value;
+  if (cached && (String(cached.seq) === raw || cached.id === raw)) return cached;
+  return null;
+});
+
+const slideoverOpen = computed(() => selectedTask.value !== null);
+
+// バー/ラベルのクリックで詳細スライドをその場で開く（遷移しない）
 const openTask = (task: Task) => {
-  navigateTo(
-    `/${currentTenantKey.value}/projects/${currentProjectId.value}/tasks?task=${task.seq}`,
-  );
+  setQuery('task', String(task.seq));
+};
+const closeSlideover = () => {
+  setQuery('task', undefined);
+};
+
+const updateTaskField = async (
+  taskId: string,
+  patch: Partial<Omit<Task, 'id' | 'projectId' | 'createdAt' | 'seq'>>,
+) => {
+  const updated = await apiUpdateTask(api, currentProjectId.value, taskId, patch);
+  if (openTaskCache.value?.id === updated.id) openTaskCache.value = updated;
+  await refreshTasks();
 };
 </script>
 
@@ -170,4 +232,21 @@ const openTask = (task: Task) => {
       />
     </template>
   </UDashboardPanel>
+
+  <TaskDetailSlideover
+    :open="slideoverOpen"
+    :task="selectedTask"
+    :tasks="tasks"
+    :current-member-id="currentMemberId"
+    :status-map="statusMap"
+    :priority-map="priorityMap"
+    :member-map="memberMap"
+    :tag-map="tagMap"
+    :flag-map="flagMap"
+    :department-map="departmentMap"
+    @update:open="(v: boolean) => !v && closeSlideover()"
+    @change-field="
+      (patch: Partial<Task>) => selectedTask && updateTaskField(selectedTask.id, patch)
+    "
+  />
 </template>
