@@ -28,6 +28,12 @@ const {
   dateFilterChips,
   dateRangeFilterDefs,
 } = props.filters;
+
+// 日付ポップオーバーは一度に 1 種類だけカレンダーを開く（全部開くと巨大になるため）
+const expandedDateKey = ref<string | null>(null);
+const toggleDate = (key: string) => {
+  expandedDateKey.value = expandedDateKey.value === key ? null : key;
+};
 </script>
 
 <template>
@@ -155,7 +161,7 @@ const {
           @click="flagFilter = []"
         />
       </div>
-      <UPopover :ui="{ content: 'p-2 w-72' }">
+      <UPopover :ui="{ content: 'p-2 w-auto max-h-[75vh] overflow-y-auto' }">
         <UButton
           color="neutral"
           :variant="hasActiveDateFilter ? 'soft' : 'outline'"
@@ -164,10 +170,31 @@ const {
           trailing-icon="i-lucide-chevron-down"
         />
         <template #content>
-          <div class="space-y-2">
-            <div v-for="def in dateRangeFilterDefs" :key="def.key" class="space-y-1">
-              <p class="text-xs text-muted px-1">{{ def.label }}</p>
+          <div class="min-w-56">
+            <!-- 一度に開くのは 1 種類だけ（アコーディオン）。全部開くと巨大化するため -->
+            <div v-for="def in dateRangeFilterDefs" :key="def.key">
+              <button
+                type="button"
+                class="flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-sm hover:bg-elevated/50"
+                @click="toggleDate(def.key)"
+              >
+                <span :class="def.filter.isActive.value ? 'font-medium text-primary' : ''">
+                  {{ def.label }}
+                </span>
+                <span class="flex items-center gap-1">
+                  <span v-if="def.filter.isActive.value" class="size-1.5 rounded-full bg-primary" />
+                  <UIcon
+                    :name="
+                      expandedDateKey === def.key
+                        ? 'i-lucide-chevron-down'
+                        : 'i-lucide-chevron-right'
+                    "
+                    class="size-4 text-muted"
+                  />
+                </span>
+              </button>
               <DateRangeFilter
+                v-if="expandedDateKey === def.key"
                 :model-value="def.filter.range.value"
                 @update:model-value="(v) => (def.filter.range.value = v)"
               />
