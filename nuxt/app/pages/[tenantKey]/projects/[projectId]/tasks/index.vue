@@ -49,7 +49,11 @@ const includeCompleted = computed(
   () => route.query.showCompleted === '1' || Boolean(route.query.status),
 );
 
-const { data: tasks, refresh: refreshTasks } = await useTasks(currentProjectId, includeCompleted);
+const {
+  data: tasks,
+  refresh: refreshTasks,
+  status: tasksStatus,
+} = await useTasks(currentProjectId, includeCompleted);
 const { data: statuses } = await useTaskStatuses(currentProjectId);
 const { data: priorities } = await useTaskPriorities(currentProjectId);
 const { data: tags } = await useTags(currentProjectId);
@@ -487,6 +491,9 @@ const toast = useToast();
 const normalizeTaskParam = () => {
   const raw = taskParam.value;
   if (raw === null) return;
+  // 一覧の読込が完了するまでは判定しない（通知等から ?task= で来た直後、データ取得中に
+  // selectedTask が一時的に null となり「見つかりません」を誤発火するのを防ぐ）。
+  if (tasksStatus.value !== 'success') return;
   const task = selectedTask.value;
   if (!task) {
     toast.add({ title: '指定されたタスクは見つかりませんでした', color: 'warning' });
@@ -497,7 +504,7 @@ const normalizeTaskParam = () => {
     setSelectedTaskSeq(task.seq);
   }
 };
-watch([taskParam, selectedTask], normalizeTaskParam);
+watch([taskParam, selectedTask, tasksStatus], normalizeTaskParam);
 onMounted(normalizeTaskParam);
 
 const onTaskCreated = async (task: Task) => {
