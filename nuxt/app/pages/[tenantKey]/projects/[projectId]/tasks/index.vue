@@ -488,12 +488,25 @@ const toast = useToast();
 // URL の task パラメータを検証・正規化する。
 // - 見つからない番号/ID → 通知して一覧へ戻す（空パネルを出さない）
 // - UUID 等 seq 以外で解決できた場合 → URL を seq へ正規化
-const normalizeTaskParam = () => {
+// 同じ param に対して一覧の再取得を一度だけ試したか（無限ループ防止）
+let refreshedForParam: string | null = null;
+const normalizeTaskParam = async () => {
   const raw = taskParam.value;
-  if (raw === null) return;
-  // 一覧の読込が完了するまでは判定しない（通知等から ?task= で来た直後、データ取得中に
-  // selectedTask が一時的に null となり「見つかりません」を誤発火するのを防ぐ）。
+  if (raw === null) {
+    refreshedForParam = null;
+    return;
+  }
+  // 一覧の読込が完了するまでは判定しない（取得中に selectedTask が一時的に null になり
+  // 「見つかりません」を誤発火するのを防ぐ）。
   if (tasksStatus.value !== 'success') return;
+
+  // 読込済みでも見つからない場合、一覧が古い可能性（他ユーザーが作成した新着タスクを
+  // 通知から開いた等）。同じ param につき一度だけ再取得してから再判定する。
+  if (!selectedTask.value && refreshedForParam !== raw) {
+    refreshedForParam = raw;
+    await refreshTasks();
+  }
+
   const task = selectedTask.value;
   if (!task) {
     toast.add({ title: '指定されたタスクは見つかりませんでした', color: 'warning' });
