@@ -78,6 +78,7 @@ const onAdd = (col: Column) => {
         v-model="col.tasks"
         :group="col.status ? { name: 'board' } : { name: 'board', put: false }"
         :animation="150"
+        :sort="false"
         class="flex min-h-12 flex-1 flex-col gap-2 overflow-y-auto px-2 pb-2"
         @start="(e: { oldIndex?: number }) => onStart(col, e)"
         @add="() => onAdd(col)"
