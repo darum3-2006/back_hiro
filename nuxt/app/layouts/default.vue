@@ -188,7 +188,10 @@ const accountMenuItems = computed(() => {
       </template>
 
       <template #footer="{ collapsed }">
-        <div class="flex w-full flex-col gap-1" :class="collapsed ? 'items-center' : undefined">
+        <div
+          class="flex w-full flex-col gap-1 pt-2"
+          :class="collapsed ? 'items-center' : undefined"
+        >
           <NotificationBell :collapsed="collapsed" />
           <UDropdownMenu
             :items="accountMenuItems"
