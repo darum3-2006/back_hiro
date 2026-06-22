@@ -34,9 +34,15 @@ const onOpenNotification = async (n: AppNotification) => {
       :class="!collapsed ? 'justify-start gap-2' : undefined"
       aria-label="通知"
     >
-      <UChip :show="unread > 0" :text="unreadLabel" color="error" size="2xl">
-        <UIcon name="i-lucide-bell" class="size-5 text-muted shrink-0" />
-      </UChip>
+      <span class="relative inline-flex shrink-0">
+        <UIcon name="i-lucide-bell" class="size-5 text-muted" />
+        <span
+          v-if="unread > 0"
+          class="absolute -right-2 -top-1.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-error px-1 text-xs font-medium leading-none text-white"
+        >
+          {{ unreadLabel }}
+        </span>
+      </span>
       <span v-if="!collapsed" class="text-sm flex-1 text-left">通知</span>
     </UButton>
 
