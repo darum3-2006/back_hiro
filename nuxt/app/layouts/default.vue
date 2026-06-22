@@ -83,9 +83,14 @@ const navItems = computed(() => {
     ],
     [{ label: 'タスク一覧', icon: 'i-lucide-list-checks', to: tasksTo }],
   ];
-  // ガントは現在プロジェクトがあるときだけ（タスク一覧の直下に並べる）
+  // ボード / ガントは現在プロジェクトがあるときだけ（タスク一覧の直下に並べる）
   if (currentProjectId.value) {
     groups.push([
+      {
+        label: 'ボード',
+        icon: 'i-lucide-columns-3',
+        to: `/${tk}/projects/${currentProjectId.value}/board`,
+      },
       {
         label: 'ガント',
         icon: 'i-lucide-chart-gantt',
