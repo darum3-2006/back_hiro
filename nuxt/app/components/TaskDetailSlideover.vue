@@ -425,24 +425,32 @@ const flagsList = computed(() => Object.values(props.flagMap));
               label="画像を表示する"
             />
           </div>
-          <UTextarea
-            v-if="editingField === 'description'"
-            v-model="editBuffer"
-            autofocus
-            :rows="4"
-            autoresize
-            class="w-full"
-            @blur="commitEdit"
-            @keydown.ctrl.enter.exact.prevent="commitEdit"
-            @keydown.meta.enter.exact.prevent="commitEdit"
-            @keydown.escape.prevent="cancelEdit"
-          />
+          <div v-if="editingField === 'description'" class="space-y-2">
+            <MarkdownEditor
+              v-model="editBuffer"
+              :tasks="tasks"
+              :show-images="showImages"
+              :rows="5"
+              placeholder="説明（Markdown 可・Cmd/Ctrl+Enter で保存）…"
+              @submit="commitEdit"
+            />
+            <div class="flex justify-end gap-2">
+              <UButton
+                size="xs"
+                color="neutral"
+                variant="ghost"
+                label="キャンセル"
+                @click="cancelEdit"
+              />
+              <UButton size="xs" color="primary" label="保存" @click="commitEdit" />
+            </div>
+          </div>
           <div
             v-else
             class="text-sm text-left w-full hover:bg-elevated/40 rounded px-1 -mx-1 min-h-6 cursor-text"
             @click="startEdit('description', task.description)"
           >
-            <LinkedText
+            <MarkdownContent
               v-if="task.description"
               :text="task.description"
               :tasks="tasks"
@@ -850,14 +858,15 @@ const flagsList = computed(() => Object.values(props.flagMap));
                   </div>
 
                   <div v-if="editingCommentId === item.comment.id" class="mt-1 space-y-2">
-                    <UTextarea
+                    <MarkdownEditor
                       v-model="commentEditBuffer"
-                      autofocus
+                      :candidates="mentionCandidates"
+                      :tasks="tasks"
+                      :mention-names="mentionNames"
+                      :show-images="showImages"
                       :rows="3"
-                      autoresize
-                      class="w-full"
-                      @keydown.ctrl.enter.exact.prevent="saveCommentEdit"
-                      @keydown.meta.enter.exact.prevent="saveCommentEdit"
+                      placeholder="コメントを編集（@ でメンション・Markdown 可）…"
+                      @submit="saveCommentEdit"
                     />
                     <div class="flex gap-2">
                       <UButton
@@ -878,13 +887,14 @@ const flagsList = computed(() => Object.values(props.flagMap));
                     </div>
                   </div>
 
-                  <p v-else class="text-sm mt-0.5">
-                    <LinkedText
+                  <div v-else class="mt-0.5">
+                    <MarkdownContent
                       :text="item.comment.body"
                       :tasks="tasks"
                       :mention-names="mentionNames"
+                      :show-images="showImages"
                     />
-                  </p>
+                  </div>
                 </div>
               </div>
 
@@ -922,12 +932,15 @@ const flagsList = computed(() => Object.values(props.flagMap));
           </div>
 
           <div class="mt-4 space-y-2">
-            <MentionTextarea
+            <MarkdownEditor
               v-model="commentBody"
               :candidates="mentionCandidates"
+              :tasks="tasks"
+              :mention-names="mentionNames"
+              :show-images="showImages"
               :rows="3"
               :disabled="!currentMemberId"
-              placeholder="コメントを入力（@ でメンション・Cmd/Ctrl+Enter で投稿）…"
+              placeholder="コメントを入力（@ でメンション・Markdown 可・Cmd/Ctrl+Enter で投稿）…"
               @submit="postComment"
             />
             <div class="flex items-center justify-between">
