@@ -112,7 +112,8 @@ const submit = async () => {
         </UFormField>
         <UFormField
           label="User 紐付け"
-          hint="認証ユーザーと紐付けると、そのユーザーが操作できるようになります"
+          description="認証ユーザーと紐付けると、そのユーザーが操作できるようになります"
+          :ui="{ description: 'text-xs' }"
         >
           <SelectMenu
             :items="userSelectItems"
