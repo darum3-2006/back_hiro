@@ -21,6 +21,33 @@ interface TaskFilterData {
  * `filteredTasks` に絞り込み結果を返す。UI バインドに必要な ref / items / chips も公開する。
  * （タスク一覧 index.vue のフィルタ実装をそのまま composable 化したもの。クエリキーも同一。）
  */
+/** フィルタとして扱う URL クエリキー一覧（永続化・共有の対象） */
+export const FILTER_QUERY_KEYS = [
+  'search',
+  'status',
+  'priority',
+  'assignee',
+  'tag',
+  'flag',
+  'showCompleted',
+  'deadlineFrom',
+  'deadlineTo',
+  'plannedStartFrom',
+  'plannedStartTo',
+  'plannedCompletionFrom',
+  'plannedCompletionTo',
+  'plannedReleaseFrom',
+  'plannedReleaseTo',
+  'completedAtFrom',
+  'completedAtTo',
+  'statusChangedFrom',
+  'statusChangedTo',
+  'createdFrom',
+  'createdTo',
+  'updatedFrom',
+  'updatedTo',
+];
+
 export const useTaskFilters = (data: TaskFilterData) => {
   const route = useRoute();
   const router = useRouter();
