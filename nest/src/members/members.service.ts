@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -10,7 +11,7 @@ import type { AuthenticatedUser } from '../auth/jwt.strategy';
 import { ProjectsService } from '../projects/projects.service';
 import { CreateMemberDto } from './dto/create-member.dto';
 import { UpdateMemberDto } from './dto/update-member.dto';
-import { ProjectMember } from './member.entity';
+import { ProjectMember, type MemberRole } from './member.entity';
 
 @Injectable()
 export class MembersService {
@@ -66,6 +67,27 @@ export class MembersService {
       }
       throw e;
     }
+  }
+
+  /**
+   * 表示名を複数まとめて追加する（User 紐付けは全て無し・権限は一括指定）。
+   * 空白行は除外。userId=null なので一意制約（projectId, userId）には当たらない。
+   */
+  async bulkCreate(
+    tenantId: string,
+    projectId: string,
+    displayNames: string[],
+    role: MemberRole,
+  ): Promise<ProjectMember[]> {
+    await this.projects.findByIdInTenant(tenantId, projectId);
+    const names = displayNames.map((n) => n.trim()).filter((n) => n.length > 0);
+    if (names.length === 0) {
+      throw new BadRequestException('表示名を 1 件以上入力してください');
+    }
+    const entities = names.map((displayName) =>
+      this.members.create({ projectId, userId: null, displayName, role }),
+    );
+    return this.members.save(entities);
   }
 
   async update(
