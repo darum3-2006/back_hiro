@@ -49,6 +49,10 @@ const includeCompleted = computed(
   () => route.query.showCompleted === '1' || Boolean(route.query.status),
 );
 
+// フィルタを画面間で共有・記憶（await より前に登録）。一覧は SavedView と協調した
+// 独自復元を行うため自動復元は切り、保存のみ利用する。
+useTaskFilterMemory({ autoRestore: false });
+
 const {
   data: tasks,
   refresh: refreshTasks,
@@ -1429,11 +1433,14 @@ onMounted(() => {
   // - ?view が無く、状態も無い素の遷移なら「前回使ったビュー」を再現する。
   const viewIdInUrl = queryString('view');
   const hasUrlState = urlHasViewState();
+  // 画面間で記憶した「現在のフィルタ」。null=記憶なし / {}=クリア済み。
+  const savedFilters = readSavedTaskFilters(currentProjectId.value);
   if (viewIdInUrl) {
     const view = savedViews.value.find((v) => v.id === viewIdInUrl);
     if (view) {
       selectedViewId.value = view.id;
       if (!hasUrlState) {
+        // 共有リンク（?view のみ）: ビューを保存どおり再現
         // applyViewConfig 内で applyingColumnLayout のリセットまで行う
         applyViewConfig(view.config, view.id);
         return;
@@ -1444,8 +1451,14 @@ onMounted(() => {
     const view = lastId ? savedViews.value.find((v) => v.id === lastId) : null;
     if (view) {
       selectedViewId.value = view.id;
-      applyViewConfig(view.config, view.id);
+      // 列/ソート/選択はビュー、フィルタは記憶した現在値を優先（変更後の絞り込みを保つ）
+      const config = savedFilters ? { ...view.config, filters: savedFilters } : view.config;
+      applyViewConfig(config, view.id);
       return;
+    }
+    // ビュー未選択でも、記憶したフィルタがあれば復元（列は下の localStorage 復元に任せる）
+    if (savedFilters && Object.keys(savedFilters).length > 0) {
+      updateQuery(savedFilters);
     }
   }
 

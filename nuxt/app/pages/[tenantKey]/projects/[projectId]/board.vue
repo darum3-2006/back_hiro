@@ -15,6 +15,9 @@ const includeCompleted = computed(
   () => route.query.showCompleted === '1' || Boolean(route.query.status),
 );
 
+// フィルタを画面間で共有・記憶（await より前に登録する）
+useTaskFilterMemory();
+
 const { data: tasks, refresh: refreshTasks } = await useTasks(currentProjectId, includeCompleted);
 const { data: statuses } = await useTaskStatuses(currentProjectId);
 const { data: priorities } = await useTaskPriorities(currentProjectId);
