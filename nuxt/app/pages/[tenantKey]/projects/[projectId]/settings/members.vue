@@ -41,6 +41,12 @@ const openEdit = (member: Member) => {
   formModalOpen.value = true;
 };
 
+// ===== Bulk add =====（追加結果のトーストはモーダル側で表示）
+const bulkModalOpen = ref(false);
+const onBulkSaved = async () => {
+  await refreshMembers();
+};
+
 const onSaved = async (member: Member) => {
   await refreshMembers();
   if (!editingMember.value) {
@@ -131,13 +137,16 @@ const columns: TableColumn<Member>[] = [
   <div class="p-6 space-y-4">
     <div class="flex justify-between items-center">
       <p class="text-sm text-muted">メンバー {{ members.length }} 人</p>
-      <UButton
-        v-if="isProjectAdmin"
-        color="primary"
-        icon="i-lucide-plus"
-        label="メンバーを追加"
-        @click="openCreate"
-      />
+      <div v-if="isProjectAdmin" class="flex items-center gap-2">
+        <UButton
+          color="neutral"
+          variant="outline"
+          icon="i-lucide-list-plus"
+          label="一括追加"
+          @click="bulkModalOpen = true"
+        />
+        <UButton color="primary" icon="i-lucide-plus" label="メンバーを追加" @click="openCreate" />
+      </div>
     </div>
 
     <EmptyState
@@ -195,6 +204,8 @@ const columns: TableColumn<Member>[] = [
       :existing-user-ids="existingUserIds"
       @saved="onSaved"
     />
+
+    <MemberBulkModal v-model:open="bulkModalOpen" :project-id="projectId" @saved="onBulkSaved" />
 
     <AppModal
       v-model:open="deleteModalOpen"

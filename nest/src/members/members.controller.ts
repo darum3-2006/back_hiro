@@ -13,6 +13,7 @@ import {
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
+import { BulkCreateMembersDto } from './dto/bulk-create-members.dto';
 import { CreateMemberDto } from './dto/create-member.dto';
 import { UpdateMemberDto } from './dto/update-member.dto';
 import { MembersService } from './members.service';
@@ -38,6 +39,17 @@ export class MembersController {
   ) {
     await this.members.assertProjectAdmin(user.tenantId, projectId, user);
     return this.members.create(user.tenantId, projectId, dto);
+  }
+
+  /** 表示名を複数まとめて追加（User 紐付け無し・権限一括）。 */
+  @Post('bulk')
+  async bulkCreate(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('projectId', new ParseUUIDPipe()) projectId: string,
+    @Body() dto: BulkCreateMembersDto,
+  ) {
+    await this.members.assertProjectAdmin(user.tenantId, projectId, user);
+    return this.members.bulkCreate(user.tenantId, projectId, dto.displayNames, dto.role);
   }
 
   @Patch(':id')

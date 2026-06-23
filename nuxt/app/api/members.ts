@@ -26,6 +26,19 @@ export const apiCreateMember = (
 ): Promise<Member> =>
   api<Member>(`/projects/${projectId}/members`, { method: 'POST', body: input });
 
+export interface BulkCreateMembersInput {
+  displayNames: string[];
+  role: MemberRole;
+}
+
+/** POST /api/projects/:projectId/members/bulk — 表示名を複数まとめて追加（User 紐付け無し） */
+export const apiBulkCreateMembers = (
+  api: typeof $fetch,
+  projectId: string,
+  input: BulkCreateMembersInput,
+): Promise<Member[]> =>
+  api<Member[]>(`/projects/${projectId}/members/bulk`, { method: 'POST', body: input });
+
 /** PATCH /api/projects/:projectId/members/:id */
 export const apiUpdateMember = (
   api: typeof $fetch,

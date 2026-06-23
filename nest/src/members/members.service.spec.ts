@@ -1,4 +1,4 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { QueryFailedError, type Repository } from 'typeorm';
@@ -112,6 +112,29 @@ describe('MembersService', () => {
           role: 'member',
         }),
       ).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('bulkCreate', () => {
+    it('空行を除外し、trim・userId=null・指定 role で一括作成', async () => {
+      const result = await service.bulkCreate(
+        tenantId,
+        projectId,
+        ['  田中  ', '', '  ', '佐藤'],
+        'member',
+      );
+
+      expect(result).toHaveLength(2);
+      expect(result.map((m) => m.displayName)).toEqual(['田中', '佐藤']);
+      expect(result.every((m) => m.userId === null)).toBe(true);
+      expect(result.every((m) => m.role === 'member')).toBe(true);
+      expect(result.every((m) => m.projectId === projectId)).toBe(true);
+    });
+
+    it('有効な行が無ければ BadRequest', async () => {
+      await expect(service.bulkCreate(tenantId, projectId, ['', '   '], 'member')).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
