@@ -1,9 +1,11 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { ProjectMember } from '../members/member.entity';
+import { NotificationsService } from '../notifications/notifications.service';
 import { ProjectsService } from '../projects/projects.service';
 import { Task } from '../tasks/task.entity';
+import { User } from '../users/user.entity';
 import { Comment } from './comment.entity';
 import { CommentFilterDto } from './dto/comment-filter.dto';
 import { CreateCommentDto } from './dto/create-comment.dto';
@@ -18,7 +20,10 @@ export class CommentsService {
     private readonly tasks: Repository<Task>,
     @InjectRepository(ProjectMember)
     private readonly members: Repository<ProjectMember>,
+    @InjectRepository(User)
+    private readonly users: Repository<User>,
     private readonly projects: ProjectsService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async listByTask(tenantId: string, projectId: string, taskId: string): Promise<Comment[]> {
@@ -48,6 +53,7 @@ export class CommentsService {
     projectId: string,
     taskId: string,
     dto: CreateCommentDto,
+    actorUserId: string,
   ): Promise<Comment> {
     await this.assertTaskInProject(tenantId, projectId, taskId);
     await this.assertMemberInProject(projectId, dto.authorMemberId);
@@ -57,7 +63,39 @@ export class CommentsService {
       authorMemberId: dto.authorMemberId,
       body: dto.body,
     });
-    return this.comments.save(comment);
+    const saved = await this.comments.save(comment);
+
+    // @メンション通知（ベストエフォート。通知失敗でコメント投稿は成立させる）
+    try {
+      const mentionedUserIds = await this.resolveMentionUserIds(projectId, dto.body);
+      if (mentionedUserIds.length > 0) {
+        const task = await this.tasks.findOne({ where: { id: taskId } });
+        if (task) {
+          await this.notifications.onCommentMentioned(
+            tenantId,
+            task,
+            mentionedUserIds,
+            actorUserId,
+          );
+        }
+      }
+    } catch {
+      // 通知生成の失敗はコメント投稿に影響させない
+    }
+
+    return saved;
+  }
+
+  /**
+   * 本文中の `@User名` から、プロジェクトメンバー（User 紐付き）の User.id を抽出する。
+   * 名前一致（長い名前を優先）でメンション対象を確定する。
+   */
+  private async resolveMentionUserIds(projectId: string, body: string): Promise<string[]> {
+    const members = await this.members.find({ where: { projectId } });
+    const userIds = [...new Set(members.map((m) => m.userId).filter((u): u is string => !!u))];
+    if (userIds.length === 0) return [];
+    const users = await this.users.find({ where: { id: In(userIds) } });
+    return users.filter((u) => u.name && body.includes(`@${u.name}`)).map((u) => u.id);
   }
 
   async update(

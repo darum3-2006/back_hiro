@@ -171,6 +171,29 @@ export class NotificationsService {
     }
   }
 
+  /** コメントで @メンションされたユーザーへ通知する（操作者＝コメント投稿者は除外）。 */
+  async onCommentMentioned(
+    tenantId: string,
+    task: Task,
+    mentionedUserIds: string[],
+    actorUserId: string,
+  ): Promise<void> {
+    try {
+      const recipients = [...new Set(mentionedUserIds)].filter((u) => u && u !== actorUserId);
+      if (recipients.length === 0) return;
+      await this.emit(
+        tenantId,
+        'mentioned',
+        recipients,
+        task,
+        actorUserId,
+        this.mentionMessage(task),
+      );
+    } catch (e) {
+      this.logger.error(`onCommentMentioned failed for task ${task.id}`, e as Error);
+    }
+  }
+
   /** 指定タイプを、設定 OFF を除いた受信者へ作成・配信する。 */
   private async emit(
     tenantId: string,
@@ -231,5 +254,8 @@ export class NotificationsService {
   }
   private statusMessage(task: Task, statusLabel: string): string {
     return `タスク #${task.seq}「${this.shortContent(task)}」のステータスが「${statusLabel}」に変わりました`;
+  }
+  private mentionMessage(task: Task): string {
+    return `タスク #${task.seq}「${this.shortContent(task)}」のコメントでメンションされました`;
   }
 }

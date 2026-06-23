@@ -49,7 +49,7 @@ export class CommentsController {
     @Param('taskId', new ParseUUIDPipe()) taskId: string,
     @Body() dto: CreateCommentDto,
   ) {
-    return this.comments.create(user.tenantId, projectId, taskId, dto);
+    return this.comments.create(user.tenantId, projectId, taskId, dto, user.userId);
   }
 
   @Patch('projects/:projectId/tasks/:taskId/comments/:id')

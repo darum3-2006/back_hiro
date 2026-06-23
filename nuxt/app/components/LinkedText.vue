@@ -10,12 +10,14 @@ const props = withDefaults(
     tasks: Task[];
     /** 画像 URL を縮小画像（サムネイル）で表示するか */
     showImages?: boolean;
+    /** @メンションとして強調する候補名（User.name）。`@名前` 部分をハイライトする */
+    mentionNames?: string[];
   }>(),
-  { showImages: false },
+  { showImages: false, mentionNames: () => [] },
 );
 
 interface Segment {
-  type: 'text' | 'task' | 'url';
+  type: 'text' | 'task' | 'url' | 'mention';
   text: string;
   /** type='task' のとき: 内部リンク先の連番 */
   seq?: number;
@@ -37,7 +39,7 @@ const onImageError = (href: string) => {
 const TRAILING_RE = /[.,;:!?。、）)\]」』】>]+$/;
 
 /** `#15`（内部リンク）と URL（外部リンク）を検出してセグメントへ分解 */
-const segments = computed<Segment[]>(() => {
+const baseSegments = computed<Segment[]>(() => {
   if (!props.text) return [];
   // http(s):// の URL、または `#15` のような番号を検出する。
   // URL を先に並べることで、URL 内の `#...` を番号として誤検出しない。
@@ -74,6 +76,30 @@ const segments = computed<Segment[]>(() => {
   }
   return out;
 });
+
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** text セグメント内の `@候補名` をメンションセグメントへ分割する（長い名前を優先） */
+const splitMentions = (text: string): Segment[] => {
+  const names = [...props.mentionNames].filter(Boolean).sort((a, b) => b.length - a.length);
+  if (names.length === 0 || !text.includes('@')) return [{ type: 'text', text }];
+  const re = new RegExp(`@(?:${names.map(escapeRe).join('|')})`, 'g');
+  const out: Segment[] = [];
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) out.push({ type: 'text', text: text.slice(last, m.index) });
+    out.push({ type: 'mention', text: m[0] });
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) out.push({ type: 'text', text: text.slice(last) });
+  return out;
+};
+
+// URL / #seq 分解の後、プレーンテキスト部分の @メンションを強調する
+const segments = computed<Segment[]>(() =>
+  baseSegments.value.flatMap((s) => (s.type === 'text' ? splitMentions(s.text) : [s])),
+);
 
 const route = useRoute();
 
@@ -115,6 +141,11 @@ const linkTo = (seq: number) => ({
         />
         <template v-else>{{ s.text }}</template>
       </a>
+      <span
+        v-else-if="s.type === 'mention'"
+        class="rounded bg-primary/10 px-0.5 font-medium text-primary"
+        >{{ s.text }}</span
+      >
       <template v-else>{{ s.text }}</template>
     </template>
   </span>

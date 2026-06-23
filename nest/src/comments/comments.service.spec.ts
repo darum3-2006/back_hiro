@@ -3,9 +3,11 @@ import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import { ProjectMember } from '../members/member.entity';
+import { NotificationsService } from '../notifications/notifications.service';
 import type { Project } from '../projects/project.entity';
 import { ProjectsService } from '../projects/projects.service';
 import { Task } from '../tasks/task.entity';
+import { User } from '../users/user.entity';
 import { Comment } from './comment.entity';
 import { CommentsService } from './comments.service';
 
@@ -63,9 +65,14 @@ describe('CommentsService', () => {
         },
         {
           provide: getRepositoryToken(ProjectMember),
-          useValue: { findOne: jest.fn() },
+          useValue: { findOne: jest.fn(), find: jest.fn().mockResolvedValue([]) },
+        },
+        {
+          provide: getRepositoryToken(User),
+          useValue: { find: jest.fn().mockResolvedValue([]) },
         },
         { provide: ProjectsService, useValue: projects },
+        { provide: NotificationsService, useValue: { onCommentMentioned: jest.fn() } },
       ],
     }).compile();
 
@@ -105,10 +112,13 @@ describe('CommentsService', () => {
     it('memberId が当該プロジェクトに属していれば保存', async () => {
       members.findOne.mockResolvedValue({ id: memberId, projectId } as ProjectMember);
 
-      const result = await service.create(tenantId, projectId, taskId, {
-        authorMemberId: memberId,
-        body: 'hello',
-      });
+      const result = await service.create(
+        tenantId,
+        projectId,
+        taskId,
+        { authorMemberId: memberId, body: 'hello' },
+        'actor-1',
+      );
 
       expect(result.authorMemberId).toBe(memberId);
       expect(result.body).toBe('hello');
@@ -118,7 +128,13 @@ describe('CommentsService', () => {
       members.findOne.mockResolvedValue(null);
 
       await expect(
-        service.create(tenantId, projectId, taskId, { authorMemberId: memberId, body: 'x' }),
+        service.create(
+          tenantId,
+          projectId,
+          taskId,
+          { authorMemberId: memberId, body: 'x' },
+          'actor-1',
+        ),
       ).rejects.toThrow(BadRequestException);
     });
   });
