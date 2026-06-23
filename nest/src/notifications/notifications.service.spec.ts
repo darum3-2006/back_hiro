@@ -75,9 +75,14 @@ describe('NotificationsService', () => {
     it('未設定は全タイプ既定 ON で返す', async () => {
       prefs.find.mockResolvedValue([]);
       const result = await service.getPreferences('u1');
-      expect(result).toHaveLength(3);
+      expect(result).toHaveLength(4);
       expect(result.every((p) => p.enabled)).toBe(true);
-      expect(result.map((p) => p.type)).toEqual(['task_created', 'assigned', 'status_changed']);
+      expect(result.map((p) => p.type)).toEqual([
+        'task_created',
+        'assigned',
+        'status_changed',
+        'mentioned',
+      ]);
     });
 
     it('上書き行があれば反映する', async () => {

@@ -19,6 +19,11 @@ export const NOTIFICATION_TYPES = [
     label: '担当 / 起票したタスクのステータスが変わったとき',
     defaultEnabled: true,
   },
+  {
+    key: 'mentioned',
+    label: 'コメントで自分が @メンションされたとき',
+    defaultEnabled: true,
+  },
 ] as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]['key'];

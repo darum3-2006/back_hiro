@@ -141,6 +141,24 @@ watch(
 const commentBody = ref('');
 const posting = ref(false);
 
+// @メンション候補: プロジェクトメンバーのうち User 紐付きの人を User.name で。
+const { data: mentionUsers } = useUsers();
+const userNameMap = computed(() =>
+  Object.fromEntries(mentionUsers.value.map((u) => [u.id, u.name])),
+);
+const mentionCandidates = computed(() => {
+  const seen = new Set<string>();
+  const out: { id: string; name: string }[] = [];
+  for (const m of Object.values(props.memberMap)) {
+    if (!m.userId || seen.has(m.userId)) continue;
+    seen.add(m.userId);
+    out.push({ id: m.userId, name: userNameMap.value[m.userId] ?? m.displayName });
+  }
+  return out;
+});
+/** 描画ハイライト用: 候補ユーザー名（@名前 を強調） */
+const mentionNames = computed(() => mentionCandidates.value.map((c) => c.name));
+
 const postComment = async () => {
   const task = props.task;
   const memberId = props.currentMemberId;
@@ -861,7 +879,11 @@ const flagsList = computed(() => Object.values(props.flagMap));
                   </div>
 
                   <p v-else class="text-sm mt-0.5">
-                    <LinkedText :text="item.comment.body" :tasks="tasks" />
+                    <LinkedText
+                      :text="item.comment.body"
+                      :tasks="tasks"
+                      :mention-names="mentionNames"
+                    />
                   </p>
                 </div>
               </div>
@@ -900,14 +922,13 @@ const flagsList = computed(() => Object.values(props.flagMap));
           </div>
 
           <div class="mt-4 space-y-2">
-            <UTextarea
+            <MentionTextarea
               v-model="commentBody"
+              :candidates="mentionCandidates"
               :rows="3"
               :disabled="!currentMemberId"
-              placeholder="コメントを入力（Cmd/Ctrl+Enter で投稿）…"
-              class="w-full"
-              @keydown.ctrl.enter.exact.prevent="postComment"
-              @keydown.meta.enter.exact.prevent="postComment"
+              placeholder="コメントを入力（@ でメンション・Cmd/Ctrl+Enter で投稿）…"
+              @submit="postComment"
             />
             <div class="flex items-center justify-between">
               <span v-if="!currentMemberId" class="text-xs text-warning">
