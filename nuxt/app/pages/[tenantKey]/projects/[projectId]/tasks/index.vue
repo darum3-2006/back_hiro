@@ -552,7 +552,10 @@ const filteredTasks = computed(() => {
     }
     if (search.value) {
       const q = search.value.toLowerCase();
+      // #番号 / 番号 は seq の前方一致でも引っかける（#は任意）
+      const seqQuery = q.replace(/^#/, '');
       const matched =
+        (/^\d+$/.test(seqQuery) && String(t.seq).startsWith(seqQuery)) ||
         t.content.toLowerCase().includes(q) ||
         t.description.toLowerCase().includes(q) ||
         t.links.some((l) => l.url.toLowerCase().includes(q));
