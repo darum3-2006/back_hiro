@@ -13,6 +13,7 @@ import { TaskStatus } from '../masters/task-status.entity';
 import type { Project } from '../projects/project.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ProjectsService } from '../projects/projects.service';
+import { SlackService } from '../slack/slack.service';
 import { TaskFlag } from './task-flag.entity';
 import { TaskTag } from './task-tag.entity';
 import { Task } from './task.entity';
@@ -68,6 +69,11 @@ describe('TasksService', () => {
   } as Task;
 
   let statusesRepo: jest.Mocked<Pick<Repository<TaskStatus>, 'findOne' | 'find'>>;
+  let slack: {
+    notifyTaskCreated: jest.Mock;
+    notifyTaskStatusChanged: jest.Mock;
+    notifyTaskCompleted: jest.Mock;
+  };
 
   beforeEach(async () => {
     projects = {
@@ -196,12 +202,21 @@ describe('TasksService', () => {
           provide: NotificationsService,
           useValue: { onTaskCreated: jest.fn(), onTaskChanged: jest.fn() },
         },
+        {
+          provide: SlackService,
+          useValue: {
+            notifyTaskCreated: jest.fn(),
+            notifyTaskStatusChanged: jest.fn(),
+            notifyTaskCompleted: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
     service = module.get(TasksService);
     tasksRepo = module.get(getRepositoryToken(Task));
     statusesRepo = module.get(getRepositoryToken(TaskStatus));
+    slack = module.get(SlackService);
   });
 
   describe('findInProject', () => {
@@ -526,6 +541,35 @@ describe('TasksService', () => {
 
       const saved = em.save.mock.calls[0]![0];
       expect(saved.statusChangedAt).toBe(changed);
+    });
+
+    it('未完了→完了 で Slack の完了通知を送る（ステータス変更通知は送らない）', async () => {
+      const target: Task = { ...baseTask, statusCode: 'todo', completedAt: null };
+      tasksRepo.findOne
+        .mockResolvedValueOnce(target)
+        .mockResolvedValueOnce({ ...target, statusCode: 'done' });
+      statusesRepo.findOne.mockImplementation(({ where }) => {
+        const code = (where as { code: string }).code;
+        return Promise.resolve({ isTerminal: code === 'done' } as TaskStatus);
+      });
+
+      await service.update(tenantId, projectId, 't1', { statusCode: 'done' }, actor);
+
+      expect(slack.notifyTaskCompleted).toHaveBeenCalledTimes(1);
+      expect(slack.notifyTaskStatusChanged).not.toHaveBeenCalled();
+    });
+
+    it('非終端へのステータス変更では Slack のステータス変更通知を送る', async () => {
+      const target: Task = { ...baseTask, statusCode: 'todo', completedAt: null };
+      tasksRepo.findOne
+        .mockResolvedValueOnce(target)
+        .mockResolvedValueOnce({ ...target, statusCode: 'doing' });
+      statusesRepo.findOne.mockResolvedValue({ isTerminal: false } as TaskStatus);
+
+      await service.update(tenantId, projectId, 't1', { statusCode: 'doing' }, actor);
+
+      expect(slack.notifyTaskStatusChanged).toHaveBeenCalledTimes(1);
+      expect(slack.notifyTaskCompleted).not.toHaveBeenCalled();
     });
   });
 

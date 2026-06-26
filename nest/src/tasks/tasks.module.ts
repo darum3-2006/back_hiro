@@ -10,6 +10,7 @@ import { TaskPriority } from '../masters/task-priority.entity';
 import { TaskStatus } from '../masters/task-status.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { ProjectsModule } from '../projects/projects.module';
+import { SlackModule } from '../slack/slack.module';
 import { MyTasksController } from './my-tasks.controller';
 import { SearchController } from './search.controller';
 import { TaskFlag } from './task-flag.entity';
@@ -36,6 +37,7 @@ import { TasksService } from './tasks.service';
     ProjectsModule,
     AuditModule,
     NotificationsModule,
+    SlackModule,
   ],
   controllers: [TasksController, TaskLinksController, MyTasksController, SearchController],
   providers: [TasksService],

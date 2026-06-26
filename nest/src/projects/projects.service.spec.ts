@@ -2,6 +2,7 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+import { ProjectMember } from '../members/member.entity';
 import { Project } from './project.entity';
 import { ProjectsService } from './projects.service';
 
@@ -23,6 +24,10 @@ describe('ProjectsService', () => {
             create: jest.fn((dto: Partial<Project>) => dto as Project),
             save: jest.fn((entity: Project) => Promise.resolve(entity)),
           },
+        },
+        {
+          provide: getRepositoryToken(ProjectMember),
+          useValue: { findOne: jest.fn() },
         },
       ],
     }).compile();

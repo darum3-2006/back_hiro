@@ -1,14 +1,24 @@
 <script setup lang="ts">
-import { apiUpdateProject } from '~/api/projects';
+import { apiTestSlack, apiUpdateProject } from '~/api/projects';
 
 const route = useRoute();
 const projectId = computed(() => route.params.projectId as string);
 
 const api = useApi();
+const toast = useToast();
 const { data: projects, refresh: refreshProjects } = await useProjects();
+const { data: members } = await useMembers(projectId);
 const project = computed(() => projects.value.find((p) => p.id === projectId.value));
 const { me } = useAuth();
+const currentUserId = useCurrentUserId();
 const isAdmin = computed(() => me.value?.role === 'admin');
+
+// Slack 設定はテナント管理者 or プロジェクト管理者のみ編集可
+const canEditSlack = computed(
+  () =>
+    isAdmin.value ||
+    members.value.some((m) => m.userId === currentUserId.value && m.role === 'admin'),
+);
 
 type EditableField = 'name' | 'description';
 const editingField = ref<EditableField | null>(null);
@@ -71,6 +81,81 @@ const toggleHighlight = async (field: HighlightField, value: boolean) => {
   if (!project.value) return;
   await apiUpdateProject(api, projectId.value, { [field]: value });
   await refreshProjects();
+};
+
+// ===== Slack 通知 =====
+const webhookInput = ref('');
+const savingWebhook = ref(false);
+const testingSlack = ref(false);
+
+const saveWebhook = async () => {
+  const value = webhookInput.value.trim();
+  if (!value || savingWebhook.value) return;
+  savingWebhook.value = true;
+  try {
+    await apiUpdateProject(api, projectId.value, { slackWebhookUrl: value });
+    await refreshProjects();
+    webhookInput.value = '';
+    toast.add({ title: 'Slack Webhook を保存しました', color: 'success', icon: 'i-lucide-check' });
+  } catch {
+    toast.add({
+      title: '保存に失敗しました',
+      description:
+        'Slack の Incoming Webhook URL（https://hooks.slack.com/services/…）を確認してください',
+      color: 'error',
+    });
+  } finally {
+    savingWebhook.value = false;
+  }
+};
+
+const clearWebhook = async () => {
+  savingWebhook.value = true;
+  try {
+    await apiUpdateProject(api, projectId.value, { slackWebhookUrl: null });
+    await refreshProjects();
+    webhookInput.value = '';
+    toast.add({ title: 'Slack 連携を解除しました', color: 'success', icon: 'i-lucide-check' });
+  } finally {
+    savingWebhook.value = false;
+  }
+};
+
+type SlackToggleField =
+  | 'slackNotifyTaskCreated'
+  | 'slackNotifyStatusChanged'
+  | 'slackNotifyTaskCompleted';
+
+const slackToggles: { field: SlackToggleField; label: string }[] = [
+  { field: 'slackNotifyTaskCreated', label: '新しいタスクが登録されたとき' },
+  { field: 'slackNotifyStatusChanged', label: 'ステータスが変わったとき（完了を除く）' },
+  { field: 'slackNotifyTaskCompleted', label: 'タスクが完了したとき' },
+];
+
+const toggleSlack = async (field: SlackToggleField, value: boolean) => {
+  if (!project.value) return;
+  await apiUpdateProject(api, projectId.value, { [field]: value });
+  await refreshProjects();
+};
+
+const sendTestSlack = async () => {
+  testingSlack.value = true;
+  try {
+    await apiTestSlack(api, projectId.value);
+    toast.add({
+      title: 'Slack へテスト通知を送りました',
+      color: 'success',
+      icon: 'i-lucide-check',
+    });
+  } catch {
+    toast.add({
+      title: 'テスト送信に失敗しました',
+      description: 'Webhook URL が正しいか確認してください',
+      color: 'error',
+    });
+  } finally {
+    testingSlack.value = false;
+  }
 };
 
 const archiveModalOpen = ref(false);
@@ -153,6 +238,73 @@ const performArchive = async () => {
         />
       </div>
     </div>
+
+    <template v-if="canEditSlack">
+      <USeparator />
+
+      <div>
+        <h3 class="text-sm font-medium mb-1">Slack 通知</h3>
+        <p class="text-sm text-muted mb-3">
+          プロジェクトの Incoming Webhook を設定すると、選んだイベントを Slack に通知します。
+        </p>
+
+        <div class="space-y-2 mb-4">
+          <p class="text-xs text-muted">Webhook URL</p>
+          <div v-if="project.slackWebhookConfigured" class="flex items-center gap-2">
+            <UBadge color="success" variant="subtle" icon="i-lucide-check" label="設定済み" />
+            <UButton
+              color="primary"
+              variant="soft"
+              size="sm"
+              icon="i-lucide-send"
+              label="テスト送信"
+              :loading="testingSlack"
+              @click="sendTestSlack"
+            />
+            <UButton
+              color="error"
+              variant="ghost"
+              size="sm"
+              label="解除"
+              :loading="savingWebhook"
+              @click="clearWebhook"
+            />
+          </div>
+          <div class="flex items-center gap-2">
+            <UInput
+              v-model="webhookInput"
+              type="url"
+              class="flex-1"
+              :placeholder="
+                project.slackWebhookConfigured
+                  ? '再入力で変更（https://hooks.slack.com/services/…）'
+                  : 'https://hooks.slack.com/services/…'
+              "
+              @keydown.enter.prevent="saveWebhook"
+            />
+            <UButton
+              color="neutral"
+              label="保存"
+              :loading="savingWebhook"
+              :disabled="!webhookInput.trim()"
+              @click="saveWebhook"
+            />
+          </div>
+        </div>
+
+        <p class="text-xs text-muted mb-2">通知するイベント</p>
+        <div class="space-y-3">
+          <USwitch
+            v-for="t in slackToggles"
+            :key="t.field"
+            :model-value="project[t.field]"
+            :label="t.label"
+            :disabled="!project.slackWebhookConfigured"
+            @update:model-value="(v: boolean) => toggleSlack(t.field, v)"
+          />
+        </div>
+      </div>
+    </template>
 
     <template v-if="isAdmin">
       <USeparator />

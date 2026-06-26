@@ -1,6 +1,7 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { ProjectMember } from '../members/member.entity';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { Project } from './project.entity';
@@ -10,7 +11,15 @@ export class ProjectsService {
   constructor(
     @InjectRepository(Project)
     private readonly projects: Repository<Project>,
+    @InjectRepository(ProjectMember)
+    private readonly members: Repository<ProjectMember>,
   ) {}
+
+  /** 当該プロジェクトの管理者か（自分の ProjectMember が role=admin）。テナント admin 判定は呼び出し側で。 */
+  async isProjectAdmin(projectId: string, userId: string): Promise<boolean> {
+    const own = await this.members.findOne({ where: { projectId, userId } });
+    return own?.role === 'admin';
+  }
 
   listByTenant(tenantId: string): Promise<Project[]> {
     return this.projects.find({
@@ -70,6 +79,19 @@ export class ProjectsService {
     }
     if (dto.highlightOverduePlannedRelease !== undefined) {
       project.highlightOverduePlannedRelease = dto.highlightOverduePlannedRelease;
+    }
+    if (dto.slackWebhookUrl !== undefined) {
+      // null / 空文字は解除扱い
+      project.slackWebhookUrl = dto.slackWebhookUrl?.trim() || null;
+    }
+    if (dto.slackNotifyTaskCreated !== undefined) {
+      project.slackNotifyTaskCreated = dto.slackNotifyTaskCreated;
+    }
+    if (dto.slackNotifyStatusChanged !== undefined) {
+      project.slackNotifyStatusChanged = dto.slackNotifyStatusChanged;
+    }
+    if (dto.slackNotifyTaskCompleted !== undefined) {
+      project.slackNotifyTaskCompleted = dto.slackNotifyTaskCompleted;
     }
     return this.projects.save(project);
   }

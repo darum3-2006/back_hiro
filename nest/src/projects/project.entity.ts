@@ -80,4 +80,49 @@ export class Project extends BaseEntity {
     },
   })
   highlightOverduePlannedRelease!: boolean;
+
+  @Column({
+    type: 'varchar',
+    length: 512,
+    nullable: true,
+    name: 'slack_webhook_url',
+    comment: 'Slack Incoming Webhook URL（NULL=未設定）。書き込み専用でレスポンスには出さない',
+  })
+  slackWebhookUrl!: string | null;
+
+  @Column({
+    type: 'boolean',
+    name: 'slack_notify_task_created',
+    default: true,
+    comment: 'Slack: 新しいタスクが登録されたとき通知する',
+    transformer: {
+      to: (v: boolean) => v,
+      from: (v: number | boolean | null) => Boolean(v),
+    },
+  })
+  slackNotifyTaskCreated!: boolean;
+
+  @Column({
+    type: 'boolean',
+    name: 'slack_notify_status_changed',
+    default: true,
+    comment: 'Slack: タスクのステータスが変わったとき（完了除く）通知する',
+    transformer: {
+      to: (v: boolean) => v,
+      from: (v: number | boolean | null) => Boolean(v),
+    },
+  })
+  slackNotifyStatusChanged!: boolean;
+
+  @Column({
+    type: 'boolean',
+    name: 'slack_notify_task_completed',
+    default: true,
+    comment: 'Slack: タスクが完了したとき通知する',
+    transformer: {
+      to: (v: boolean) => v,
+      from: (v: number | boolean | null) => Boolean(v),
+    },
+  })
+  slackNotifyTaskCompleted!: boolean;
 }
