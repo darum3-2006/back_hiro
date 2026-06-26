@@ -8,4 +8,9 @@ export interface Project {
   highlightOverduePlannedStart: boolean;
   highlightOverduePlannedCompletion: boolean;
   highlightOverduePlannedRelease: boolean;
+  /** Slack Webhook が設定済みか（URL の生値は返さない） */
+  slackWebhookConfigured: boolean;
+  slackNotifyTaskCreated: boolean;
+  slackNotifyStatusChanged: boolean;
+  slackNotifyTaskCompleted: boolean;
 }

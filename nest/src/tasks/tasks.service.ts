@@ -12,6 +12,7 @@ import { Tag } from '../masters/tag.entity';
 import { TaskPriority } from '../masters/task-priority.entity';
 import { TaskStatus } from '../masters/task-status.entity';
 import { ProjectsService } from '../projects/projects.service';
+import { SlackService } from '../slack/slack.service';
 import { BulkUpdateTasksDto } from './dto/bulk-update-tasks.dto';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { TaskFilterDto } from './dto/task-filter.dto';
@@ -122,6 +123,7 @@ export class TasksService {
     private readonly projects: ProjectsService,
     private readonly audit: AuditService,
     private readonly notifications: NotificationsService,
+    private readonly slack: SlackService,
   ) {}
 
   async listByProject(
@@ -337,6 +339,7 @@ export class TasksService {
     });
     // 通知はトランザクション外でベストエフォート生成（失敗してもタスク作成は成立させる）
     await this.notifications.onTaskCreated(tenantId, saved, actingUserId);
+    await this.slack.notifyTaskCreated(tenantId, saved);
     return this.findInProject(tenantId, projectId, saved.id);
   }
 
@@ -348,6 +351,8 @@ export class TasksService {
     actingUserId: string,
   ): Promise<TaskResponse> {
     const task = await this.findEntityInProject(tenantId, projectId, id);
+    // Slack の「完了」判定用に、変更前の完了状態を控える
+    const wasCompleted = task.completedAt !== null;
     const beforeTagCodes = await this.getTagCodes(task.id);
     const beforeFlagCodes = await this.getFlagCodes(task.id);
     const before = this.snapshotOf(task, beforeTagCodes, beforeFlagCodes);
@@ -420,6 +425,18 @@ export class TasksService {
     });
     if (changes.length > 0) {
       await this.notifications.onTaskChanged(tenantId, task, changes, actingUserId);
+    }
+    // Slack 通知: ステータス変更を「完了（終端への新規遷移）」と「それ以外」に振り分ける。
+    // 終端→別の終端（完了の付け替え）は完了通知を再送しない。
+    const statusChange = changes.find((c) => c.field === 'status');
+    if (statusChange) {
+      const nowCompleted = task.completedAt !== null;
+      const label = statusChange.newLabel ?? statusChange.new ?? '';
+      if (nowCompleted && !wasCompleted) {
+        await this.slack.notifyTaskCompleted(tenantId, task, label);
+      } else if (!nowCompleted) {
+        await this.slack.notifyTaskStatusChanged(tenantId, task, label);
+      }
     }
     return this.findInProject(tenantId, projectId, task.id);
   }
