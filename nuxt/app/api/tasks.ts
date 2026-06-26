@@ -102,6 +102,28 @@ export const apiUpdateTask = (
 ): Promise<Task> =>
   api<Task>(`/projects/${projectId}/tasks/${id}`, { method: 'PATCH', body: patch });
 
+export interface BulkUpdateTasksInput {
+  ids: string[];
+  statusCode?: string;
+  assigneeMemberId?: string | null;
+  priorityCode?: string | null;
+  deadline?: string | null;
+  plannedStartDate?: string | null;
+  plannedCompletionDate?: string | null;
+  addTagCodes?: string[];
+  removeTagCodes?: string[];
+  addFlagCodes?: string[];
+  removeFlagCodes?: string[];
+}
+
+/** PATCH /api/projects/:projectId/tasks/bulk — 複数タスクへ 1 フィールドを一括適用 */
+export const apiBulkUpdateTasks = (
+  api: typeof $fetch,
+  projectId: string,
+  input: BulkUpdateTasksInput,
+): Promise<{ updated: number }> =>
+  api<{ updated: number }>(`/projects/${projectId}/tasks/bulk`, { method: 'PATCH', body: input });
+
 /** DELETE /api/projects/:projectId/tasks/:id */
 export const apiDeleteTask = async (
   api: typeof $fetch,

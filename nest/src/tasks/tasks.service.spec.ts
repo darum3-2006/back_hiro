@@ -32,6 +32,13 @@ describe('TasksService', () => {
     getMany: jest.Mock;
     getCount: jest.Mock;
   };
+  // getTagCodes が使う taskTags.createQueryBuilder の返り値（テストから差し替える）
+  let tagQb: {
+    innerJoin: jest.Mock;
+    select: jest.Mock;
+    where: jest.Mock;
+    getRawMany: jest.Mock;
+  };
 
   const tenantId = 'tenant-1';
   const projectId = 'project-1';
@@ -95,7 +102,7 @@ describe('TasksService', () => {
       where: jest.fn().mockReturnThis(),
       getRawOne: jest.fn().mockResolvedValue({ maxSeq: 5 }),
     };
-    const tagQb = {
+    tagQb = {
       innerJoin: jest.fn().mockReturnThis(),
       select: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
@@ -519,6 +526,65 @@ describe('TasksService', () => {
 
       const saved = em.save.mock.calls[0]![0];
       expect(saved.statusChangedAt).toBe(changed);
+    });
+  });
+
+  describe('bulkUpdate', () => {
+    it('各 id へ update を適用し更新件数を返す', async () => {
+      // update() は id ごとに findOne を 2 回呼ぶ（取得 + 末尾 findInProject）
+      tasksRepo.findOne.mockImplementation(({ where }) => {
+        const id = (where as { id: string }).id;
+        return Promise.resolve({ ...baseTask, id, statusCode: 'todo' } as Task);
+      });
+
+      const result = await service.bulkUpdate(
+        tenantId,
+        projectId,
+        { ids: ['a', 'b'], statusCode: 'doing' },
+        actor,
+      );
+
+      expect(result).toEqual({ updated: 2 });
+      expect(audit.record).toHaveBeenCalledTimes(2);
+    });
+
+    it('変更対象フィールドが無ければ何もしない（updated=0）', async () => {
+      const result = await service.bulkUpdate(tenantId, projectId, { ids: ['a', 'b'] }, actor);
+
+      expect(result).toEqual({ updated: 0 });
+      expect(audit.record).not.toHaveBeenCalled();
+    });
+
+    it('存在しない id は NotFound を握りつぶしてスキップする', async () => {
+      tasksRepo.findOne.mockResolvedValue(null);
+
+      const result = await service.bulkUpdate(
+        tenantId,
+        projectId,
+        { ids: ['ghost'], statusCode: 'doing' },
+        actor,
+      );
+
+      expect(result).toEqual({ updated: 0 });
+    });
+
+    it('タグ add / remove 指定時は現在値の差分で tagCodes を組み立てて置換する', async () => {
+      // getTagCodes は taskTags.createQueryBuilder(...).getRawMany() 経由。現在 ['x','y'] とする
+      tagQb.getRawMany.mockResolvedValue([{ code: 'x' }, { code: 'y' }]);
+      tasksRepo.findOne.mockImplementation(({ where }) => {
+        const id = (where as { id: string }).id;
+        return Promise.resolve({ ...baseTask, id } as Task);
+      });
+
+      const result = await service.bulkUpdate(
+        tenantId,
+        projectId,
+        { ids: ['a'], addTagCodes: ['z'], removeTagCodes: ['x'] },
+        actor,
+      );
+
+      // x を除き z を足した {y, z} で置換され、1 件更新される
+      expect(result).toEqual({ updated: 1 });
     });
   });
 });
