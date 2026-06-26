@@ -14,6 +14,7 @@ import {
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
+import { BulkUpdateTasksDto } from './dto/bulk-update-tasks.dto';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { TaskFilterDto } from './dto/task-filter.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
@@ -67,6 +68,16 @@ export class TasksController {
     @Body() dto: CreateTaskDto,
   ) {
     return this.tasks.create(user.tenantId, projectId, dto, user.userId);
+  }
+
+  // ':id' より前に宣言する（後だと 'bulk' が :id の ParseUUIDPipe に捕まり 400 になる）
+  @Patch('bulk')
+  bulkUpdate(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('projectId', new ParseUUIDPipe()) projectId: string,
+    @Body() dto: BulkUpdateTasksDto,
+  ) {
+    return this.tasks.bulkUpdate(user.tenantId, projectId, dto, user.userId);
   }
 
   @Patch(':id')

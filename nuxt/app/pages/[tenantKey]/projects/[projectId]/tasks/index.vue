@@ -9,7 +9,7 @@ import {
   apiDuplicateSavedView,
   apiUpdateSavedView,
 } from '~/api/saved-views';
-import { apiUpdateTask } from '~/api/tasks';
+import { apiBulkUpdateTasks, apiUpdateTask, type BulkUpdateTasksInput } from '~/api/tasks';
 import type { DateRangeValue } from '~/components/DateRangeFilter.vue';
 import type { SavedView, SavedViewConfig, SavedViewVisibility } from '~/types/saved-view';
 import type { Task } from '~/types/task';
@@ -1816,6 +1816,62 @@ const updateTaskField = async (
   await refreshTasks();
 };
 
+// ===== 一括編集: 行選択 =====
+// 選択は task.id の Set で保持（フィルタや並び替えに依らず行を特定できる）。
+// 「全選択 = 現在のフィルタ結果すべて」とし、実際の操作対象もフィルタ結果に限定する
+// （選択後にフィルタを絞った場合、表示外のタスクは対象にしない）。
+const selectedTaskIds = ref<Set<string>>(new Set());
+
+const isTaskSelected = (id: string): boolean => selectedTaskIds.value.has(id);
+const toggleTaskSelected = (id: string, on: boolean) => {
+  if (on) selectedTaskIds.value.add(id);
+  else selectedTaskIds.value.delete(id);
+};
+
+// 操作対象 = 選択済み ∩ 現在のフィルタ結果
+const targetTaskIds = computed(() =>
+  filteredTasks.value.filter((t) => selectedTaskIds.value.has(t.id)).map((t) => t.id),
+);
+const selectedCount = computed(() => targetTaskIds.value.length);
+
+const allVisibleSelected = computed(
+  () => filteredTasks.value.length > 0 && selectedCount.value === filteredTasks.value.length,
+);
+const someVisibleSelected = computed(() => selectedCount.value > 0 && !allVisibleSelected.value);
+
+const toggleSelectAll = (on: boolean) => {
+  for (const t of filteredTasks.value) {
+    if (on) selectedTaskIds.value.add(t.id);
+    else selectedTaskIds.value.delete(t.id);
+  }
+};
+const clearSelection = () => selectedTaskIds.value.clear();
+
+// ===== 一括編集: ダイアログ =====
+const bulkEditOpen = ref(false);
+const bulkApplying = ref(false);
+
+const applyBulkEdit = async (patch: Omit<BulkUpdateTasksInput, 'ids'>) => {
+  const ids = targetTaskIds.value;
+  if (ids.length === 0) return;
+  bulkApplying.value = true;
+  try {
+    const { updated } = await apiBulkUpdateTasks(api, currentProjectId.value, { ids, ...patch });
+    toast.add({
+      title: `${updated} 件のタスクを更新しました`,
+      color: 'success',
+      icon: 'i-lucide-check',
+    });
+    bulkEditOpen.value = false;
+    clearSelection();
+    await refreshTasks();
+  } catch {
+    toast.add({ title: '一括編集に失敗しました', color: 'error' });
+  } finally {
+    bulkApplying.value = false;
+  }
+};
+
 const isOverdue = (task: Task): boolean =>
   (currentProject.value?.highlightOverdueDeadline ?? false) &&
   isTaskDatePast(task.deadline, task.statusCode, statusMap.value);
@@ -2071,7 +2127,14 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
             label="すべてクリア"
             @click="resetFilters"
           />
-          <span class="ml-auto text-sm text-muted">
+          <UCheckbox
+            class="ml-auto"
+            :model-value="someVisibleSelected ? 'indeterminate' : allVisibleSelected"
+            :disabled="filteredTasks.length === 0"
+            label="全選択"
+            @update:model-value="(v: boolean | 'indeterminate') => toggleSelectAll(v === true)"
+          />
+          <span class="text-sm text-muted">
             {{ filteredTasks.length }} / {{ tasks.length }} 件
           </span>
         </div>
@@ -2117,12 +2180,21 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
           }"
         >
           <template #seq-cell="{ row }">
-            <button
-              class="font-mono text-xs text-muted hover:text-default"
-              @click="openTask(row.original)"
-            >
-              #{{ row.original.seq }}
-            </button>
+            <div class="flex items-center gap-1.5">
+              <UCheckbox
+                :model-value="isTaskSelected(row.original.id)"
+                :aria-label="`#${row.original.seq} を選択`"
+                @update:model-value="
+                  (v: boolean | 'indeterminate') => toggleTaskSelected(row.original.id, v === true)
+                "
+              />
+              <button
+                class="font-mono text-xs text-muted hover:text-default"
+                @click="openTask(row.original)"
+              >
+                #{{ row.original.seq }}
+              </button>
+            </div>
           </template>
 
           <template #content-cell="{ row }">
@@ -2408,6 +2480,22 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
           </template>
         </UTable>
 
+        <!-- 一括編集のアクションバー（行を選択中だけ表示） -->
+        <div
+          v-if="selectedCount > 0"
+          class="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 rounded-full border border-default bg-default/95 shadow-lg px-4 py-2 backdrop-blur"
+        >
+          <span class="text-sm font-medium">{{ selectedCount }} 件選択中</span>
+          <UButton
+            color="primary"
+            size="sm"
+            icon="i-lucide-pencil"
+            label="一括編集"
+            @click="bulkEditOpen = true"
+          />
+          <UButton color="neutral" variant="ghost" size="sm" label="解除" @click="clearSelection" />
+        </div>
+
         <!-- 列リサイズ中、掴んだ位置を列全体に貫くガイド線 -->
         <div
           v-if="resizeGuide"
@@ -2459,5 +2547,17 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
     :project-id="currentProjectId"
     :flags="flags"
     @done="refreshTasks"
+  />
+
+  <BulkEditDialog
+    v-model:open="bulkEditOpen"
+    :count="selectedCount"
+    :statuses="statuses"
+    :priorities="priorities"
+    :members="members"
+    :tags="tags"
+    :flags="flags"
+    :applying="bulkApplying"
+    @apply="applyBulkEdit"
   />
 </template>

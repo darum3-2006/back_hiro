@@ -12,6 +12,7 @@ import { Tag } from '../masters/tag.entity';
 import { TaskPriority } from '../masters/task-priority.entity';
 import { TaskStatus } from '../masters/task-status.entity';
 import { ProjectsService } from '../projects/projects.service';
+import { BulkUpdateTasksDto } from './dto/bulk-update-tasks.dto';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { TaskFilterDto } from './dto/task-filter.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
@@ -421,6 +422,59 @@ export class TasksService {
       await this.notifications.onTaskChanged(tenantId, task, changes, actingUserId);
     }
     return this.findInProject(tenantId, projectId, task.id);
+  }
+
+  /**
+   * 一括編集。ids の各タスクへ指定フィールドを適用する。
+   * - 監査ログ・通知を確実に発火させるため、タスクごとに既存の update() を呼ぶ
+   * - タグ / フラグは add / remove の差分を各タスクの現在値に対して計算してから置換する
+   * - 指定が空（実質変更なし）のタスクはスキップ。存在しない id も静かにスキップする
+   * 戻り値は実際に更新できた件数。
+   */
+  async bulkUpdate(
+    tenantId: string,
+    projectId: string,
+    dto: BulkUpdateTasksDto,
+    actingUserId: string,
+  ): Promise<{ updated: number }> {
+    await this.projects.findByIdInTenant(tenantId, projectId);
+    const { ids, addTagCodes, removeTagCodes, addFlagCodes, removeFlagCodes, ...scalar } = dto;
+    const touchesTags = (addTagCodes?.length ?? 0) > 0 || (removeTagCodes?.length ?? 0) > 0;
+    const touchesFlags = (addFlagCodes?.length ?? 0) > 0 || (removeFlagCodes?.length ?? 0) > 0;
+
+    let updated = 0;
+    for (const id of ids) {
+      const patch: UpdateTaskDto = {};
+      if (scalar.statusCode !== undefined) patch.statusCode = scalar.statusCode;
+      if (scalar.assigneeMemberId !== undefined) patch.assigneeMemberId = scalar.assigneeMemberId;
+      if (scalar.priorityCode !== undefined) patch.priorityCode = scalar.priorityCode;
+      if (scalar.deadline !== undefined) patch.deadline = scalar.deadline;
+      if (scalar.plannedStartDate !== undefined) patch.plannedStartDate = scalar.plannedStartDate;
+      if (scalar.plannedCompletionDate !== undefined) {
+        patch.plannedCompletionDate = scalar.plannedCompletionDate;
+      }
+      if (touchesTags) {
+        const current = new Set(await this.getTagCodes(id));
+        for (const c of addTagCodes ?? []) current.add(c);
+        for (const c of removeTagCodes ?? []) current.delete(c);
+        patch.tagCodes = [...current];
+      }
+      if (touchesFlags) {
+        const current = new Set(await this.getFlagCodes(id));
+        for (const c of addFlagCodes ?? []) current.add(c);
+        for (const c of removeFlagCodes ?? []) current.delete(c);
+        patch.flagCodes = [...current];
+      }
+      if (Object.keys(patch).length === 0) continue;
+      try {
+        await this.update(tenantId, projectId, id, patch, actingUserId);
+        updated++;
+      } catch (e) {
+        // 他テナント / 別プロジェクトの id は 404 になりうる。一括処理は継続する
+        if (!(e instanceof NotFoundException)) throw e;
+      }
+    }
+    return { updated };
   }
 
   async remove(
