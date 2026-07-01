@@ -194,6 +194,35 @@ export class NotificationsService {
     }
   }
 
+  /**
+   * サブタスクの担当に設定されたユーザーへ通知する（操作者本人は除外）。
+   * サブタスクは独自ページを持たないので、通知は親タスクに紐付ける（クリックで親を開く）。
+   * 通知タイプは既存の assigned を流用（設定 OFF のユーザーは除外）。
+   */
+  async onSubtaskAssigned(
+    tenantId: string,
+    parentTask: Task,
+    subtaskTitle: string,
+    assigneeMemberId: string | null,
+    actorUserId: string,
+  ): Promise<void> {
+    try {
+      const uid = await this.resolveMemberUserId(assigneeMemberId);
+      if (!uid || uid === actorUserId) return;
+      const title = subtaskTitle.length > 40 ? `${subtaskTitle.slice(0, 40)}…` : subtaskTitle;
+      await this.emit(
+        tenantId,
+        'assigned',
+        [uid],
+        parentTask,
+        actorUserId,
+        `サブタスク「${title}」の担当に設定されました`,
+      );
+    } catch (e) {
+      this.logger.error(`onSubtaskAssigned failed for task ${parentTask.id}`, e as Error);
+    }
+  }
+
   /** 指定タイプを、設定 OFF を除いた受信者へ作成・配信する。 */
   private async emit(
     tenantId: string,

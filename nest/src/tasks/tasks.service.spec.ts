@@ -14,6 +14,7 @@ import type { Project } from '../projects/project.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ProjectsService } from '../projects/projects.service';
 import { SlackService } from '../slack/slack.service';
+import { Subtask } from '../subtasks/subtask.entity';
 import { TaskFlag } from './task-flag.entity';
 import { TaskTag } from './task-tag.entity';
 import { Task } from './task.entity';
@@ -69,6 +70,7 @@ describe('TasksService', () => {
   } as Task;
 
   let statusesRepo: jest.Mocked<Pick<Repository<TaskStatus>, 'findOne' | 'find'>>;
+  let subtasksRepo: jest.Mocked<Pick<Repository<Subtask>, 'count'>>;
   let slack: {
     notifyTaskCreated: jest.Mock;
     notifyTaskStatusChanged: jest.Mock;
@@ -196,6 +198,10 @@ describe('TasksService', () => {
           provide: getRepositoryToken(Comment),
           useValue: { createQueryBuilder: jest.fn(() => commentsQb) },
         },
+        {
+          provide: getRepositoryToken(Subtask),
+          useValue: { count: jest.fn().mockResolvedValue(0) },
+        },
         { provide: ProjectsService, useValue: projects },
         { provide: AuditService, useValue: audit },
         {
@@ -216,6 +222,7 @@ describe('TasksService', () => {
     service = module.get(TasksService);
     tasksRepo = module.get(getRepositoryToken(Task));
     statusesRepo = module.get(getRepositoryToken(TaskStatus));
+    subtasksRepo = module.get(getRepositoryToken(Subtask));
     slack = module.get(SlackService);
   });
 
@@ -557,6 +564,36 @@ describe('TasksService', () => {
 
       expect(slack.notifyTaskCompleted).toHaveBeenCalledTimes(1);
       expect(slack.notifyTaskStatusChanged).not.toHaveBeenCalled();
+    });
+
+    it('未完了サブタスクがある親を終端にしようとすると 400', async () => {
+      const target: Task = { ...baseTask, statusCode: 'todo', completedAt: null };
+      tasksRepo.findOne.mockResolvedValueOnce(target);
+      statusesRepo.findOne.mockResolvedValue({ isTerminal: true } as TaskStatus);
+      subtasksRepo.count.mockResolvedValue(2);
+
+      await expect(
+        service.update(tenantId, projectId, 't1', { statusCode: 'done' }, actor),
+      ).rejects.toThrow('未完了のサブタスクが 2 件あります。先に完了してください');
+      // 副作用前に弾く（保存しない）
+      expect(em.save).not.toHaveBeenCalled();
+    });
+
+    it('サブタスクが全完了していれば親を終端にできる', async () => {
+      const target: Task = { ...baseTask, statusCode: 'todo', completedAt: null };
+      tasksRepo.findOne
+        .mockResolvedValueOnce(target)
+        .mockResolvedValueOnce({ ...target, statusCode: 'done' });
+      statusesRepo.findOne.mockImplementation(({ where }) => {
+        const code = (where as { code: string }).code;
+        return Promise.resolve({ isTerminal: code === 'done' } as TaskStatus);
+      });
+      subtasksRepo.count.mockResolvedValue(0);
+
+      await service.update(tenantId, projectId, 't1', { statusCode: 'done' }, actor);
+
+      const saved = em.save.mock.calls[0]![0];
+      expect(saved.statusCode).toBe('done');
     });
 
     it('非終端へのステータス変更では Slack のステータス変更通知を送る', async () => {

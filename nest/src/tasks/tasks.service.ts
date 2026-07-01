@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, In, Repository } from 'typeorm';
 import { AuditChange } from '../audit/audit-log.entity';
@@ -13,6 +13,7 @@ import { TaskPriority } from '../masters/task-priority.entity';
 import { TaskStatus } from '../masters/task-status.entity';
 import { ProjectsService } from '../projects/projects.service';
 import { SlackService } from '../slack/slack.service';
+import { Subtask } from '../subtasks/subtask.entity';
 import { BulkUpdateTasksDto } from './dto/bulk-update-tasks.dto';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { TaskFilterDto } from './dto/task-filter.dto';
@@ -120,6 +121,8 @@ export class TasksService {
     private readonly departments: Repository<Department>,
     @InjectRepository(Comment)
     private readonly comments: Repository<Comment>,
+    @InjectRepository(Subtask)
+    private readonly subtasks: Repository<Subtask>,
     private readonly projects: ProjectsService,
     private readonly audit: AuditService,
     private readonly notifications: NotificationsService,
@@ -351,6 +354,20 @@ export class TasksService {
     actingUserId: string,
   ): Promise<TaskResponse> {
     const task = await this.findEntityInProject(tenantId, projectId, id);
+    // 親を終端（完了扱い）へ変えるには、サブタスクが全完了していること（副作用前に fail-fast）
+    if (dto.statusCode !== undefined && dto.statusCode !== task.statusCode) {
+      const newStatus = await this.statuses.findOne({
+        where: { projectId, code: dto.statusCode },
+      });
+      if (newStatus?.isTerminal === true) {
+        const incomplete = await this.subtasks.count({ where: { taskId: id, done: false } });
+        if (incomplete > 0) {
+          throw new BadRequestException(
+            `未完了のサブタスクが ${incomplete} 件あります。先に完了してください`,
+          );
+        }
+      }
+    }
     // Slack の「完了」判定用に、変更前の完了状態を控える
     const wasCompleted = task.completedAt !== null;
     const beforeTagCodes = await this.getTagCodes(task.id);
@@ -487,8 +504,9 @@ export class TasksService {
         await this.update(tenantId, projectId, id, patch, actingUserId);
         updated++;
       } catch (e) {
-        // 他テナント / 別プロジェクトの id は 404 になりうる。一括処理は継続する
-        if (!(e instanceof NotFoundException)) throw e;
+        // 他テナント/別プロジェクトの id は 404、未完了サブタスクを持つ親の完了は 400。
+        // どちらも一括処理は止めずスキップする（更新件数に数えない）。
+        if (!(e instanceof NotFoundException) && !(e instanceof BadRequestException)) throw e;
       }
     }
     return { updated };

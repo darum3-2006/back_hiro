@@ -19,6 +19,8 @@ const includeCompleted = computed(
 useTaskFilterMemory();
 
 const { data: tasks, refresh: refreshTasks } = await useTasks(currentProjectId, includeCompleted);
+const { data: projectSubtasks, refresh: refreshSubtasks } =
+  await useProjectSubtasks(currentProjectId);
 const { data: statuses } = await useTaskStatuses(currentProjectId);
 const { data: priorities } = await useTaskPriorities(currentProjectId);
 const { data: tags } = await useTags(currentProjectId);
@@ -35,6 +37,17 @@ const memberMap = computed(() => Object.fromEntries(members.value.map((m) => [m.
 const tagMap = computed(() => Object.fromEntries(tags.value.map((t) => [t.code, t])));
 const flagMap = computed(() => Object.fromEntries(flags.value.map((f) => [f.code, f])));
 const departmentMap = computed(() => Object.fromEntries(departments.value.map((d) => [d.code, d])));
+
+// タスク id → サブタスク進捗（done/total）。カードのバッジ＋バー表示に使う
+const subtaskProgress = computed<Record<string, { done: number; total: number }>>(() => {
+  const m: Record<string, { done: number; total: number }> = {};
+  for (const s of projectSubtasks.value) {
+    const e = (m[s.taskId] ??= { done: 0, total: 0 });
+    e.total += 1;
+    if (s.done) e.done += 1;
+  }
+  return m;
+});
 
 const currentMemberId = computed<string | null>(() => {
   const uid = currentUserId.value;
@@ -134,6 +147,7 @@ const updateTaskField = async (
           :tag-map="tagMap"
           :flag-map="flagMap"
           :is-overdue="isOverdue"
+          :progress-map="subtaskProgress"
           @open="openTask"
           @move="moveTask"
         />
@@ -156,5 +170,6 @@ const updateTaskField = async (
     @change-field="
       (patch: Partial<Task>) => selectedTask && updateTaskField(selectedTask.id, patch)
     "
+    @subtasks-changed="refreshSubtasks"
   />
 </template>

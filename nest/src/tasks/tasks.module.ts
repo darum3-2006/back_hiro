@@ -11,6 +11,7 @@ import { TaskStatus } from '../masters/task-status.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { ProjectsModule } from '../projects/projects.module';
 import { SlackModule } from '../slack/slack.module';
+import { Subtask } from '../subtasks/subtask.entity';
 import { MyTasksController } from './my-tasks.controller';
 import { SearchController } from './search.controller';
 import { TaskFlag } from './task-flag.entity';
@@ -33,6 +34,7 @@ import { TasksService } from './tasks.service';
       ProjectMember,
       Department,
       Comment,
+      Subtask,
     ]),
     ProjectsModule,
     AuditModule,

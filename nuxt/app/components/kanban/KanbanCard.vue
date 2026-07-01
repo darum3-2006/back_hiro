@@ -11,12 +11,26 @@ const props = defineProps<{
   flagMap: Record<string, Flag>;
   /** 期限超過の強調表示をするか */
   overdue: boolean;
+  /** サブタスク進捗（無い場合は表示しない） */
+  progress?: { done: number; total: number };
 }>();
 
 const assignee = computed(() =>
   props.task.assigneeMemberId
     ? (props.memberMap[props.task.assigneeMemberId]?.displayName ?? null)
     : null,
+);
+
+// サブタスク進捗（total > 0 のときだけ表示）
+const hasSubtasks = computed(() => (props.progress?.total ?? 0) > 0);
+const progressPct = computed(() =>
+  props.progress && props.progress.total > 0
+    ? Math.round((props.progress.done / props.progress.total) * 100)
+    : 0,
+);
+const allDone = computed(
+  () =>
+    !!props.progress && props.progress.total > 0 && props.progress.done === props.progress.total,
 );
 </script>
 
@@ -46,6 +60,23 @@ const assignee = computed(() =>
         :color="flagMap[c]?.color ?? 'neutral'"
         :label="flagMap[c]?.name ?? c"
       />
+    </div>
+
+    <div v-if="hasSubtasks" class="mt-1.5 flex items-center gap-1.5">
+      <span
+        class="inline-flex items-center gap-0.5 text-xs tabular-nums"
+        :class="allDone ? 'text-success' : 'text-muted'"
+      >
+        <UIcon name="i-lucide-list-todo" class="size-3" />
+        {{ progress!.done }}/{{ progress!.total }}
+      </span>
+      <div class="h-1 flex-1 overflow-hidden rounded-full bg-elevated">
+        <div
+          class="h-full rounded-full transition-all"
+          :class="allDone ? 'bg-success' : 'bg-primary'"
+          :style="{ width: `${progressPct}%` }"
+        />
+      </div>
     </div>
 
     <div class="mt-1.5 flex items-center gap-2 text-xs text-muted">
