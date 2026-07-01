@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import dayjs from 'dayjs';
 import { h, resolveComponent } from 'vue';
 import type { ColumnSizingInfoState, Row } from '@tanstack/vue-table';
 import type { DropdownMenuItem, TableColumn } from '@nuxt/ui';
@@ -9,9 +10,11 @@ import {
   apiDuplicateSavedView,
   apiUpdateSavedView,
 } from '~/api/saved-views';
+import { apiUpdateSubtask } from '~/api/subtasks';
 import { apiBulkUpdateTasks, apiUpdateTask, type BulkUpdateTasksInput } from '~/api/tasks';
 import type { DateRangeValue } from '~/components/DateRangeFilter.vue';
 import type { SavedView, SavedViewConfig, SavedViewVisibility } from '~/types/saved-view';
+import type { SubtaskRow } from '~/types/subtask';
 import type { Task } from '~/types/task';
 import { fmtDate, fmtDateTime } from '~/utils/date';
 import { isTaskDatePast } from '~/utils/task-overdue';
@@ -58,6 +61,8 @@ const {
   refresh: refreshTasks,
   status: tasksStatus,
 } = await useTasks(currentProjectId, includeCompleted);
+const { data: projectSubtasks, refresh: refreshSubtasks } =
+  await useProjectSubtasks(currentProjectId);
 const { data: statuses } = await useTaskStatuses(currentProjectId);
 const { data: priorities } = await useTaskPriorities(currentProjectId);
 const { data: tags } = await useTags(currentProjectId);
@@ -585,6 +590,132 @@ const filteredTasks = computed(() => {
     return true;
   });
 });
+
+// ===== サブタスク（案X: 一覧に子行として出す） =====
+type DisplayRow = Task & { __kind: 'task' | 'sub'; __sub?: SubtaskRow };
+const isSubRow = (r: Task): boolean => (r as DisplayRow).__kind === 'sub';
+const subOf = (r: Task): SubtaskRow | undefined => (r as DisplayRow).__sub;
+
+// deadline 以外の日付範囲フィルタが有効か（子は deadline しか持たないので、その時は子を除外）
+const hasNonDeadlineDateFilter = computed(
+  () =>
+    plannedStartFilter.isActive.value ||
+    plannedCompletionFilter.isActive.value ||
+    plannedReleaseFilter.isActive.value ||
+    completedAtFilter.isActive.value ||
+    statusChangedAtFilter.isActive.value ||
+    createdAtFilter.isActive.value ||
+    updatedAtFilter.isActive.value,
+);
+
+// 一覧に出すサブタスク行（担当/期限/検索/完了表示を適用。ステータス等の絞り込み時は除外）
+const filteredSubtaskRows = computed<SubtaskRow[]>(() => {
+  if (
+    appliedStatusFilter.value.length > 0 ||
+    appliedPriorityFilter.value.length > 0 ||
+    appliedTagFilter.value.length > 0 ||
+    appliedFlagFilter.value.length > 0 ||
+    hasNonDeadlineDateFilter.value
+  ) {
+    return [];
+  }
+  const assigneeSet = new Set(appliedAssigneeFilter.value);
+  return projectSubtasks.value.filter((s) => {
+    if (!showCompleted.value && s.done) return false;
+    if (search.value) {
+      const q = search.value.toLowerCase();
+      const seqQuery = q.replace(/^#/, '');
+      const matched =
+        (/^\d+$/.test(seqQuery) && String(s.parentSeq).startsWith(seqQuery)) ||
+        s.title.toLowerCase().includes(q) ||
+        s.parentContent.toLowerCase().includes(q);
+      if (!matched) return false;
+    }
+    if (assigneeSet.size > 0) {
+      const matchesNone = !s.assigneeMemberId && assigneeSet.has(NO_ASSIGNEE);
+      const matchesId = s.assigneeMemberId && assigneeSet.has(s.assigneeMemberId);
+      if (!matchesNone && !matchesId) return false;
+    }
+    if (!matchesDateRange(s.deadline, deadlineFilter.range.value)) return false;
+    return true;
+  });
+});
+
+// 「表示対象の子」を持つ親の id。束ね役として親行を隠すのはこの集合だけ。
+// 子が全部フィルタで消える（例: 全完了 & 完了非表示）親は、消えないよう通常行で出す。
+const parentTaskIds = computed(() => new Set(filteredSubtaskRows.value.map((s) => s.taskId)));
+
+// タスクごとのサブタスク進捗（done/total）。親行のバッジ表示に使う
+const subtaskProgress = computed(() => {
+  const m = new Map<string, { done: number; total: number }>();
+  for (const s of projectSubtasks.value) {
+    const e = m.get(s.taskId) ?? { done: 0, total: 0 };
+    e.total += 1;
+    if (s.done) e.done += 1;
+    m.set(s.taskId, e);
+  }
+  return m;
+});
+
+// 一覧に出すタスク行（表示対象の子を持つ親のみ除外）。選択・件数もこれを基準にする
+const visibleTasks = computed(() =>
+  filteredTasks.value.filter((t) => !parentTaskIds.value.has(t.id)),
+);
+
+// 表示行 = タスク行 ＋ サブタスク（子）。ソートは UTable がこの配列に対して行う
+const displayRows = computed<Task[]>(() => {
+  const taskRows: DisplayRow[] = visibleTasks.value.map((t) => ({ ...t, __kind: 'task' }));
+  const subRows: DisplayRow[] = filteredSubtaskRows.value.map((s) => ({
+    id: s.id,
+    projectId: s.projectId,
+    shortCode: '',
+    seq: Number.MAX_SAFE_INTEGER, // No 昇順ソートで子を末尾へ
+    content: s.title,
+    description: '',
+    links: [],
+    statusCode: '',
+    priorityCode: null,
+    assigneeMemberId: s.assigneeMemberId,
+    requesterMemberId: null,
+    requestingDeptCode: null,
+    deadline: s.deadline,
+    plannedStartDate: null,
+    plannedCompletionDate: null,
+    plannedReleaseDate: null,
+    completedAt: null,
+    statusChangedAt: s.updatedAt,
+    tagCodes: [],
+    flagCodes: [],
+    commentCount: 0,
+    createdAt: s.createdAt,
+    updatedAt: s.updatedAt,
+    __kind: 'sub',
+    __sub: s,
+  }));
+  return [...taskRows, ...subRows];
+});
+
+// 子行のインライン完了トグル
+const toggleSubtaskDone = async (s: SubtaskRow, done: boolean) => {
+  await apiUpdateSubtask(api, currentProjectId.value, s.taskId, s.id, { done });
+  await refreshSubtasks();
+};
+// 子行の担当・期限のインライン編集
+const updateSubtaskField = async (
+  s: SubtaskRow,
+  patch: { assigneeMemberId?: string | null; deadline?: string | null },
+) => {
+  await apiUpdateSubtask(api, currentProjectId.value, s.taskId, s.id, patch);
+  await refreshSubtasks();
+};
+// 子行クリックで親タスク詳細を開く
+const openParentOfSub = (s: SubtaskRow) => setSelectedTaskSeq(s.parentSeq);
+// 子の期限切れ（未完了 かつ 期限が今日より前）
+const subOverdue = (s: SubtaskRow): boolean =>
+  Boolean(s.deadline) && !s.done && dayjs(s.deadline).isBefore(dayjs(), 'day');
+// 子の期限が親タスクの期限を超えている（詳細パネルと同じ警告）
+const subOverParent = (s: SubtaskRow): boolean =>
+  Boolean(s.deadline && s.parentDeadline && s.deadline > s.parentDeadline);
 
 const sorting = computed<{ id: string; desc: boolean }[]>({
   get: () => {
@@ -1828,19 +1959,19 @@ const toggleTaskSelected = (id: string, on: boolean) => {
   else selectedTaskIds.value.delete(id);
 };
 
-// 操作対象 = 選択済み ∩ 現在のフィルタ結果
+// 操作対象 = 選択済み ∩ 表示中のタスク行（子は一括編集対象外）
 const targetTaskIds = computed(() =>
-  filteredTasks.value.filter((t) => selectedTaskIds.value.has(t.id)).map((t) => t.id),
+  visibleTasks.value.filter((t) => selectedTaskIds.value.has(t.id)).map((t) => t.id),
 );
 const selectedCount = computed(() => targetTaskIds.value.length);
 
 const allVisibleSelected = computed(
-  () => filteredTasks.value.length > 0 && selectedCount.value === filteredTasks.value.length,
+  () => visibleTasks.value.length > 0 && selectedCount.value === visibleTasks.value.length,
 );
 const someVisibleSelected = computed(() => selectedCount.value > 0 && !allVisibleSelected.value);
 
 const toggleSelectAll = (on: boolean) => {
-  for (const t of filteredTasks.value) {
+  for (const t of visibleTasks.value) {
     if (on) selectedTaskIds.value.add(t.id);
     else selectedTaskIds.value.delete(t.id);
   }
@@ -2130,13 +2261,11 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
           <UCheckbox
             class="ml-auto"
             :model-value="someVisibleSelected ? 'indeterminate' : allVisibleSelected"
-            :disabled="filteredTasks.length === 0"
+            :disabled="visibleTasks.length === 0"
             label="全選択"
             @update:model-value="(v: boolean | 'indeterminate') => toggleSelectAll(v === true)"
           />
-          <span class="text-sm text-muted">
-            {{ filteredTasks.length }} / {{ tasks.length }} 件
-          </span>
+          <span class="text-sm text-muted"> {{ displayRows.length }} 件 </span>
         </div>
 
         <!-- 列ヘッダで設定されたフィルタは上部バーから見えないので、ここでチップ表示。
@@ -2170,7 +2299,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
           v-model:column-sizing-info="columnSizingInfo"
           v-model:column-visibility="columnVisibility"
           v-model:column-order="columnOrder"
-          :data="filteredTasks"
+          :data="displayRows"
           :columns="columns"
           :column-sizing-options="{ enableColumnResizing: true, columnResizeMode: 'onChange' }"
           :ui="{
@@ -2180,7 +2309,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
           }"
         >
           <template #seq-cell="{ row }">
-            <div class="flex items-center gap-1.5">
+            <div v-if="!isSubRow(row.original)" class="flex items-center gap-1.5">
               <UCheckbox
                 :model-value="isTaskSelected(row.original.id)"
                 :aria-label="`#${row.original.seq} を選択`"
@@ -2195,10 +2324,32 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
                 #{{ row.original.seq }}
               </button>
             </div>
+            <span v-else />
           </template>
 
           <template #content-cell="{ row }">
-            <div class="flex items-center gap-1 min-w-0">
+            <div v-if="isSubRow(row.original)" class="flex items-center gap-1.5 min-w-0">
+              <USwitch
+                :model-value="subOf(row.original)!.done"
+                :aria-label="`${subOf(row.original)!.title} を完了`"
+                size="sm"
+                class="shrink-0"
+                @update:model-value="(v: boolean) => toggleSubtaskDone(subOf(row.original)!, v)"
+              />
+              <button
+                class="min-w-0 truncate text-left hover:underline"
+                :title="subOf(row.original)!.title"
+                @click="openParentOfSub(subOf(row.original)!)"
+              >
+                <span class="text-muted">
+                  #{{ subOf(row.original)!.parentSeq }} {{ subOf(row.original)!.parentContent }} ›
+                </span>
+                <span :class="subOf(row.original)!.done ? 'text-muted line-through' : ''">
+                  {{ subOf(row.original)!.title }}
+                </span>
+              </button>
+            </div>
+            <div v-else class="flex items-center gap-1 min-w-0">
               <button
                 class="text-left hover:underline truncate min-w-0"
                 :title="row.original.content"
@@ -2206,6 +2357,16 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
               >
                 {{ row.original.content }}
               </button>
+              <UBadge
+                v-if="subtaskProgress.get(row.original.id)"
+                color="neutral"
+                variant="soft"
+                size="sm"
+                icon="i-lucide-list-todo"
+                class="shrink-0 gap-0.5 tabular-nums"
+                :label="`${subtaskProgress.get(row.original.id)!.done}/${subtaskProgress.get(row.original.id)!.total}`"
+                :title="`サブタスク ${subtaskProgress.get(row.original.id)!.done}/${subtaskProgress.get(row.original.id)!.total} 完了`"
+              />
               <UButton
                 v-if="row.original.commentCount > 0"
                 color="neutral"
@@ -2223,6 +2384,28 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
 
           <template #assigneeMemberId-cell="{ row }">
             <SelectMenu
+              v-if="isSubRow(row.original)"
+              :items="memberSelectItems"
+              :current="subOf(row.original)!.assigneeMemberId"
+              allow-none
+              none-label="担当者なし"
+              default-icon="i-lucide-user"
+              searchable
+              search-placeholder="名前で検索…"
+              @select="
+                (c: string | null) =>
+                  updateSubtaskField(subOf(row.original)!, { assigneeMemberId: c })
+              "
+            >
+              <button class="text-sm text-muted hover:underline cursor-pointer">
+                {{
+                  memberMap[subOf(row.original)!.assigneeMemberId ?? '']?.displayName ??
+                  '担当者なし'
+                }}
+              </button>
+            </SelectMenu>
+            <SelectMenu
+              v-else
               :items="memberSelectItems"
               :current="row.original.assigneeMemberId"
               allow-none
@@ -2241,8 +2424,9 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
           </template>
 
           <template #statusCode-cell="{ row }">
+            <span v-if="isSubRow(row.original)" />
             <SelectMenu
-              v-if="statusMap[row.original.statusCode]"
+              v-else-if="statusMap[row.original.statusCode]"
               :items="statusSelectItems"
               :current="row.original.statusCode"
               default-icon="i-lucide-circle-dashed"
@@ -2260,7 +2444,9 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
           </template>
 
           <template #priorityCode-cell="{ row }">
+            <span v-if="isSubRow(row.original)" />
             <SelectMenu
+              v-else
               :items="prioritySelectItems"
               :current="row.original.priorityCode"
               allow-none
@@ -2285,7 +2471,9 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
           </template>
 
           <template #tagCodes-cell="{ row }">
+            <span v-if="isSubRow(row.original)" />
             <TagPicker
+              v-else
               :tags="tags"
               :selected="row.original.tagCodes"
               @update:selected="
@@ -2313,7 +2501,9 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
           </template>
 
           <template #flagCodes-cell="{ row }">
+            <span v-if="isSubRow(row.original)" />
             <TagPicker
+              v-else
               :tags="flags"
               :selected="row.original.flagCodes"
               @update:selected="
@@ -2342,6 +2532,27 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
 
           <template #deadline-cell="{ row }">
             <DatePopover
+              v-if="isSubRow(row.original)"
+              :model-value="subOf(row.original)!.deadline"
+              @update:model-value="
+                (v: string | null) => updateSubtaskField(subOf(row.original)!, { deadline: v })
+              "
+            >
+              <button
+                class="text-sm tabular-nums hover:underline cursor-pointer min-w-16 text-left inline-flex items-center gap-1"
+                :class="subOverdue(subOf(row.original)!) ? 'text-error font-medium' : 'text-muted'"
+              >
+                {{ subOf(row.original)!.deadline ?? '—' }}
+                <UIcon
+                  v-if="subOverParent(subOf(row.original)!)"
+                  name="i-lucide-triangle-alert"
+                  class="size-3.5 text-warning"
+                  title="親タスクの期限を超えています"
+                />
+              </button>
+            </DatePopover>
+            <DatePopover
+              v-else
               :model-value="row.original.deadline"
               @update:model-value="
                 (v: string | null) => updateTaskField(row.original.id, { deadline: v })
@@ -2357,7 +2568,9 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
           </template>
 
           <template #plannedStartDate-cell="{ row }">
+            <span v-if="isSubRow(row.original)" />
             <DatePopover
+              v-else
               :model-value="row.original.plannedStartDate"
               @update:model-value="
                 (v: string | null) => updateTaskField(row.original.id, { plannedStartDate: v })
@@ -2373,7 +2586,9 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
           </template>
 
           <template #plannedCompletionDate-cell="{ row }">
+            <span v-if="isSubRow(row.original)" />
             <DatePopover
+              v-else
               :model-value="row.original.plannedCompletionDate"
               @update:model-value="
                 (v: string | null) => updateTaskField(row.original.id, { plannedCompletionDate: v })
@@ -2389,7 +2604,9 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
           </template>
 
           <template #plannedReleaseDate-cell="{ row }">
+            <span v-if="isSubRow(row.original)" />
             <DatePopover
+              v-else
               :model-value="row.original.plannedReleaseDate"
               @update:model-value="
                 (v: string | null) => updateTaskField(row.original.id, { plannedReleaseDate: v })
@@ -2406,24 +2623,33 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
 
           <template #requesterMemberId-cell="{ row }">
             <span class="text-sm">
-              {{ memberMap[row.original.requesterMemberId ?? '']?.displayName ?? '—' }}
+              {{
+                isSubRow(row.original)
+                  ? ''
+                  : (memberMap[row.original.requesterMemberId ?? '']?.displayName ?? '—')
+              }}
             </span>
           </template>
 
           <template #requestingDeptCode-cell="{ row }">
             <span class="text-sm">
-              {{ departmentMap[row.original.requestingDeptCode ?? '']?.name ?? '—' }}
+              {{
+                isSubRow(row.original)
+                  ? ''
+                  : (departmentMap[row.original.requestingDeptCode ?? '']?.name ?? '—')
+              }}
             </span>
           </template>
 
           <template #description-cell="{ row }">
             <span class="text-xs text-muted block truncate" :title="row.original.description">
-              {{ row.original.description || '—' }}
+              {{ isSubRow(row.original) ? '' : row.original.description || '—' }}
             </span>
           </template>
 
           <template #links-cell="{ row }">
-            <div class="flex flex-wrap gap-1">
+            <span v-if="isSubRow(row.original)" />
+            <div v-else class="flex flex-wrap gap-1">
               <a
                 v-for="(link, i) in row.original.links"
                 :key="i"
@@ -2442,25 +2668,31 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
 
           <template #completedAt-cell="{ row }">
             <span class="text-xs text-muted tabular-nums">
-              {{ row.original.completedAt ? fmtDateTime(row.original.completedAt) : '—' }}
+              {{
+                isSubRow(row.original)
+                  ? ''
+                  : row.original.completedAt
+                    ? fmtDateTime(row.original.completedAt)
+                    : '—'
+              }}
             </span>
           </template>
 
           <template #statusChangedAt-cell="{ row }">
             <span class="text-xs text-muted tabular-nums">
-              {{ fmtDateTime(row.original.statusChangedAt) }}
+              {{ isSubRow(row.original) ? '' : fmtDateTime(row.original.statusChangedAt) }}
             </span>
           </template>
 
           <template #createdAt-cell="{ row }">
             <span class="text-xs text-muted tabular-nums">
-              {{ fmtDateTime(row.original.createdAt) }}
+              {{ isSubRow(row.original) ? '' : fmtDateTime(row.original.createdAt) }}
             </span>
           </template>
 
           <template #updatedAt-cell="{ row }">
             <span class="text-xs text-muted tabular-nums">
-              {{ fmtDateTime(row.original.updatedAt) }}
+              {{ isSubRow(row.original) ? '' : fmtDateTime(row.original.updatedAt) }}
             </span>
           </template>
 
@@ -2527,6 +2759,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
     @change-field="
       (patch: Partial<Task>) => selectedTask && updateTaskField(selectedTask.id, patch)
     "
+    @subtasks-changed="refreshSubtasks"
   />
 
   <TaskCreateSlideover

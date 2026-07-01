@@ -43,6 +43,17 @@ const formatValue = (field: string, value: string | null, label?: string | null)
  * - それ以外は「○○: 旧 → 新」
  */
 export const describeAuditChange = (c: AuditChange): string => {
+  // サブタスク操作（親タスクの履歴に相乗り）は専用の文言で整形する
+  switch (c.field) {
+    case 'subtask_added':
+      return `サブタスク「${c.new}」を追加`;
+    case 'subtask_completed':
+      return `サブタスク「${c.new}」を完了`;
+    case 'subtask_reopened':
+      return `サブタスク「${c.new}」を未完了に戻した`;
+    case 'subtask_deleted':
+      return `サブタスク「${c.old}」を削除`;
+  }
   const name = FIELD_LABELS[c.field] ?? c.field;
   const flagOnly = c.old === null && c.new === null && !c.oldLabel && !c.newLabel;
   if (flagOnly) return `${name}を編集`;

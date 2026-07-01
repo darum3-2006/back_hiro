@@ -56,6 +56,8 @@ const emit = defineEmits<{
   'change-field': [Partial<Omit<Task, 'id' | 'projectId' | 'createdAt'>>];
   /** focusComments を消費してスクロールしたことを親へ通知（再スクロール防止） */
   focused: [];
+  /** サブタスクに変更があった（親側で一覧の進捗などを再取得する用） */
+  'subtasks-changed': [];
 }>();
 
 const projectIdRef = computed(() => props.task?.projectId ?? '');
@@ -66,6 +68,12 @@ const { data: activities, refresh: refreshActivities } = await useTaskActivities
   projectIdRef,
   taskIdRef,
 );
+
+// サブタスク変更時は親タスクの変更履歴（監査ログ）に相乗りしているので取り直す
+const onSubtasksChanged = () => {
+  void refreshActivities();
+  emit('subtasks-changed');
+};
 
 // ===== Activity timeline（コメント＋変更履歴の統合） =====
 // 変更履歴の表示トグル（既定 OFF）。普段はコメント中心、ON で変更履歴も差し込む。
@@ -814,151 +822,165 @@ const flagsList = computed(() => Object.values(props.flagMap));
 
         <USeparator />
 
+        <SubtaskSection
+          v-if="task"
+          :project-id="task.projectId"
+          :task-id="task.id"
+          :members="Object.values(memberMap)"
+          :parent-deadline="task.deadline"
+          :parent-terminal="statusMap[task.statusCode]?.isTerminal ?? false"
+          :tasks="tasks"
+          @changed="onSubtasksChanged"
+        />
+
+        <USeparator />
+
         <div ref="commentsSection" class="scroll-mt-2">
-          <div class="mb-2 flex items-center justify-between">
-            <p class="text-sm font-medium">コメント・履歴</p>
-            <USwitch v-model="showActivity" size="sm" label="変更履歴" />
-          </div>
+          <CollapsibleSection title="コメント・履歴" icon="i-lucide-messages-square">
+            <template #trailing>
+              <USwitch v-model="showActivity" size="sm" label="変更履歴" />
+            </template>
 
-          <div v-if="timeline.length === 0" class="text-sm text-muted py-2">
-            まだコメントや履歴はありません。
-          </div>
+            <div v-if="timeline.length === 0" class="text-sm text-muted py-2">
+              まだコメントや履歴はありません。
+            </div>
 
-          <div v-else class="space-y-3">
-            <template v-for="item in timeline" :key="item.id">
-              <!-- コメント -->
-              <div v-if="item.kind === 'comment'" class="flex gap-3 group">
-                <UAvatar
-                  :alt="memberMap[item.comment.authorMemberId]?.displayName ?? '?'"
-                  size="sm"
-                />
-                <div class="flex-1 min-w-0">
-                  <div class="flex items-baseline gap-2">
-                    <span class="text-sm font-medium">
-                      {{ memberMap[item.comment.authorMemberId]?.displayName ?? '不明' }}
-                    </span>
-                    <span class="text-xs text-muted">{{
-                      fmtDateTime(item.comment.createdAt)
-                    }}</span>
-                    <span v-if="isCommentEdited(item.comment)" class="text-xs text-muted">
-                      (編集済み {{ fmtDateTime(item.comment.updatedAt) }})
-                    </span>
-                    <UButton
-                      v-if="
-                        item.comment.authorMemberId === currentMemberId &&
-                        editingCommentId !== item.comment.id
-                      "
-                      size="xs"
-                      color="neutral"
-                      variant="ghost"
-                      icon="i-lucide-pencil"
-                      class="ml-auto opacity-0 group-hover:opacity-100 transition"
-                      @click="startEditComment(item.comment.id, item.comment.body)"
-                    />
-                  </div>
-
-                  <div v-if="editingCommentId === item.comment.id" class="mt-1 space-y-2">
-                    <MarkdownEditor
-                      v-model="commentEditBuffer"
-                      :candidates="mentionCandidates"
-                      :tasks="tasks"
-                      :mention-names="mentionNames"
-                      :show-images="showImages"
-                      :rows="3"
-                      placeholder="コメントを編集（@ でメンション・Markdown 可）…"
-                      @submit="saveCommentEdit"
-                    />
-                    <div class="flex gap-2">
+            <div v-else class="space-y-3">
+              <template v-for="item in timeline" :key="item.id">
+                <!-- コメント -->
+                <div v-if="item.kind === 'comment'" class="flex gap-3 group">
+                  <UAvatar
+                    :alt="memberMap[item.comment.authorMemberId]?.displayName ?? '?'"
+                    size="sm"
+                  />
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-baseline gap-2">
+                      <span class="text-sm font-medium">
+                        {{ memberMap[item.comment.authorMemberId]?.displayName ?? '不明' }}
+                      </span>
+                      <span class="text-xs text-muted">{{
+                        fmtDateTime(item.comment.createdAt)
+                      }}</span>
+                      <span v-if="isCommentEdited(item.comment)" class="text-xs text-muted">
+                        (編集済み {{ fmtDateTime(item.comment.updatedAt) }})
+                      </span>
                       <UButton
-                        size="sm"
-                        color="primary"
-                        :loading="savingEdit"
-                        :disabled="!commentEditBuffer.trim()"
-                        label="保存"
-                        @click="saveCommentEdit"
-                      />
-                      <UButton
-                        size="sm"
+                        v-if="
+                          item.comment.authorMemberId === currentMemberId &&
+                          editingCommentId !== item.comment.id
+                        "
+                        size="xs"
                         color="neutral"
                         variant="ghost"
-                        label="キャンセル"
-                        @click="cancelCommentEdit"
+                        icon="i-lucide-pencil"
+                        class="ml-auto opacity-0 group-hover:opacity-100 transition"
+                        @click="startEditComment(item.comment.id, item.comment.body)"
+                      />
+                    </div>
+
+                    <div v-if="editingCommentId === item.comment.id" class="mt-1 space-y-2">
+                      <MarkdownEditor
+                        v-model="commentEditBuffer"
+                        :candidates="mentionCandidates"
+                        :tasks="tasks"
+                        :mention-names="mentionNames"
+                        :show-images="showImages"
+                        :rows="3"
+                        placeholder="コメントを編集（@ でメンション・Markdown 可）…"
+                        @submit="saveCommentEdit"
+                      />
+                      <div class="flex gap-2">
+                        <UButton
+                          size="sm"
+                          color="primary"
+                          :loading="savingEdit"
+                          :disabled="!commentEditBuffer.trim()"
+                          label="保存"
+                          @click="saveCommentEdit"
+                        />
+                        <UButton
+                          size="sm"
+                          color="neutral"
+                          variant="ghost"
+                          label="キャンセル"
+                          @click="cancelCommentEdit"
+                        />
+                      </div>
+                    </div>
+
+                    <div v-else class="mt-0.5">
+                      <MarkdownContent
+                        :text="item.comment.body"
+                        :tasks="tasks"
+                        :mention-names="mentionNames"
+                        :show-images="showImages"
                       />
                     </div>
                   </div>
+                </div>
 
-                  <div v-else class="mt-0.5">
-                    <MarkdownContent
-                      :text="item.comment.body"
-                      :tasks="tasks"
-                      :mention-names="mentionNames"
-                      :show-images="showImages"
-                    />
+                <!-- 変更履歴 -->
+                <div v-else class="flex gap-3">
+                  <div class="flex size-8 shrink-0 items-center justify-center">
+                    <UIcon name="i-lucide-history" class="size-4 text-muted" />
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-baseline gap-2">
+                      <span class="text-sm font-medium">
+                        {{ item.activity.actor.name ?? '（削除済みユーザー）' }}
+                      </span>
+                      <span class="text-xs text-muted">{{
+                        fmtDateTime(item.activity.createdAt)
+                      }}</span>
+                    </div>
+                    <p v-if="item.activity.action === 'create'" class="mt-0.5 text-sm text-muted">
+                      タスクを作成
+                    </p>
+                    <p
+                      v-else-if="item.activity.action === 'delete'"
+                      class="mt-0.5 text-sm text-muted"
+                    >
+                      タスクを削除
+                    </p>
+                    <ul v-else class="mt-0.5 space-y-0.5 text-sm text-muted">
+                      <li v-for="(ch, idx) in item.activity.changes ?? []" :key="idx">
+                        {{ describeAuditChange(ch) }}
+                      </li>
+                    </ul>
                   </div>
                 </div>
-              </div>
-
-              <!-- 変更履歴 -->
-              <div v-else class="flex gap-3">
-                <div class="flex size-8 shrink-0 items-center justify-center">
-                  <UIcon name="i-lucide-history" class="size-4 text-muted" />
-                </div>
-                <div class="flex-1 min-w-0">
-                  <div class="flex items-baseline gap-2">
-                    <span class="text-sm font-medium">
-                      {{ item.activity.actor.name ?? '（削除済みユーザー）' }}
-                    </span>
-                    <span class="text-xs text-muted">{{
-                      fmtDateTime(item.activity.createdAt)
-                    }}</span>
-                  </div>
-                  <p v-if="item.activity.action === 'create'" class="mt-0.5 text-sm text-muted">
-                    タスクを作成
-                  </p>
-                  <p
-                    v-else-if="item.activity.action === 'delete'"
-                    class="mt-0.5 text-sm text-muted"
-                  >
-                    タスクを削除
-                  </p>
-                  <ul v-else class="mt-0.5 space-y-0.5 text-sm text-muted">
-                    <li v-for="(ch, idx) in item.activity.changes ?? []" :key="idx">
-                      {{ describeAuditChange(ch) }}
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </template>
-          </div>
-
-          <div class="mt-4 space-y-2">
-            <MarkdownEditor
-              v-model="commentBody"
-              :candidates="mentionCandidates"
-              :tasks="tasks"
-              :mention-names="mentionNames"
-              :show-images="showImages"
-              :rows="3"
-              :disabled="!currentMemberId"
-              placeholder="コメントを入力（@ でメンション・Markdown 可・Cmd/Ctrl+Enter で投稿）…"
-              @submit="postComment"
-            />
-            <div class="flex items-center justify-between">
-              <span v-if="!currentMemberId" class="text-xs text-warning">
-                このプロジェクトのメンバーではないためコメントできません
-              </span>
-              <span v-else class="text-xs text-muted">
-                投稿者: {{ memberMap[currentMemberId!]?.displayName ?? '?' }}
-              </span>
-              <UButton
-                color="primary"
-                :loading="posting"
-                :disabled="!commentBody.trim() || !currentMemberId"
-                label="コメントする"
-                @click="postComment"
-              />
+              </template>
             </div>
-          </div>
+
+            <div class="mt-4 space-y-2">
+              <MarkdownEditor
+                v-model="commentBody"
+                :candidates="mentionCandidates"
+                :tasks="tasks"
+                :mention-names="mentionNames"
+                :show-images="showImages"
+                :rows="3"
+                :disabled="!currentMemberId"
+                placeholder="コメントを入力（@ でメンション・Markdown 可・Cmd/Ctrl+Enter で投稿）…"
+                @submit="postComment"
+              />
+              <div class="flex items-center justify-between">
+                <span v-if="!currentMemberId" class="text-xs text-warning">
+                  このプロジェクトのメンバーではないためコメントできません
+                </span>
+                <span v-else class="text-xs text-muted">
+                  投稿者: {{ memberMap[currentMemberId!]?.displayName ?? '?' }}
+                </span>
+                <UButton
+                  color="primary"
+                  :loading="posting"
+                  :disabled="!commentBody.trim() || !currentMemberId"
+                  label="コメントする"
+                  @click="postComment"
+                />
+              </div>
+            </div>
+          </CollapsibleSection>
         </div>
       </div>
     </template>

@@ -57,6 +57,38 @@ export class SlackService {
     );
   }
 
+  /** サブタスク追加。親タスクの「新しいタスクが登録されたとき」トグルに相乗り。 */
+  async notifySubtaskAdded(
+    tenantId: string,
+    parentTask: Task,
+    subtaskTitle: string,
+  ): Promise<void> {
+    await this.dispatch(
+      tenantId,
+      parentTask,
+      'subtask_added',
+      (p) => p.slackNotifyTaskCreated,
+      (url) =>
+        `:new: サブタスク「${this.esc(this.shorten(subtaskTitle))}」が ${this.taskLink(parentTask, url)} に追加されました`,
+    );
+  }
+
+  /** サブタスク完了。親タスクの「タスクが完了したとき」トグルに相乗り。 */
+  async notifySubtaskCompleted(
+    tenantId: string,
+    parentTask: Task,
+    subtaskTitle: string,
+  ): Promise<void> {
+    await this.dispatch(
+      tenantId,
+      parentTask,
+      'subtask_completed',
+      (p) => p.slackNotifyTaskCompleted,
+      (url) =>
+        `:white_check_mark: サブタスク「${this.esc(this.shorten(subtaskTitle))}」が完了しました（${this.taskLink(parentTask, url)}）`,
+    );
+  }
+
   /** 設定画面の「テスト送信」。Webhook 未設定なら 400、送信失敗なら例外を投げる。 */
   async sendTest(tenantId: string, projectId: string): Promise<{ ok: true }> {
     const project = await this.projects.findOne({ where: { id: projectId, tenantId } });

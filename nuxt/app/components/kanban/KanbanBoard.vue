@@ -12,6 +12,8 @@ const props = defineProps<{
   tagMap: Record<string, Tag>;
   flagMap: Record<string, Flag>;
   isOverdue: (t: Task) => boolean;
+  /** タスク id → サブタスク進捗 */
+  progressMap: Record<string, { done: number; total: number }>;
 }>();
 
 const emit = defineEmits<{
@@ -91,6 +93,7 @@ const onAdd = (col: Column) => {
           :tag-map="tagMap"
           :flag-map="flagMap"
           :overdue="isOverdue(t)"
+          :progress="progressMap[t.id]"
           @click="emit('open', t)"
         />
       </VueDraggable>
