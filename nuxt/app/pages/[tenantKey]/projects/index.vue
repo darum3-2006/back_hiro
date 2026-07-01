@@ -41,26 +41,17 @@ const buildActions = (project: Project): DropdownMenuItem[][] => {
       ],
     ];
   }
-  const groups: DropdownMenuItem[][] = [
+  // 設定は行に独立ボタンで出すのでドロップダウンには入れない。アーカイブは admin のみ
+  if (!isAdmin.value) return [];
+  return [
     [
-      {
-        label: '設定',
-        icon: 'i-lucide-settings',
-        to: `/${currentTenantKey.value}/projects/${project.id}/settings`,
-      },
-    ],
-  ];
-  // アーカイブは admin のみ
-  if (isAdmin.value) {
-    groups.push([
       {
         label: 'アーカイブ',
         icon: 'i-lucide-archive',
         onSelect: () => archiveProject(project.id),
       },
-    ]);
-  }
-  return groups;
+    ],
+  ];
 };
 
 const columns: TableColumn<Project>[] = [
@@ -125,7 +116,16 @@ const columns: TableColumn<Project>[] = [
           <UBadge v-else color="success" variant="soft" label="アクティブ" />
         </template>
         <template #actions-cell="{ row }">
-          <div class="flex justify-end">
+          <div class="flex items-center justify-end gap-1">
+            <UButton
+              v-if="!row.original.archivedAt"
+              icon="i-lucide-settings"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              label="設定"
+              :to="`/${currentTenantKey}/projects/${row.original.id}/settings`"
+            />
             <UDropdownMenu
               v-if="buildActions(row.original).length > 0"
               :items="buildActions(row.original)"
