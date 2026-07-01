@@ -1264,6 +1264,23 @@ for (const c of columns) {
   col.maxSize = col.maxSize ?? COLUMN_MAX_WIDTH;
 }
 
+// ソートもプロジェクトごとに localStorage 永続化（列幅と同じ流儀）。
+// プロジェクトを切り替えて素の遷移で開いたとき、前回のソートを復元する。
+// SavedView を選んだ場合はビューのソートが優先（フィルタ記憶と同じ思想）。
+const sortMemoryKey = computed(() => `tasks:sort:${currentProjectId.value}`);
+const savedSortQuery = (): Record<string, string> => {
+  if (!import.meta.client) return {};
+  try {
+    const raw = localStorage.getItem(sortMemoryKey.value);
+    if (!raw) return {};
+    const s = JSON.parse(raw) as { sort?: string; sortDir?: string };
+    if (!s.sort) return {};
+    return { sort: s.sort, sortDir: s.sortDir === 'desc' ? 'desc' : 'asc' };
+  } catch {
+    return {};
+  }
+};
+
 // 列幅は localStorage に永続化（プロジェクトごと）
 const columnSizingKey = computed(() => `tasks:column-sizing:${currentProjectId.value}`);
 const columnSizing = ref<Record<string, number>>({});
@@ -1590,9 +1607,13 @@ onMounted(() => {
       applyViewConfig(config, view.id);
       return;
     }
-    // ビュー未選択でも、記憶したフィルタがあれば復元（列は下の localStorage 復元に任せる）
-    if (savedFilters && Object.keys(savedFilters).length > 0) {
-      updateQuery(savedFilters);
+    // ビュー未選択でも、記憶したフィルタ・ソートがあれば復元（列は下の localStorage 復元に任せる）
+    const restore = {
+      ...(savedFilters && Object.keys(savedFilters).length > 0 ? savedFilters : {}),
+      ...savedSortQuery(),
+    };
+    if (Object.keys(restore).length > 0) {
+      updateQuery(restore);
     }
   }
 
@@ -1662,6 +1683,23 @@ watch(
   (v) => {
     if (!import.meta.client || applyingColumnLayout) return;
     localStorage.setItem(columnOrderKey.value, JSON.stringify(v));
+  },
+  { deep: true },
+);
+
+// ソートをプロジェクトごとに保存（未ソートはキー削除）
+watch(
+  sorting,
+  (v) => {
+    if (!import.meta.client || applyingColumnLayout) return;
+    if (v.length > 0) {
+      localStorage.setItem(
+        sortMemoryKey.value,
+        JSON.stringify({ sort: v[0]!.id, sortDir: v[0]!.desc ? 'desc' : 'asc' }),
+      );
+    } else {
+      localStorage.removeItem(sortMemoryKey.value);
+    }
   },
   { deep: true },
 );
