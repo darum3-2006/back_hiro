@@ -261,6 +261,12 @@ const cancelEdit = () => {
   editingField.value = null;
 };
 
+// 内容欄の Enter/ESC を IME ガード（共通コンポーザブル）。
+// ESC は stop=true で伝播を止め、編集中にスライドインが閉じないようにする。
+const { onCompositionStart, onCompositionEnd, onEnter, onEscape } = useImeGuard();
+const onContentEnter = onEnter(commitEdit);
+const onContentEscape = onEscape(cancelEdit, { stop: true });
+
 // ===== Links inline edit =====
 const editingLinkIndex = ref<number | null>(null);
 const linkEditBuffer = ref<TaskLink>({ label: '', url: '' });
@@ -410,8 +416,10 @@ const flagsList = computed(() => Object.values(props.flagMap));
             autofocus
             class="w-full"
             @blur="commitEdit"
-            @keydown.enter.prevent="commitEdit"
-            @keydown.escape.prevent="cancelEdit"
+            @compositionstart="onCompositionStart"
+            @compositionend="onCompositionEnd"
+            @keydown.enter="onContentEnter"
+            @keydown.escape="onContentEscape"
           />
           <div
             v-else
