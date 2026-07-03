@@ -10,9 +10,23 @@ const props = defineProps<{
   statusMap: Record<string, TaskStatus>;
   /** グループ見出しを表示するか（groupBy !== 'none'） */
   showGroupHeader: boolean;
+  /** 選択中タスクに関連するタスク id（G2: ハイライト） */
+  relatedIds?: Set<string>;
+  /** 依存違反のあるタスク id（G3: 警告） */
+  violatedIds?: Set<string>;
 }>();
 
 const emit = defineEmits<{ select: [Task] }>();
+
+const isRelated = (task: Task): boolean => props.relatedIds?.has(task.id) ?? false;
+const isViolated = (task: Task): boolean => props.violatedIds?.has(task.id) ?? false;
+// バーの枠線: 依存違反(赤) > 関連ハイライト(primary) の優先
+const ringClass = (task: Task): string =>
+  isViolated(task)
+    ? 'ring-2 ring-error'
+    : isRelated(task)
+      ? 'ring-2 ring-primary ring-offset-1 ring-offset-default'
+      : '';
 
 // ref / 関数を分割代入（ref は識別子が安定なのでリアクティブ維持。template で自動 unwrap）
 const { totalWidth, ticks, todayX, xOf, widthOf } = props.scale;
@@ -88,6 +102,12 @@ const barStyle = (task: Task) => {
           >
             <span class="shrink-0 text-xs text-muted tabular-nums">#{{ task.seq }}</span>
             <span class="truncate">{{ task.content }}</span>
+            <UIcon
+              v-if="isViolated(task)"
+              name="i-lucide-triangle-alert"
+              class="ml-auto size-3.5 shrink-0 text-error"
+              title="先行/ブロック元の完了予定より早く着手予定になっています"
+            />
           </div>
           <div
             class="relative border-b border-default group-hover/row:bg-elevated/30"
@@ -102,9 +122,13 @@ const barStyle = (task: Task) => {
               v-if="hasPlannedBar(task)"
               type="button"
               class="absolute rounded px-1 text-left text-xs text-white truncate shadow-sm"
-              :class="ganttBarColorClass(statusMap[task.statusCode]?.color)"
+              :class="[ganttBarColorClass(statusMap[task.statusCode]?.color), ringClass(task)]"
               :style="barStyle(task)"
-              :title="task.content"
+              :title="
+                isViolated(task)
+                  ? '先行/ブロック元の完了予定より早く着手予定になっています'
+                  : task.content
+              "
               @click="emit('select', task)"
             >
               {{ task.content }}

@@ -169,6 +169,50 @@ const selectedTask = computed<Task | null>(() => {
 
 const slideoverOpen = computed(() => selectedTask.value !== null);
 
+// ===== 関連タスク（G2: 選択時ハイライト / G3: 依存違反の警告） =====
+const { data: relations, refresh: refreshRelations } = await useProjectRelations(currentProjectId);
+const tasksById = computed(() => new Map(tasks.value.map((t) => [t.id, t])));
+
+// タスク id → 関連するタスク id 集合（両方向・全種別）
+const relatedMap = computed(() => {
+  const m = new Map<string, Set<string>>();
+  const add = (a: string, b: string) => {
+    let s = m.get(a);
+    if (!s) {
+      s = new Set();
+      m.set(a, s);
+    }
+    s.add(b);
+  };
+  for (const e of relations.value) {
+    add(e.sourceTaskId, e.targetTaskId);
+    add(e.targetTaskId, e.sourceTaskId);
+  }
+  return m;
+});
+// 選択中タスクに関連するバーをハイライトする対象
+const focusedRelatedIds = computed<Set<string>>(() =>
+  selectedTask.value ? (relatedMap.value.get(selectedTask.value.id) ?? new Set()) : new Set(),
+);
+// 依存違反: 先行/ブロック元の完了予定 > 後続/被ブロックの着手予定（後続側に警告）
+const violatedIds = computed(() => {
+  const set = new Set<string>();
+  const byId = tasksById.value;
+  for (const e of relations.value) {
+    if (e.type === 'related') continue;
+    const src = byId.get(e.sourceTaskId);
+    const tgt = byId.get(e.targetTaskId);
+    if (
+      src?.plannedCompletionDate &&
+      tgt?.plannedStartDate &&
+      src.plannedCompletionDate > tgt.plannedStartDate
+    ) {
+      set.add(tgt.id);
+    }
+  }
+  return set;
+});
+
 // バー/ラベルのクリックで詳細スライドをその場で開く（遷移しない）
 const openTask = (task: Task) => {
   setQuery('task', String(task.seq));
@@ -231,6 +275,8 @@ const updateTaskField = async (
         :scale="scale"
         :status-map="statusMap"
         :show-group-header="groupBy !== 'none'"
+        :related-ids="focusedRelatedIds"
+        :violated-ids="violatedIds"
         @select="openTask"
       />
     </template>
@@ -251,5 +297,6 @@ const updateTaskField = async (
     @change-field="
       (patch: Partial<Task>) => selectedTask && updateTaskField(selectedTask.id, patch)
     "
+    @relations-changed="refreshRelations"
   />
 </template>
