@@ -17,6 +17,7 @@ import { ProjectsModule } from './projects/projects.module';
 import { PublicModule } from './public/public.module';
 import { SavedViewsModule } from './saved-views/saved-views.module';
 import { SubtasksModule } from './subtasks/subtasks.module';
+import { TaskRelationsModule } from './task-relations/task-relations.module';
 import { TasksModule } from './tasks/tasks.module';
 import { TenantsModule } from './tenants/tenants.module';
 import { UsersModule } from './users/users.module';
@@ -46,6 +47,7 @@ import { UsersModule } from './users/users.module';
     PublicModule,
     SavedViewsModule,
     SubtasksModule,
+    TaskRelationsModule,
   ],
   controllers: [AppController],
   providers: [

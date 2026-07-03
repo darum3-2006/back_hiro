@@ -58,6 +58,8 @@ const emit = defineEmits<{
   focused: [];
   /** サブタスクに変更があった（親側で一覧の進捗などを再取得する用） */
   'subtasks-changed': [];
+  /** 関連タスクに変更があった（ガント等で再取得する用） */
+  'relations-changed': [];
 }>();
 
 const projectIdRef = computed(() => props.task?.projectId ?? '');
@@ -839,6 +841,17 @@ const flagsList = computed(() => Object.values(props.flagMap));
           :parent-terminal="statusMap[task.statusCode]?.isTerminal ?? false"
           :tasks="tasks"
           @changed="onSubtasksChanged"
+        />
+
+        <USeparator />
+
+        <TaskRelationsSection
+          v-if="task"
+          :project-id="task.projectId"
+          :task-id="task.id"
+          :tasks="tasks"
+          :status-map="statusMap"
+          @changed="emit('relations-changed')"
         />
 
         <USeparator />
