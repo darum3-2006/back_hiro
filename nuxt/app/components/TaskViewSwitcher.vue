@@ -106,7 +106,9 @@ const confirmDelete = () => {
 };
 
 const items = computed<DropdownMenuItem[][]>(() => {
-  const viewItems: DropdownMenuItem[] = props.views.map((v) => ({
+  // プルダウンは名前の昇順（日本語考慮）で並べる
+  const sortedViews = [...props.views].sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+  const viewItems: DropdownMenuItem[] = sortedViews.map((v) => ({
     label: v.name,
     icon: v.visibility === 'shared' ? 'i-lucide-users' : 'i-lucide-lock',
     type: 'checkbox',
