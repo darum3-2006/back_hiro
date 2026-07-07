@@ -528,6 +528,7 @@ const flagsList = computed(() => Object.values(props.flagMap));
             <SelectMenu
               :items="memberSelectItems"
               :current="task.assigneeMemberId"
+              :self-value="currentMemberId"
               allow-none
               none-label="担当者なし"
               default-icon="i-lucide-user"
@@ -837,6 +838,7 @@ const flagsList = computed(() => Object.values(props.flagMap));
           :project-id="task.projectId"
           :task-id="task.id"
           :members="Object.values(memberMap)"
+          :current-member-id="currentMemberId"
           :parent-deadline="task.deadline"
           :parent-terminal="statusMap[task.statusCode]?.isTerminal ?? false"
           :tasks="tasks"

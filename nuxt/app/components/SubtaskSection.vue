@@ -22,6 +22,8 @@ const props = defineProps<{
   parentTerminal: boolean;
   /** #seq リンク解決用（メモの Markdown プレビュー） */
   tasks?: Task[];
+  /** 「自分を割り当て」用の現在ユーザーの member id */
+  currentMemberId?: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -246,6 +248,7 @@ const onReorder = async () => {
             <SelectMenu
               :items="memberItems"
               :current="s.assigneeMemberId"
+              :self-value="currentMemberId"
               allow-none
               none-label="担当者なし"
               default-icon="i-lucide-user"

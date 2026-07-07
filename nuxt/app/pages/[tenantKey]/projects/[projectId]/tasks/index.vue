@@ -2425,6 +2425,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
               v-if="isSubRow(row.original)"
               :items="memberSelectItems"
               :current="subOf(row.original)!.assigneeMemberId"
+              :self-value="currentMemberId"
               allow-none
               none-label="担当者なし"
               default-icon="i-lucide-user"
@@ -2446,6 +2447,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
               v-else
               :items="memberSelectItems"
               :current="row.original.assigneeMemberId"
+              :self-value="currentMemberId"
               allow-none
               none-label="担当者なし"
               default-icon="i-lucide-user"
