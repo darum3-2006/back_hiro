@@ -14,11 +14,22 @@ const props = defineProps<{
   noneLabel?: string;
   searchable?: boolean;
   searchPlaceholder?: string;
+  /** 「自分を割り当て」ショートカットの値（現在ユーザーの member id 等）。候補に含まれ、未選択のときだけ表示 */
+  selfValue?: string | null;
+  selfLabel?: string;
 }>();
 
 const emit = defineEmits<{
   select: [value: string | null];
 }>();
+
+// 「自分を割り当て」ショートカットを出すか（selfValue が候補にあり、まだ選択中でない）
+const showSelf = computed(
+  () =>
+    !!props.selfValue &&
+    props.selfValue !== props.current &&
+    props.items.some((i) => i.value === props.selfValue),
+);
 
 const menuItems = computed<DropdownMenuItem[][]>(() => {
   const main: DropdownMenuItem[] = props.items.map((item) => {
@@ -33,11 +44,20 @@ const menuItems = computed<DropdownMenuItem[][]>(() => {
       },
     };
   });
-  if (!props.allowNone) return [main];
-  const noneIsCurrent = props.current === null;
-  return [
-    main,
-    [
+  const groups: DropdownMenuItem[][] = [];
+  if (showSelf.value) {
+    groups.push([
+      {
+        label: props.selfLabel ?? '自分を割り当て',
+        icon: 'i-lucide-user-check',
+        onSelect: () => emit('select', props.selfValue ?? null),
+      },
+    ]);
+  }
+  groups.push(main);
+  if (props.allowNone) {
+    const noneIsCurrent = props.current === null;
+    groups.push([
       {
         label: props.noneLabel ?? 'なし',
         icon: noneIsCurrent ? 'i-lucide-check' : 'i-lucide-x',
@@ -47,8 +67,9 @@ const menuItems = computed<DropdownMenuItem[][]>(() => {
           emit('select', null);
         },
       },
-    ],
-  ];
+    ]);
+  }
+  return groups;
 });
 
 // searchable モード用
@@ -84,6 +105,15 @@ watch(open, (v) => {
           autofocus
           class="mb-1"
         />
+        <button
+          v-if="showSelf"
+          type="button"
+          class="w-full text-left text-sm px-2 py-1.5 mb-1 rounded hover:bg-elevated/60 flex items-center gap-2 text-primary"
+          @click="handleSelect(selfValue ?? null)"
+        >
+          <UIcon name="i-lucide-user-check" class="size-4 shrink-0" />
+          <span>{{ selfLabel ?? '自分を割り当て' }}</span>
+        </button>
         <div class="overflow-y-auto flex-1 min-h-0">
           <button
             v-for="item in filteredItems"
