@@ -30,6 +30,19 @@ export const apiFetchMe = async (api: typeof $fetch): Promise<AuthMe> => {
   return api<AuthMe>('/auth/me');
 };
 
+/**
+ * POST /api/auth/refresh — アクセストークンの再発行。
+ * リフレッシュトークンは httpOnly Cookie で自動送信される（Authorization 不要）。
+ */
+export const apiRefresh = async (): Promise<{ accessToken: string }> => {
+  return $fetch<{ accessToken: string }>('/api/auth/refresh', { method: 'POST' });
+};
+
+/** POST /api/auth/logout — リフレッシュトークンをサーバ側で失効させる */
+export const apiLogout = async (): Promise<void> => {
+  await $fetch('/api/auth/logout', { method: 'POST' });
+};
+
 /** PATCH /api/auth/password — 本人のパスワード変更 */
 export const apiChangePassword = async (
   api: typeof $fetch,

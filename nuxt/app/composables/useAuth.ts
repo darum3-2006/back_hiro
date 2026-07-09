@@ -1,5 +1,5 @@
 import type { AuthMe, GoogleLoginInput, LoginInput } from '~/types/auth';
-import { apiFetchMe, apiLogin, apiLoginWithGoogle } from '~/api/auth';
+import { apiFetchMe, apiLogin, apiLoginWithGoogle, apiLogout } from '~/api/auth';
 
 /** JWT アクセストークン。Cookie で SSR/CSR 両対応。 */
 export const useAuthToken = () =>
@@ -54,6 +54,8 @@ export const useAuth = () => {
 
   const logout = async (redirectToLogin = true) => {
     const tenantKey = me.value?.tenant.key;
+    // リフレッシュトークンをサーバ側で失効（ベストエフォート。失敗してもログアウトは続行）
+    await apiLogout().catch(() => {});
     token.value = null;
     me.value = null;
     if (redirectToLogin && import.meta.client) {
