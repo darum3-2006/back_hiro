@@ -86,6 +86,17 @@ export const apiCountTasks = async (
   return res.count;
 };
 
+/** GET /api/projects/:projectId/tasks/by-seq/:seq — 一覧に載らないタスク（完了済み等）の単体解決 */
+export const apiGetTaskBySeq = (
+  api: typeof $fetch,
+  projectId: string,
+  seq: number,
+): Promise<Task> => api<Task>(`/projects/${projectId}/tasks/by-seq/${seq}`);
+
+/** GET /api/projects/:projectId/tasks/:id */
+export const apiGetTask = (api: typeof $fetch, projectId: string, id: string): Promise<Task> =>
+  api<Task>(`/projects/${projectId}/tasks/${id}`);
+
 /** POST /api/projects/:projectId/tasks */
 export const apiCreateTask = (
   api: typeof $fetch,

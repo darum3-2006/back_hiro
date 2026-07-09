@@ -5,6 +5,7 @@ import {
   Get,
   HttpCode,
   Param,
+  ParseIntPipe,
   ParseUUIDPipe,
   Patch,
   Post,
@@ -41,6 +42,17 @@ export class TasksController {
     @Query() filter: TaskFilterDto,
   ) {
     return { count: await this.tasks.count(user.tenantId, projectId, filter) };
+  }
+
+  // ':id' より前に宣言する（後だと 'by-seq' が :id の ParseUUIDPipe に捕まり 400 になる）。
+  // 一覧に載らないタスク（完了済み等）を ?task=seq のディープリンク/通知から開くための単体解決。
+  @Get('by-seq/:seq')
+  findBySeq(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('projectId', new ParseUUIDPipe()) projectId: string,
+    @Param('seq', ParseIntPipe) seq: number,
+  ) {
+    return this.tasks.findBySeqInProject(user.tenantId, projectId, seq);
   }
 
   @Get(':id')

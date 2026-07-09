@@ -11,7 +11,13 @@ import {
   apiUpdateSavedView,
 } from '~/api/saved-views';
 import { apiUpdateSubtask } from '~/api/subtasks';
-import { apiBulkUpdateTasks, apiUpdateTask, type BulkUpdateTasksInput } from '~/api/tasks';
+import {
+  apiBulkUpdateTasks,
+  apiGetTask,
+  apiGetTaskBySeq,
+  apiUpdateTask,
+  type BulkUpdateTasksInput,
+} from '~/api/tasks';
 import type { DateRangeValue } from '~/components/DateRangeFilter.vue';
 import type { SavedView, SavedViewConfig, SavedViewVisibility } from '~/types/saved-view';
 import type { SubtaskRow } from '~/types/subtask';
@@ -499,6 +505,9 @@ const toast = useToast();
 // - UUID 等 seq 以外で解決できた場合 → URL を seq へ正規化
 // 同じ param に対して一覧の再取得を一度だけ試したか（無限ループ防止）
 let refreshedForParam: string | null = null;
+// 解決処理（再取得→単体取得）の実行中フラグ。処理中は watcher の再入で
+// 「見つかりません」を誤発火しない（refreshTasks の status 変化で再入するため）。
+let resolvingParam = false;
 const normalizeTaskParam = async () => {
   const raw = taskParam.value;
   if (raw === null) {
@@ -508,12 +517,34 @@ const normalizeTaskParam = async () => {
   // 一覧の読込が完了するまでは判定しない（取得中に selectedTask が一時的に null になり
   // 「見つかりません」を誤発火するのを防ぐ）。
   if (tasksStatus.value !== 'success') return;
+  if (resolvingParam) return;
 
   // 読込済みでも見つからない場合、一覧が古い可能性（他ユーザーが作成した新着タスクを
   // 通知から開いた等）。同じ param につき一度だけ再取得してから再判定する。
   if (!selectedTask.value && refreshedForParam !== raw) {
     refreshedForParam = raw;
-    await refreshTasks();
+    resolvingParam = true;
+    try {
+      await refreshTasks();
+      // 再取得でも解決できない場合、一覧の取得対象外（完了済み等）の可能性。
+      // 単体取得で解決してキャッシュに載せ、スライドを開けるようにする。
+      if (!selectedTask.value) {
+        try {
+          const n = Number(raw);
+          const fetched =
+            Number.isInteger(n) && n > 0
+              ? await apiGetTaskBySeq(api, currentProjectId.value, n)
+              : await apiGetTask(api, currentProjectId.value, raw); // 旧 URL の UUID 互換
+          openTaskCache.value = fetched;
+        } catch {
+          // 単体でも見つからない → 下の「見つかりません」処理へ
+        }
+      }
+    } finally {
+      resolvingParam = false;
+    }
+    // 解決中に別のタスクへ移った/閉じた場合は、この呼び出しでは何もしない
+    if (taskParam.value !== raw) return;
   }
 
   const task = selectedTask.value;
@@ -608,18 +639,18 @@ const hasNonDeadlineDateFilter = computed(
     updatedAtFilter.isActive.value,
 );
 
-// 一覧に出すサブタスク行（担当/期限/検索/完了表示を適用。ステータス等の絞り込み時は除外）
+// 一覧に出すサブタスク行（担当/期限/検索/フラグ/完了表示を適用。ステータス等の絞り込み時は除外）
 const filteredSubtaskRows = computed<SubtaskRow[]>(() => {
   if (
     appliedStatusFilter.value.length > 0 ||
     appliedPriorityFilter.value.length > 0 ||
     appliedTagFilter.value.length > 0 ||
-    appliedFlagFilter.value.length > 0 ||
     hasNonDeadlineDateFilter.value
   ) {
     return [];
   }
   const assigneeSet = new Set(appliedAssigneeFilter.value);
+  const flagSet = new Set(appliedFlagFilter.value);
   return projectSubtasks.value.filter((s) => {
     if (!showCompleted.value && s.done) return false;
     if (search.value) {
@@ -636,6 +667,8 @@ const filteredSubtaskRows = computed<SubtaskRow[]>(() => {
       const matchesId = s.assigneeMemberId && assigneeSet.has(s.assigneeMemberId);
       if (!matchesNone && !matchesId) return false;
     }
+    // フラグは子も自分の値を持つのでフィルタを適用する
+    if (flagSet.size > 0 && !s.flagCodes.some((c) => flagSet.has(c))) return false;
     if (!matchesDateRange(s.deadline, deadlineFilter.range.value)) return false;
     return true;
   });
@@ -669,7 +702,7 @@ const displayRows = computed<Task[]>(() => {
     id: s.id,
     projectId: s.projectId,
     shortCode: '',
-    seq: Number.MAX_SAFE_INTEGER, // No 昇順ソートで子を末尾へ
+    seq: s.parentSeq, // No ソートは親タスクの位置に子がまとまる（親行は畳まれて出ないため）
     content: s.title,
     description: '',
     links: [],
@@ -685,7 +718,7 @@ const displayRows = computed<Task[]>(() => {
     completedAt: null,
     statusChangedAt: s.updatedAt,
     tagCodes: [],
-    flagCodes: [],
+    flagCodes: s.flagCodes,
     commentCount: 0,
     createdAt: s.createdAt,
     updatedAt: s.updatedAt,
@@ -700,10 +733,10 @@ const toggleSubtaskDone = async (s: SubtaskRow, done: boolean) => {
   await apiUpdateSubtask(api, currentProjectId.value, s.taskId, s.id, { done });
   await refreshSubtasks();
 };
-// 子行の担当・期限のインライン編集
+// 子行の担当・期限・フラグのインライン編集
 const updateSubtaskField = async (
   s: SubtaskRow,
-  patch: { assigneeMemberId?: string | null; deadline?: string | null },
+  patch: { assigneeMemberId?: string | null; deadline?: string | null; flagCodes?: string[] },
 ) => {
   await apiUpdateSubtask(api, currentProjectId.value, s.taskId, s.id, patch);
   await refreshSubtasks();
@@ -2541,7 +2574,32 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
           </template>
 
           <template #flagCodes-cell="{ row }">
-            <span v-if="isSubRow(row.original)" />
+            <TagPicker
+              v-if="isSubRow(row.original)"
+              :tags="flags"
+              :selected="subOf(row.original)!.flagCodes"
+              @update:selected="
+                (codes: string[]) => updateSubtaskField(subOf(row.original)!, { flagCodes: codes })
+              "
+            >
+              <button class="flex flex-wrap gap-1 cursor-pointer min-w-12">
+                <UBadge
+                  v-for="code in subOf(row.original)!.flagCodes"
+                  :key="code"
+                  :color="flagMap[code]?.color ?? 'neutral'"
+                  variant="soft"
+                  size="sm"
+                  :label="flagMap[code]?.name ?? code"
+                />
+                <UBadge
+                  v-if="subOf(row.original)!.flagCodes.length === 0"
+                  color="neutral"
+                  variant="outline"
+                  label="+ フラグ"
+                  size="sm"
+                />
+              </button>
+            </TagPicker>
             <TagPicker
               v-else
               :tags="flags"
