@@ -11,7 +11,13 @@ import {
   apiUpdateSavedView,
 } from '~/api/saved-views';
 import { apiUpdateSubtask } from '~/api/subtasks';
-import { apiBulkUpdateTasks, apiUpdateTask, type BulkUpdateTasksInput } from '~/api/tasks';
+import {
+  apiBulkUpdateTasks,
+  apiGetTask,
+  apiGetTaskBySeq,
+  apiUpdateTask,
+  type BulkUpdateTasksInput,
+} from '~/api/tasks';
 import type { DateRangeValue } from '~/components/DateRangeFilter.vue';
 import type { SavedView, SavedViewConfig, SavedViewVisibility } from '~/types/saved-view';
 import type { SubtaskRow } from '~/types/subtask';
@@ -499,6 +505,9 @@ const toast = useToast();
 // - UUID 等 seq 以外で解決できた場合 → URL を seq へ正規化
 // 同じ param に対して一覧の再取得を一度だけ試したか（無限ループ防止）
 let refreshedForParam: string | null = null;
+// 解決処理（再取得→単体取得）の実行中フラグ。処理中は watcher の再入で
+// 「見つかりません」を誤発火しない（refreshTasks の status 変化で再入するため）。
+let resolvingParam = false;
 const normalizeTaskParam = async () => {
   const raw = taskParam.value;
   if (raw === null) {
@@ -508,12 +517,34 @@ const normalizeTaskParam = async () => {
   // 一覧の読込が完了するまでは判定しない（取得中に selectedTask が一時的に null になり
   // 「見つかりません」を誤発火するのを防ぐ）。
   if (tasksStatus.value !== 'success') return;
+  if (resolvingParam) return;
 
   // 読込済みでも見つからない場合、一覧が古い可能性（他ユーザーが作成した新着タスクを
   // 通知から開いた等）。同じ param につき一度だけ再取得してから再判定する。
   if (!selectedTask.value && refreshedForParam !== raw) {
     refreshedForParam = raw;
-    await refreshTasks();
+    resolvingParam = true;
+    try {
+      await refreshTasks();
+      // 再取得でも解決できない場合、一覧の取得対象外（完了済み等）の可能性。
+      // 単体取得で解決してキャッシュに載せ、スライドを開けるようにする。
+      if (!selectedTask.value) {
+        try {
+          const n = Number(raw);
+          const fetched =
+            Number.isInteger(n) && n > 0
+              ? await apiGetTaskBySeq(api, currentProjectId.value, n)
+              : await apiGetTask(api, currentProjectId.value, raw); // 旧 URL の UUID 互換
+          openTaskCache.value = fetched;
+        } catch {
+          // 単体でも見つからない → 下の「見つかりません」処理へ
+        }
+      }
+    } finally {
+      resolvingParam = false;
+    }
+    // 解決中に別のタスクへ移った/閉じた場合は、この呼び出しでは何もしない
+    if (taskParam.value !== raw) return;
   }
 
   const task = selectedTask.value;
