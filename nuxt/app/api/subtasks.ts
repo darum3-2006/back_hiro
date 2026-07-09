@@ -12,6 +12,8 @@ export interface CreateSubtaskInput {
   deadline?: string | null;
   memo?: string | null;
   done?: boolean;
+  /** フラグコード（全置換） */
+  flagCodes?: string[];
 }
 
 export type UpdateSubtaskInput = Partial<CreateSubtaskInput>;

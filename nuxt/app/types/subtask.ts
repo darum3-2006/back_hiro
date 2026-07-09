@@ -9,6 +9,8 @@ export interface Subtask {
   memo: string | null;
   done: boolean;
   completedAt: string | null;
+  /** フラグコード（project-scoped の Flag マスタ参照） */
+  flagCodes: string[];
   position: number;
   createdAt: string;
   updatedAt: string;

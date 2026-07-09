@@ -1,4 +1,6 @@
 import {
+  ArrayUnique,
+  IsArray,
   IsBoolean,
   IsDateString,
   IsOptional,
@@ -31,4 +33,11 @@ export class UpdateSubtaskDto {
   @IsOptional()
   @IsBoolean()
   done?: boolean;
+
+  /** フラグコード（全置換。タスクと同じ流儀） */
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsString({ each: true })
+  flagCodes?: string[];
 }

@@ -842,6 +842,7 @@ const flagsList = computed(() => Object.values(props.flagMap));
           :parent-deadline="task.deadline"
           :parent-terminal="statusMap[task.statusCode]?.isTerminal ?? false"
           :tasks="tasks"
+          :flags="Object.values(flagMap)"
           @changed="onSubtasksChanged"
         />
 

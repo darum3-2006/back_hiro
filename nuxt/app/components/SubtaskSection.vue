@@ -7,6 +7,7 @@ import {
   apiReorderSubtasks,
   apiUpdateSubtask,
 } from '~/api/subtasks';
+import type { Flag } from '~/types/master';
 import type { Member } from '~/types/member';
 import type { Subtask } from '~/types/subtask';
 import type { Task } from '~/types/task';
@@ -24,6 +25,8 @@ const props = defineProps<{
   tasks?: Task[];
   /** 「自分を割り当て」用の現在ユーザーの member id */
   currentMemberId?: string | null;
+  /** フラグマスタ（付け外し用） */
+  flags?: Flag[];
 }>();
 
 const emit = defineEmits<{
@@ -61,6 +64,8 @@ const memberItems = computed(() =>
 );
 const memberName = (id: string | null): string =>
   id ? (props.members.find((m) => m.id === id)?.displayName ?? '不明') : '担当者なし';
+
+const flagMap = computed(() => Object.fromEntries((props.flags ?? []).map((f) => [f.code, f])));
 
 const isOverParent = (deadline: string | null): boolean =>
   Boolean(deadline && props.parentDeadline && deadline > props.parentDeadline);
@@ -282,6 +287,30 @@ const onReorder = async () => {
                 />
               </button>
             </DatePopover>
+
+            <TagPicker
+              v-if="(flags ?? []).length > 0"
+              :tags="flags!"
+              :selected="s.flagCodes"
+              @update:selected="(codes: string[]) => patch(s.id, { flagCodes: codes })"
+            >
+              <button class="inline-flex flex-wrap items-center gap-1 hover:text-default">
+                <template v-if="s.flagCodes.length > 0">
+                  <UBadge
+                    v-for="code in s.flagCodes"
+                    :key="code"
+                    :color="flagMap[code]?.color ?? 'neutral'"
+                    variant="soft"
+                    size="sm"
+                    :label="flagMap[code]?.name ?? code"
+                  />
+                </template>
+                <template v-else>
+                  <UIcon name="i-lucide-bookmark" class="size-3.5" />
+                  フラグなし
+                </template>
+              </button>
+            </TagPicker>
 
             <button
               class="inline-flex items-center gap-1 hover:text-default"

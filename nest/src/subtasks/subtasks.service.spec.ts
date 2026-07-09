@@ -3,6 +3,7 @@ import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import type { EntityManager, Repository } from 'typeorm';
 import { AuditService } from '../audit/audit.service';
+import { Flag } from '../masters/flag.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { SlackService } from '../slack/slack.service';
 import { TaskStatus } from '../masters/task-status.entity';
@@ -10,6 +11,7 @@ import { ProjectMember } from '../members/member.entity';
 import type { Project } from '../projects/project.entity';
 import { ProjectsService } from '../projects/projects.service';
 import { Task } from '../tasks/task.entity';
+import { SubtaskFlag } from './subtask-flag.entity';
 import { Subtask } from './subtask.entity';
 import { SubtasksService } from './subtasks.service';
 
@@ -27,6 +29,8 @@ describe('SubtasksService', () => {
   let auditRecord: jest.Mock;
   let slack: { notifySubtaskAdded: jest.Mock; notifySubtaskCompleted: jest.Mock };
   let notifications: { onSubtaskAssigned: jest.Mock };
+  let emFlagRepo: { find: jest.Mock };
+  let emSubtaskFlagRepo: { delete: jest.Mock; save: jest.Mock; create: jest.Mock };
 
   const tenantId = 'tenant-1';
   const projectId = 'project-1';
@@ -40,6 +44,25 @@ describe('SubtasksService', () => {
       select: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       getRawOne: jest.fn().mockResolvedValue({ maxPos: 2 }),
+    };
+    // attachFlagCodes 用（既定はフラグなし）
+    const flagJoinQb = {
+      innerJoin: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValue([]),
+    };
+    // トランザクション内の replaceSubtaskFlags 用（エンティティごとに repo を出し分け）
+    emFlagRepo = { find: jest.fn().mockResolvedValue([]) };
+    emSubtaskFlagRepo = {
+      delete: jest.fn(),
+      save: jest.fn(),
+      create: jest.fn((d: unknown) => d),
+    };
+    const emDefaultRepo = {
+      save: jest.fn((e: Subtask) => Promise.resolve({ ...e, id: e.id ?? 'st1' })),
+      remove: jest.fn(),
+      update: jest.fn(),
     };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -56,16 +79,28 @@ describe('SubtasksService', () => {
             manager: {
               transaction: jest.fn((cb: (m: EntityManager) => Promise<unknown>) =>
                 cb({
-                  getRepository: () => ({
-                    save: jest.fn((e: Subtask) => Promise.resolve({ ...e, id: e.id ?? 'st1' })),
-                    remove: jest.fn(),
-                    update: jest.fn(),
-                  }),
+                  getRepository: (entity: unknown) =>
+                    entity === Flag
+                      ? emFlagRepo
+                      : entity === SubtaskFlag
+                        ? emSubtaskFlagRepo
+                        : emDefaultRepo,
                 } as unknown as EntityManager),
               ),
             },
           },
         },
+        {
+          provide: getRepositoryToken(SubtaskFlag),
+          useValue: {
+            createQueryBuilder: jest.fn(() => flagJoinQb),
+            delete: jest.fn(),
+            save: jest.fn(),
+            create: jest.fn((d: unknown) => d),
+            manager: { transaction: jest.fn() },
+          },
+        },
+        { provide: getRepositoryToken(Flag), useValue: { find: jest.fn().mockResolvedValue([]) } },
         { provide: getRepositoryToken(Task), useValue: { findOne: jest.fn() } },
         { provide: getRepositoryToken(ProjectMember), useValue: { findOne: jest.fn() } },
         { provide: getRepositoryToken(TaskStatus), useValue: { findOne: jest.fn() } },
@@ -223,6 +258,26 @@ describe('SubtasksService', () => {
         'm2',
         actor,
       );
+    });
+
+    it('flagCodes 指定で subtask_flags を全置換する（不正コードは無視）', async () => {
+      tasksRepo.findOne.mockResolvedValue(parentTask);
+      subtasksRepo.findOne.mockResolvedValue({ id: 'st1', taskId, done: false } as Subtask);
+      emFlagRepo.find.mockResolvedValue([{ id: 'f1', code: 'urgent' }]);
+
+      await service.update(
+        tenantId,
+        projectId,
+        taskId,
+        'st1',
+        { flagCodes: ['urgent', 'ghost'] },
+        actor,
+      );
+
+      expect(emSubtaskFlagRepo.delete).toHaveBeenCalledWith({ subtaskId: 'st1' });
+      expect(emSubtaskFlagRepo.save).toHaveBeenCalledWith([
+        expect.objectContaining({ subtaskId: 'st1', flagId: 'f1' }),
+      ]);
     });
 
     it('親が終端のとき、子の完了解除（done=false）は拒否', async () => {
