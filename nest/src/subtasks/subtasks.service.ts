@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, In, Repository } from 'typeorm';
 import { AuditService } from '../audit/audit.service';
+import { Flag } from '../masters/flag.entity';
 import { TaskStatus } from '../masters/task-status.entity';
 import { ProjectMember } from '../members/member.entity';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -11,10 +12,16 @@ import { Task } from '../tasks/task.entity';
 import { CreateSubtaskDto } from './dto/create-subtask.dto';
 import { ReorderSubtasksDto } from './dto/reorder-subtasks.dto';
 import { UpdateSubtaskDto } from './dto/update-subtask.dto';
+import { SubtaskFlag } from './subtask-flag.entity';
 import { Subtask } from './subtask.entity';
 
+/** フロント返却用のサブタスク形（flagCodes 付き）。 */
+export interface SubtaskResponse extends Subtask {
+  flagCodes: string[];
+}
+
 /** 一覧（案X）用: サブタスク＋親タスクの seq / content を添えた行。 */
-export interface SubtaskRowResponse extends Subtask {
+export interface SubtaskRowResponse extends SubtaskResponse {
   parentSeq: number;
   parentContent: string;
   /** 親タスクの期限（子が超過していたら一覧で警告する） */
@@ -26,6 +33,10 @@ export class SubtasksService {
   constructor(
     @InjectRepository(Subtask)
     private readonly subtasks: Repository<Subtask>,
+    @InjectRepository(SubtaskFlag)
+    private readonly subtaskFlags: Repository<SubtaskFlag>,
+    @InjectRepository(Flag)
+    private readonly flags: Repository<Flag>,
     @InjectRepository(Task)
     private readonly tasks: Repository<Task>,
     @InjectRepository(ProjectMember)
@@ -38,9 +49,14 @@ export class SubtasksService {
     private readonly notifications: NotificationsService,
   ) {}
 
-  async listByTask(tenantId: string, projectId: string, taskId: string): Promise<Subtask[]> {
+  async listByTask(
+    tenantId: string,
+    projectId: string,
+    taskId: string,
+  ): Promise<SubtaskResponse[]> {
     await this.assertTaskInProject(tenantId, projectId, taskId);
-    return this.subtasks.find({ where: { taskId }, order: { position: 'ASC' } });
+    const subs = await this.subtasks.find({ where: { taskId }, order: { position: 'ASC' } });
+    return this.attachFlagCodes(subs);
   }
 
   /** プロジェクト内の全サブタスクを、親タスクの seq / content 付きで返す（一覧の子行用）。 */
@@ -51,13 +67,14 @@ export class SubtasksService {
       order: { taskId: 'ASC', position: 'ASC' },
     });
     if (subs.length === 0) return [];
+    const withFlags = await this.attachFlagCodes(subs);
     const taskIds = [...new Set(subs.map((s) => s.taskId))];
     const tasks = await this.tasks.find({
       where: { id: In(taskIds) },
       select: { id: true, seq: true, content: true, deadline: true },
     });
     const map = new Map(tasks.map((t) => [t.id, t]));
-    return subs.map((s) => ({
+    return withFlags.map((s) => ({
       ...s,
       parentSeq: map.get(s.taskId)?.seq ?? 0,
       parentContent: map.get(s.taskId)?.content ?? '',
@@ -71,7 +88,7 @@ export class SubtasksService {
     taskId: string,
     dto: CreateSubtaskDto,
     actingUserId: string,
-  ): Promise<Subtask> {
+  ): Promise<SubtaskResponse> {
     const task = await this.assertTaskInProject(tenantId, projectId, taskId);
     // 不変条件: 親が終端（完了扱い）の間は未完了の子を増やせない
     if (await this.isTerminal(projectId, task.statusCode)) {
@@ -95,6 +112,9 @@ export class SubtasksService {
     });
     const saved = await this.subtasks.manager.transaction(async (em) => {
       const s = await em.getRepository(Subtask).save(subtask);
+      if (dto.flagCodes && dto.flagCodes.length > 0) {
+        await this.replaceSubtaskFlags(projectId, s.id, dto.flagCodes, em);
+      }
       await this.recordAudit(
         em,
         tenantId,
@@ -117,7 +137,8 @@ export class SubtasksService {
         actingUserId,
       );
     }
-    return saved;
+    const [withFlags] = await this.attachFlagCodes([saved]);
+    return withFlags;
   }
 
   async update(
@@ -127,7 +148,7 @@ export class SubtasksService {
     id: string,
     dto: UpdateSubtaskDto,
     actingUserId: string,
-  ): Promise<Subtask> {
+  ): Promise<SubtaskResponse> {
     const task = await this.assertTaskInProject(tenantId, projectId, taskId);
     const subtask = await this.findInTask(taskId, id);
     const prevAssignee = subtask.assigneeMemberId;
@@ -156,6 +177,9 @@ export class SubtasksService {
     }
     const saved = await this.subtasks.manager.transaction(async (em) => {
       const s = await em.getRepository(Subtask).save(subtask);
+      if (dto.flagCodes !== undefined) {
+        await this.replaceSubtaskFlags(projectId, s.id, dto.flagCodes, em);
+      }
       if (doneChanged) {
         await this.recordAudit(
           em,
@@ -182,7 +206,8 @@ export class SubtasksService {
         actingUserId,
       );
     }
-    return saved;
+    const [withFlags] = await this.attachFlagCodes([saved]);
+    return withFlags;
   }
 
   async remove(
@@ -285,6 +310,49 @@ export class SubtasksService {
       },
       em,
     );
+  }
+
+  /**
+   * flag_codes 配列に従って subtask_flags を全置換（タスクの replaceTaskFlags と同じ流儀）。
+   * 不正な flagCode（同プロジェクト内に存在しない）は黙って無視。
+   * manager を渡すと呼び出し側のトランザクションに参加する。
+   */
+  private async replaceSubtaskFlags(
+    projectId: string,
+    subtaskId: string,
+    flagCodes: string[],
+    manager?: EntityManager,
+  ): Promise<void> {
+    const run = async (em: EntityManager) => {
+      const flagsRepo = em.getRepository(Flag);
+      const flagsInProject = await flagsRepo.find({ where: { projectId, code: In(flagCodes) } });
+      const sfRepo = em.getRepository(SubtaskFlag);
+      await sfRepo.delete({ subtaskId });
+      if (flagsInProject.length === 0) return;
+      const rows = flagsInProject.map((f) => sfRepo.create({ subtaskId, flagId: f.id }));
+      await sfRepo.save(rows);
+    };
+    if (manager) return run(manager);
+    return this.subtaskFlags.manager.transaction(run);
+  }
+
+  /** サブタスク群に flagCodes を付与する（1 クエリでまとめて解決）。 */
+  private async attachFlagCodes(subs: Subtask[]): Promise<SubtaskResponse[]> {
+    if (subs.length === 0) return [];
+    const ids = subs.map((s) => s.id);
+    const rows = await this.subtaskFlags
+      .createQueryBuilder('sf')
+      .innerJoin(Flag, 'flag', 'flag.id = sf.flag_id')
+      .select(['sf.subtask_id AS subtaskId', 'flag.code AS code'])
+      .where('sf.subtask_id IN (:...ids)', { ids })
+      .getRawMany<{ subtaskId: string; code: string }>();
+    const map = new Map<string, string[]>();
+    for (const r of rows) {
+      const arr = map.get(r.subtaskId) ?? [];
+      arr.push(r.code);
+      map.set(r.subtaskId, arr);
+    }
+    return subs.map((s) => ({ ...s, flagCodes: map.get(s.id) ?? [] }));
   }
 
   private async assertMemberInProject(projectId: string, memberId: string): Promise<void> {

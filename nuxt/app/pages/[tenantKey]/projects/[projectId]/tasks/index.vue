@@ -639,18 +639,18 @@ const hasNonDeadlineDateFilter = computed(
     updatedAtFilter.isActive.value,
 );
 
-// 一覧に出すサブタスク行（担当/期限/検索/完了表示を適用。ステータス等の絞り込み時は除外）
+// 一覧に出すサブタスク行（担当/期限/検索/フラグ/完了表示を適用。ステータス等の絞り込み時は除外）
 const filteredSubtaskRows = computed<SubtaskRow[]>(() => {
   if (
     appliedStatusFilter.value.length > 0 ||
     appliedPriorityFilter.value.length > 0 ||
     appliedTagFilter.value.length > 0 ||
-    appliedFlagFilter.value.length > 0 ||
     hasNonDeadlineDateFilter.value
   ) {
     return [];
   }
   const assigneeSet = new Set(appliedAssigneeFilter.value);
+  const flagSet = new Set(appliedFlagFilter.value);
   return projectSubtasks.value.filter((s) => {
     if (!showCompleted.value && s.done) return false;
     if (search.value) {
@@ -667,6 +667,8 @@ const filteredSubtaskRows = computed<SubtaskRow[]>(() => {
       const matchesId = s.assigneeMemberId && assigneeSet.has(s.assigneeMemberId);
       if (!matchesNone && !matchesId) return false;
     }
+    // フラグは子も自分の値を持つのでフィルタを適用する
+    if (flagSet.size > 0 && !s.flagCodes.some((c) => flagSet.has(c))) return false;
     if (!matchesDateRange(s.deadline, deadlineFilter.range.value)) return false;
     return true;
   });
@@ -716,7 +718,7 @@ const displayRows = computed<Task[]>(() => {
     completedAt: null,
     statusChangedAt: s.updatedAt,
     tagCodes: [],
-    flagCodes: [],
+    flagCodes: s.flagCodes,
     commentCount: 0,
     createdAt: s.createdAt,
     updatedAt: s.updatedAt,
@@ -731,10 +733,10 @@ const toggleSubtaskDone = async (s: SubtaskRow, done: boolean) => {
   await apiUpdateSubtask(api, currentProjectId.value, s.taskId, s.id, { done });
   await refreshSubtasks();
 };
-// 子行の担当・期限のインライン編集
+// 子行の担当・期限・フラグのインライン編集
 const updateSubtaskField = async (
   s: SubtaskRow,
-  patch: { assigneeMemberId?: string | null; deadline?: string | null },
+  patch: { assigneeMemberId?: string | null; deadline?: string | null; flagCodes?: string[] },
 ) => {
   await apiUpdateSubtask(api, currentProjectId.value, s.taskId, s.id, patch);
   await refreshSubtasks();
@@ -2572,7 +2574,32 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
           </template>
 
           <template #flagCodes-cell="{ row }">
-            <span v-if="isSubRow(row.original)" />
+            <TagPicker
+              v-if="isSubRow(row.original)"
+              :tags="flags"
+              :selected="subOf(row.original)!.flagCodes"
+              @update:selected="
+                (codes: string[]) => updateSubtaskField(subOf(row.original)!, { flagCodes: codes })
+              "
+            >
+              <button class="flex flex-wrap gap-1 cursor-pointer min-w-12">
+                <UBadge
+                  v-for="code in subOf(row.original)!.flagCodes"
+                  :key="code"
+                  :color="flagMap[code]?.color ?? 'neutral'"
+                  variant="soft"
+                  size="sm"
+                  :label="flagMap[code]?.name ?? code"
+                />
+                <UBadge
+                  v-if="subOf(row.original)!.flagCodes.length === 0"
+                  color="neutral"
+                  variant="outline"
+                  label="+ フラグ"
+                  size="sm"
+                />
+              </button>
+            </TagPicker>
             <TagPicker
               v-else
               :tags="flags"
