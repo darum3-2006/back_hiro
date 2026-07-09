@@ -700,7 +700,7 @@ const displayRows = computed<Task[]>(() => {
     id: s.id,
     projectId: s.projectId,
     shortCode: '',
-    seq: Number.MAX_SAFE_INTEGER, // No 昇順ソートで子を末尾へ
+    seq: s.parentSeq, // No ソートは親タスクの位置に子がまとまる（親行は畳まれて出ないため）
     content: s.title,
     description: '',
     links: [],
