@@ -194,8 +194,13 @@ export class SubtasksService {
       return s;
     });
     // 通知はトランザクション外でベストエフォート
-    if (doneChanged && saved.done) {
-      await this.slack.notifySubtaskCompleted(tenantId, task, saved.title);
+    if (doneChanged) {
+      if (saved.done) {
+        await this.slack.notifySubtaskCompleted(tenantId, task, saved.title);
+      } else {
+        // 完了から戻した = ステータス変更として通知（「ステータスが変わったとき」トグル）
+        await this.slack.notifySubtaskReopened(tenantId, task, saved.title);
+      }
     }
     if (assigneeAssigned) {
       await this.notifications.onSubtaskAssigned(

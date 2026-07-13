@@ -27,7 +27,11 @@ describe('SubtasksService', () => {
   let membersRepo: jest.Mocked<Pick<Repository<ProjectMember>, 'findOne'>>;
   let statusesRepo: jest.Mocked<Pick<Repository<TaskStatus>, 'findOne'>>;
   let auditRecord: jest.Mock;
-  let slack: { notifySubtaskAdded: jest.Mock; notifySubtaskCompleted: jest.Mock };
+  let slack: {
+    notifySubtaskAdded: jest.Mock;
+    notifySubtaskCompleted: jest.Mock;
+    notifySubtaskReopened: jest.Mock;
+  };
   let notifications: { onSubtaskAssigned: jest.Mock };
   let emFlagRepo: { find: jest.Mock };
   let emSubtaskFlagRepo: { delete: jest.Mock; save: jest.Mock; create: jest.Mock };
@@ -111,7 +115,11 @@ describe('SubtasksService', () => {
         { provide: AuditService, useValue: { record: jest.fn() } },
         {
           provide: SlackService,
-          useValue: { notifySubtaskAdded: jest.fn(), notifySubtaskCompleted: jest.fn() },
+          useValue: {
+            notifySubtaskAdded: jest.fn(),
+            notifySubtaskCompleted: jest.fn(),
+            notifySubtaskReopened: jest.fn(),
+          },
         },
         { provide: NotificationsService, useValue: { onSubtaskAssigned: jest.fn() } },
       ],
@@ -258,6 +266,32 @@ describe('SubtasksService', () => {
         'm2',
         actor,
       );
+    });
+
+    it('done=false（完了から戻す）で Slack のステータス変更系通知を送る', async () => {
+      tasksRepo.findOne.mockResolvedValue(parentTask);
+      statusesRepo.findOne.mockResolvedValue({ isTerminal: false } as TaskStatus);
+      subtasksRepo.findOne.mockResolvedValue({
+        id: 'st1',
+        taskId,
+        title: '子',
+        done: true,
+        completedAt: new Date(),
+      } as Subtask);
+
+      const result = await service.update(
+        tenantId,
+        projectId,
+        taskId,
+        'st1',
+        { done: false },
+        actor,
+      );
+
+      expect(result.done).toBe(false);
+      expect(result.completedAt).toBeNull();
+      expect(slack.notifySubtaskReopened).toHaveBeenCalledWith(tenantId, parentTask, '子');
+      expect(slack.notifySubtaskCompleted).not.toHaveBeenCalled();
     });
 
     it('flagCodes 指定で subtask_flags を全置換する（不正コードは無視）', async () => {
