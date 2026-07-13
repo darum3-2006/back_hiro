@@ -17,20 +17,29 @@ const isCommentEdited = (c: { createdAt: string; updatedAt: string | null }): bo
   return dayjs(c.updatedAt).diff(c.createdAt, 'second') >= 1;
 };
 
-const isOverdue = computed(() =>
-  props.task ? isTaskDatePast(props.task.deadline, props.task.statusCode, props.statusMap) : false,
+// 期限超過の強調はプロジェクト設定に従う（一覧と同じルール。設定 OFF なら赤くしない）
+const isOverdue = computed(
+  () =>
+    (currentProjectSettings.value?.highlightOverdueDeadline ?? false) &&
+    (props.task
+      ? isTaskDatePast(props.task.deadline, props.task.statusCode, props.statusMap)
+      : false),
 );
 
-const isPlannedStartOverdue = computed(() =>
-  props.task
-    ? isTaskDatePast(props.task.plannedStartDate, props.task.statusCode, props.statusMap)
-    : false,
+const isPlannedStartOverdue = computed(
+  () =>
+    (currentProjectSettings.value?.highlightOverduePlannedStart ?? false) &&
+    (props.task
+      ? isTaskDatePast(props.task.plannedStartDate, props.task.statusCode, props.statusMap)
+      : false),
 );
 
-const isPlannedCompletionOverdue = computed(() =>
-  props.task
-    ? isTaskDatePast(props.task.plannedCompletionDate, props.task.statusCode, props.statusMap)
-    : false,
+const isPlannedCompletionOverdue = computed(
+  () =>
+    (currentProjectSettings.value?.highlightOverduePlannedCompletion ?? false) &&
+    (props.task
+      ? isTaskDatePast(props.task.plannedCompletionDate, props.task.statusCode, props.statusMap)
+      : false),
 );
 
 const api = useApi();
@@ -64,6 +73,12 @@ const emit = defineEmits<{
 
 const projectIdRef = computed(() => props.task?.projectId ?? '');
 const taskIdRef = computed<string | null>(() => props.task?.id ?? null);
+
+// 期限超過の強調設定を引くためのプロジェクト情報（各ページ取得済みのキャッシュを共有）
+const { data: allProjects } = await useProjects();
+const currentProjectSettings = computed(() =>
+  allProjects.value.find((p) => p.id === props.task?.projectId),
+);
 
 const { data: comments, refresh: refreshComments } = await useTaskComments(projectIdRef, taskIdRef);
 const { data: activities, refresh: refreshActivities } = await useTaskActivities(
