@@ -89,6 +89,22 @@ export class SlackService {
     );
   }
 
+  /** サブタスクを未完了に戻した。「ステータスが変わったとき」トグルに相乗り。 */
+  async notifySubtaskReopened(
+    tenantId: string,
+    parentTask: Task,
+    subtaskTitle: string,
+  ): Promise<void> {
+    await this.dispatch(
+      tenantId,
+      parentTask,
+      'subtask_reopened',
+      (p) => p.slackNotifyStatusChanged,
+      (url) =>
+        `:arrows_counterclockwise: サブタスク「${this.esc(this.shorten(subtaskTitle))}」が未完了に戻されました（${this.taskLink(parentTask, url)}）`,
+    );
+  }
+
   /** 設定画面の「テスト送信」。Webhook 未設定なら 400、送信失敗なら例外を投げる。 */
   async sendTest(tenantId: string, projectId: string): Promise<{ ok: true }> {
     const project = await this.projects.findOne({ where: { id: projectId, tenantId } });
