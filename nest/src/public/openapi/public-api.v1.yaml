@@ -3,11 +3,11 @@ info:
   title: Backひろ 公開API
   version: 1.0.0
   description: |
-    Backひろ の公開API（read-only / Phase 1）。
+    Backひろ の公開API。読み取りに加え、プロジェクトの登録・更新に対応する。
 
     ## 認証
     APIキー認証。`Authorization: Bearer <api key>` ヘッダを付与する。
-    この公開API自体はトークンを発行しない（read-only）。
+    この公開API自体はトークンを発行しない。
     キーはアプリ画面（右上ユーザーメニュー →「APIキー」。admin / power_user のみ）で発行する。
     平文は発行時に一度だけ表示され、サーバには sha256 ハッシュのみ保存される。
     キーはユーザーに紐づき、アクセス範囲はそのユーザーの所属テナント・権限に固定される。
@@ -35,9 +35,9 @@ security:
 
 tags:
   - name: Projects
-    description: プロジェクト（読み取り）
+    description: プロジェクト（読み取り・登録・更新・アーカイブ）
   - name: Tasks
-    description: タスク（読み取り）
+    description: タスク（読み取り・登録・更新。ステータス変更・担当割り当ては専用アクション）
   - name: Masters
     description: マスタ（code/id 解決用・読み取り）
 
@@ -59,6 +59,114 @@ paths:
                   $ref: '#/components/schemas/Project'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      tags: [Projects]
+      summary: プロジェクト作成
+      description: プロジェクトを作成する。key はテナント内一意（大文字化して保存）。重複時は 409。
+      operationId: createProject
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectCreate'
+      responses:
+        '201':
+          description: 作成したプロジェクト
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /v1/projects/{key}:
+    patch:
+      tags: [Projects]
+      summary: プロジェクト更新（部分更新）
+      description: 指定したフィールドのみ更新する。公開APIから更新できるのは name / description のみ。
+      operationId: updateProject
+      parameters:
+        - $ref: '#/components/parameters/ProjectKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectUpdate'
+      responses:
+        '200':
+          description: 更新後のプロジェクト
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /v1/projects/{key}/archive:
+    post:
+      tags: [Projects]
+      summary: プロジェクトをアーカイブ
+      description: |
+        プロジェクトをアーカイブする（DELETE の代替。可逆）。admin のAPIキーのみ実行できる。
+        アーカイブ済みに対して実行しても何もせず 200 を返す（冪等）。
+      operationId: archiveProject
+      parameters:
+        - $ref: '#/components/parameters/ProjectKey'
+      responses:
+        '200':
+          description: アーカイブ後のプロジェクト
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /v1/projects/{key}/unarchive:
+    post:
+      tags: [Projects]
+      summary: プロジェクトのアーカイブを解除
+      description: |
+        アーカイブを解除する。admin のAPIキーのみ実行できる。
+        非アーカイブに対して実行しても何もせず 200 を返す（冪等）。
+      operationId: unarchiveProject
+      parameters:
+        - $ref: '#/components/parameters/ProjectKey'
+      responses:
+        '200':
+          description: 復元後のプロジェクト
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
@@ -126,6 +234,38 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+    post:
+      tags: [Tasks]
+      summary: タスク作成
+      description: |
+        タスクを作成する。ステータスは指定できず、ステータスマスタの先頭（order 最小）が自動セットされる
+        （画面の作成フォームの初期値と同じ）。担当者は POST /tasks/{seq}/member で割り当てる。
+        アーカイブ済みプロジェクトには作成できない（400）。
+      operationId: createTask
+      parameters:
+        - $ref: '#/components/parameters/ProjectKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskCreate'
+      responses:
+        '201':
+          description: 作成したタスク
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /v1/projects/{key}/tasks/{seq}:
     get:
       tags: [Tasks]
@@ -146,6 +286,104 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Task'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    patch:
+      tags: [Tasks]
+      summary: タスク更新（部分更新）
+      description: |
+        指定したフィールドのみ更新する。ステータス・担当者はここでは更新できない
+        （POST /tasks/{seq}/status・POST /tasks/{seq}/member を使う）。
+        links / tagCodes / flagCodes は送られた配列で全置換される（一部だけ送ると残りは消える）。
+      operationId: updateTask
+      parameters:
+        - $ref: '#/components/parameters/ProjectKey'
+        - $ref: '#/components/parameters/TaskSeq'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskUpdate'
+      responses:
+        '200':
+          description: 更新後のタスク
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /v1/projects/{key}/tasks/{seq}/status:
+    post:
+      tags: [Tasks]
+      summary: タスクのステータス変更
+      description: |
+        ステータスを変更する。プロジェクトのステータスマスタに存在しないコードは 400。
+        未完了のサブタスクが残っているタスクを終端（完了扱い）ステータスへ変えようとした場合も 400。
+      operationId: setTaskStatus
+      parameters:
+        - $ref: '#/components/parameters/ProjectKey'
+        - $ref: '#/components/parameters/TaskSeq'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskSetStatus'
+      responses:
+        '200':
+          description: 変更後のタスク
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /v1/projects/{key}/tasks/{seq}/member:
+    post:
+      tags: [Tasks]
+      summary: タスクの担当者割り当て
+      description: |
+        担当者を割り当てる。memberId はメンバー一覧（GET /projects/{key}/members）の id。
+        プロジェクトに存在しないメンバーは 400。memberId を null または省略すると担当なしに戻す。
+      operationId: setTaskMember
+      parameters:
+        - $ref: '#/components/parameters/ProjectKey'
+        - $ref: '#/components/parameters/TaskSeq'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskSetMember'
+      responses:
+        '200':
+          description: 変更後のタスク
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
@@ -278,6 +516,12 @@ components:
       description: '`Authorization: Bearer <api key>`。キーは bh_live_ で始まる。'
 
   parameters:
+    TaskSeq:
+      name: seq
+      in: path
+      required: true
+      description: 'プロジェクト内連番（表示用 #N）。'
+      schema: { type: integer, minimum: 1 }
     ProjectKey:
       name: key
       in: path
@@ -296,8 +540,18 @@ components:
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
+    Forbidden:
+      description: 権限不足（admin のAPIキーが必要な操作など）
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
     NotFound:
       description: プロジェクトまたはタスクが見つからない
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Conflict:
+      description: 競合（プロジェクト key の重複など）
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
@@ -310,7 +564,7 @@ components:
   schemas:
     Project:
       type: object
-      required: [key, name, description]
+      required: [key, name, description, archived]
       properties:
         key:
           type: string
@@ -321,6 +575,176 @@ components:
         description:
           type: string
           nullable: true
+        archived:
+          type: boolean
+          description: アーカイブ済みか（一覧は非アーカイブのみ返す）
+
+    ProjectCreate:
+      type: object
+      required: [key, name]
+      properties:
+        key:
+          type: string
+          maxLength: 64
+          description: テナント内一意の識別子。大文字化して保存される。
+          example: KAISYU
+        name:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 2000
+          nullable: true
+
+    ProjectUpdate:
+      type: object
+      description: 指定したフィールドのみ更新する（部分更新）。
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 2000
+          nullable: true
+
+    TaskCreate:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+          maxLength: 500
+          description: タスクのタイトル（一覧に表示される概要）。
+        description:
+          type: string
+          maxLength: 50000
+          description: 詳細説明。Markdown で記述できる（画面では整形表示される）。
+        links:
+          type: array
+          maxItems: 20
+          items: { $ref: '#/components/schemas/TaskLink' }
+          description: 関連リンク（ラベル + URL）。最大 20 件。
+        priorityCode:
+          type: string
+          nullable: true
+          description: 優先度コード。`GET /projects/{key}/priorities` の code を指定する。null で未設定。
+        requesterMemberId:
+          type: string
+          format: uuid
+          nullable: true
+          description: 起票者メンバーの id。`GET /projects/{key}/members` の id を指定する。プロジェクト外のメンバーは 400。
+        requestingDeptCode:
+          type: string
+          nullable: true
+          description: 依頼部署コード。`GET /departments` の code を指定する。null で未設定。
+        deadline:
+          type: string
+          format: date
+          nullable: true
+          description: 期限（YYYY-MM-DD）。
+        plannedStartDate:
+          type: string
+          format: date
+          nullable: true
+          description: 着手予定日（YYYY-MM-DD）。
+        plannedCompletionDate:
+          type: string
+          format: date
+          nullable: true
+          description: 完了予定日（YYYY-MM-DD）。
+        plannedReleaseDate:
+          type: string
+          format: date
+          nullable: true
+          description: リリース予定日（YYYY-MM-DD）。
+        tagCodes:
+          type: array
+          items: { type: string }
+          description: タグコードの配列。`GET /projects/{key}/tags` の code を指定する。存在しないコードは黙って無視される。
+        flagCodes:
+          type: array
+          items: { type: string }
+          description: フラグコードの配列。`GET /projects/{key}/flags` の code を指定する。存在しないコードは黙って無視される。
+
+    TaskUpdate:
+      type: object
+      description: |
+        指定したフィールドのみ更新する（部分更新）。省略したフィールドは変更されない。
+        null を指定できるフィールドは null で「未設定」に戻せる。
+        links / tagCodes / flagCodes は送られた配列で全置換される（一部だけ送ると残りは消える）。
+      properties:
+        content:
+          type: string
+          maxLength: 500
+          description: タスクのタイトル（一覧に表示される概要）。
+        description:
+          type: string
+          maxLength: 50000
+          description: 詳細説明。Markdown で記述できる。空文字で説明を消せる。
+        links:
+          type: array
+          maxItems: 20
+          items: { $ref: '#/components/schemas/TaskLink' }
+          description: 関連リンク（ラベル + URL）。**全置換**なので現在のリンクも含めて全件送ること。空配列で全削除。最大 20 件。
+        priorityCode:
+          type: string
+          nullable: true
+          description: 優先度コード。`GET /projects/{key}/priorities` の code を指定する。null で未設定に戻す。
+        requesterMemberId:
+          type: string
+          format: uuid
+          nullable: true
+          description: 起票者メンバーの id。`GET /projects/{key}/members` の id を指定する。プロジェクト外のメンバーは 400。null で未設定に戻す。
+        requestingDeptCode:
+          type: string
+          nullable: true
+          description: 依頼部署コード。`GET /departments` の code を指定する。null で未設定に戻す。
+        deadline:
+          type: string
+          format: date
+          nullable: true
+          description: 期限（YYYY-MM-DD）。null で未設定に戻す。
+        plannedStartDate:
+          type: string
+          format: date
+          nullable: true
+          description: 着手予定日（YYYY-MM-DD）。null で未設定に戻す。
+        plannedCompletionDate:
+          type: string
+          format: date
+          nullable: true
+          description: 完了予定日（YYYY-MM-DD）。null で未設定に戻す。
+        plannedReleaseDate:
+          type: string
+          format: date
+          nullable: true
+          description: リリース予定日（YYYY-MM-DD）。null で未設定に戻す。
+        tagCodes:
+          type: array
+          items: { type: string }
+          description: タグコードの配列。**全置換**なので現在のタグも含めて全件送ること。空配列で全解除。存在しないコードは黙って無視される。
+        flagCodes:
+          type: array
+          items: { type: string }
+          description: フラグコードの配列。**全置換**なので現在のフラグも含めて全件送ること。空配列で全解除。存在しないコードは黙って無視される。
+
+    TaskSetStatus:
+      type: object
+      required: [statusCode]
+      properties:
+        statusCode:
+          type: string
+          description: プロジェクトのステータスマスタの code
+
+    TaskSetMember:
+      type: object
+      properties:
+        memberId:
+          type: string
+          format: uuid
+          nullable: true
+          description: メンバー id。null または省略で担当なしに戻す
 
     TaskLink:
       type: object
