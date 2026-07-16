@@ -13,6 +13,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { interval, map, merge, type Observable } from 'rxjs';
+import { AllowReadonly } from '../auth/allow-readonly.decorator';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
@@ -58,6 +59,7 @@ export class NotificationsController {
 
   /** PATCH /api/notifications/preferences — 1 タイプの ON/OFF を更新し全件返す */
   @Patch('preferences')
+  @AllowReadonly()
   setPreference(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: UpdateNotificationPreferenceDto,
@@ -67,6 +69,7 @@ export class NotificationsController {
 
   /** POST /api/notifications/read-all — 全部既読化 */
   @Post('read-all')
+  @AllowReadonly()
   @HttpCode(204)
   markAllRead(@CurrentUser() user: AuthenticatedUser) {
     return this.notifications.markAllRead(user.tenantId, user.userId);
@@ -74,6 +77,7 @@ export class NotificationsController {
 
   /** PATCH /api/notifications/:id/read — 1 件既読化 */
   @Patch(':id/read')
+  @AllowReadonly()
   @HttpCode(204)
   markRead(@CurrentUser() user: AuthenticatedUser, @Param('id', new ParseUUIDPipe()) id: string) {
     return this.notifications.markRead(user.tenantId, user.userId, id);

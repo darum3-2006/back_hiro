@@ -4,6 +4,8 @@ import { calendarDateToIso, isoToCalendarDate } from '~/utils/date';
 
 defineProps<{
   modelValue: string | null;
+  /** true ならカレンダーを開かず、スロットを表示するだけ（readonly ユーザー等） */
+  disabled?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -26,7 +28,10 @@ const onCalendarUpdate = (d: DateValue | DateRangeLike | DateValue[] | null | un
 </script>
 
 <template>
-  <UPopover>
+  <span v-if="disabled" class="pointer-events-none">
+    <slot />
+  </span>
+  <UPopover v-else>
     <slot />
     <template #content>
       <div class="p-2 space-y-2">

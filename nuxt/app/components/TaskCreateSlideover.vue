@@ -177,6 +177,11 @@ const memberSelectItems = computed(() =>
   props.members.map((m) => ({ value: m.id, label: m.displayName })),
 );
 
+/** 担当者用（readonly ユーザー紐づきメンバーは選べない）。依頼者は memberSelectItems を使う */
+const assigneeSelectItems = computed(() =>
+  assignableMembers(props.members).map((m) => ({ value: m.id, label: m.displayName })),
+);
+
 const departmentSelectItems = computed(() =>
   props.departments.map((d) => ({ value: d.code, label: d.name })),
 );
@@ -260,7 +265,7 @@ const departmentSelectItems = computed(() =>
           <div>
             <p class="text-xs text-muted mb-1">担当者</p>
             <SelectMenu
-              :items="memberSelectItems"
+              :items="assigneeSelectItems"
               :current="draft.assigneeMemberId"
               allow-none
               none-label="担当者なし"

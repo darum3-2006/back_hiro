@@ -4,6 +4,9 @@ import type { Flag, Tag, TaskStatus } from '~/types/master';
 import type { Member } from '~/types/member';
 import type { Task } from '~/types/task';
 
+// readonly（閲覧のみ）ユーザーはドラッグでのステータス変更を不可にする
+const { isReadonly } = useAuth();
+
 const props = defineProps<{
   statuses: TaskStatus[];
   /** 絞り込み済みタスク（completed の有無はフィルタ側で制御済み） */
@@ -81,6 +84,7 @@ const onAdd = (col: Column) => {
         :group="col.status ? { name: 'board' } : { name: 'board', put: false }"
         :animation="150"
         :sort="false"
+        :disabled="isReadonly"
         class="flex min-h-12 flex-1 flex-col gap-2 overflow-y-auto px-2 pb-2"
         @start="(e: { oldIndex?: number }) => onStart(col, e)"
         @add="() => onAdd(col)"

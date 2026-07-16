@@ -15,6 +15,7 @@ import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { TenantsService } from '../tenants/tenants.service';
 import { UsersService } from '../users/users.service';
+import { AllowReadonly } from './allow-readonly.decorator';
 import { AuthService } from './auth.service';
 import { CurrentUser } from './current-user.decorator';
 import { ChangePasswordDto } from './dto/change-password.dto';
@@ -122,10 +123,11 @@ export class AuthController {
     };
   }
 
-  // 本人によるパスワード変更。総当たり対策で 1 分 5 回まで。
+  // 本人によるパスワード変更。総当たり対策で 1 分 5 回まで。readonly ユーザーも可。
   @Throttle({ default: { ttl: 60_000, limit: 5 } })
   @UseGuards(JwtAuthGuard)
   @Patch('password')
+  @AllowReadonly()
   @HttpCode(204)
   async changePassword(
     @CurrentUser() user: AuthenticatedUser,

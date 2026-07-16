@@ -8,8 +8,8 @@ export class UpdateUserDto {
   name?: string;
 
   @IsOptional()
-  @IsIn(['admin', 'power_user', 'member'])
-  role?: 'admin' | 'power_user' | 'member';
+  @IsIn(['admin', 'power_user', 'member', 'readonly'])
+  role?: 'admin' | 'power_user' | 'member' | 'readonly';
 
   /** 指定があればパスワードリセット */
   @IsOptional()

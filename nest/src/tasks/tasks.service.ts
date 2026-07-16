@@ -296,6 +296,7 @@ export class TasksService {
     actingUserId: string,
   ): Promise<TaskResponse> {
     await this.projects.findByIdInTenant(tenantId, projectId);
+    await this.assertAssignableMember(projectId, dto.assigneeMemberId);
     const seq = await this.nextSeq(projectId);
     const shortCode = await this.nextShortCode();
     const completedAt = await this.resolveCompletedAt(projectId, null, dto.statusCode, null);
@@ -354,6 +355,9 @@ export class TasksService {
     actingUserId: string,
   ): Promise<TaskResponse> {
     const task = await this.findEntityInProject(tenantId, projectId, id);
+    if (dto.assigneeMemberId !== undefined) {
+      await this.assertAssignableMember(projectId, dto.assigneeMemberId);
+    }
     // 親を終端（完了扱い）へ変えるには、サブタスクが全完了していること（副作用前に fail-fast）
     if (dto.statusCode !== undefined && dto.statusCode !== task.statusCode) {
       const newStatus = await this.statuses.findOne({
@@ -553,6 +557,24 @@ export class TasksService {
   }
 
   // ===== 内部ヘルパ =====
+
+  /**
+   * 担当者に指定されたメンバーが readonly（閲覧のみ）ユーザーに紐づく場合は拒否する。
+   * 依頼者（requester）は「閲覧のみの人からの依頼」を表現できるよう制限しない。
+   */
+  private async assertAssignableMember(
+    projectId: string,
+    memberId: string | null | undefined,
+  ): Promise<void> {
+    if (!memberId) return;
+    const member = await this.members.findOne({
+      where: { id: memberId, projectId },
+      relations: { user: true },
+    });
+    if (member?.user?.role === 'readonly') {
+      throw new BadRequestException('閲覧専用ユーザーのメンバーは担当者にできません');
+    }
+  }
 
   private async findEntityInProject(
     tenantId: string,

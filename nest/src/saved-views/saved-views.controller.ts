@@ -10,6 +10,7 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
+import { AllowReadonly } from '../auth/allow-readonly.decorator';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
@@ -30,7 +31,9 @@ export class SavedViewsController {
     return this.savedViews.listForUser(user.tenantId, projectId, user);
   }
 
+  // readonly ユーザーも自分の private ビューは操作可（private 限定は Service 側で担保）
   @Post()
+  @AllowReadonly()
   create(
     @CurrentUser() user: AuthenticatedUser,
     @Param('projectId', new ParseUUIDPipe()) projectId: string,
@@ -40,6 +43,7 @@ export class SavedViewsController {
   }
 
   @Patch(':id')
+  @AllowReadonly()
   update(
     @CurrentUser() user: AuthenticatedUser,
     @Param('projectId', new ParseUUIDPipe()) projectId: string,
@@ -51,6 +55,7 @@ export class SavedViewsController {
 
   /** 共有ビューを自分の private ビューとして複製する。 */
   @Post(':id/duplicate')
+  @AllowReadonly()
   duplicate(
     @CurrentUser() user: AuthenticatedUser,
     @Param('projectId', new ParseUUIDPipe()) projectId: string,
@@ -60,6 +65,7 @@ export class SavedViewsController {
   }
 
   @Delete(':id')
+  @AllowReadonly()
   @HttpCode(204)
   remove(
     @CurrentUser() user: AuthenticatedUser,

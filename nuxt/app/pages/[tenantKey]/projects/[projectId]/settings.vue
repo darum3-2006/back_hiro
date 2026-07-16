@@ -2,6 +2,14 @@
 const route = useRoute();
 const currentTenantKey = useCurrentTenantKey();
 
+// readonly（閲覧のみ）ユーザーは設定を変更できないため、直リンクで来てもタスク一覧へ送り返す
+const { me, isReadonly } = useAuth();
+if (me.value && isReadonly.value) {
+  await navigateTo(`/${me.value.tenant.key}/projects/${route.params.projectId}/tasks`, {
+    replace: true,
+  });
+}
+
 const projectId = computed(() => route.params.projectId as string);
 
 const { data: projects } = await useProjects();

@@ -361,9 +361,16 @@ export class SubtasksService {
   }
 
   private async assertMemberInProject(projectId: string, memberId: string): Promise<void> {
-    const member = await this.members.findOne({ where: { projectId, id: memberId } });
+    const member = await this.members.findOne({
+      where: { projectId, id: memberId },
+      relations: { user: true },
+    });
     if (!member) {
       throw new BadRequestException('指定されたメンバーはこのプロジェクトに存在しません');
+    }
+    // サブタスクでこのメンバー検証を通るのは担当者のみ（readonly 紐づきは担当にできない）
+    if (member.user?.role === 'readonly') {
+      throw new BadRequestException('閲覧専用ユーザーのメンバーは担当者にできません');
     }
   }
 

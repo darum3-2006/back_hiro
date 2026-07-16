@@ -1772,7 +1772,7 @@ watch(
 // ===== 保存ビュー (SavedView) =====
 // 表示状態は全て URL クエリにシリアライズされている。capture = クエリ + 列 ref の
 // 読み取り、apply = 列 ref を直接セット + フィルタ/ソートを URL へ全置換。
-const { me } = useAuth();
+const { me, isReadonly } = useAuth();
 const currentTenantKey = useCurrentTenantKey();
 
 const lastViewKey = computed(() => `tasks:last-view:${currentProjectId.value}`);
@@ -2161,6 +2161,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
             </template>
           </UPopover>
           <UButton
+            v-if="!isReadonly"
             color="neutral"
             variant="outline"
             icon="i-lucide-bookmark"
@@ -2168,6 +2169,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
             @click="flagOpsOpen = true"
           />
           <UButton
+            v-if="!isReadonly"
             color="primary"
             icon="i-lucide-plus"
             label="新規タスク"
@@ -2185,6 +2187,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
         description="最初のタスクを追加して進捗を記録しましょう"
       >
         <UButton
+          v-if="!isReadonly"
           color="primary"
           icon="i-lucide-plus"
           label="新規タスク"
@@ -2330,13 +2333,16 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
             @click="resetFilters"
           />
           <UCheckbox
+            v-if="!isReadonly"
             class="ml-auto"
             :model-value="someVisibleSelected ? 'indeterminate' : allVisibleSelected"
             :disabled="visibleTasks.length === 0"
             label="全選択"
             @update:model-value="(v: boolean | 'indeterminate') => toggleSelectAll(v === true)"
           />
-          <span class="text-sm text-muted"> {{ displayRows.length }} 件 </span>
+          <span class="text-sm text-muted" :class="isReadonly ? 'ml-auto' : ''">
+            {{ displayRows.length }} 件
+          </span>
         </div>
 
         <!-- 列ヘッダで設定されたフィルタは上部バーから見えないので、ここでチップ表示。
@@ -2382,6 +2388,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
           <template #seq-cell="{ row }">
             <div v-if="!isSubRow(row.original)" class="flex items-center gap-1.5">
               <UCheckbox
+                v-if="!isReadonly"
                 :model-value="isTaskSelected(row.original.id)"
                 :aria-label="`#${row.original.seq} を選択`"
                 @update:model-value="
@@ -2405,6 +2412,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
                 :aria-label="`${subOf(row.original)!.title} を完了`"
                 size="sm"
                 class="shrink-0"
+                :disabled="isReadonly"
                 @update:model-value="(v: boolean) => toggleSubtaskDone(subOf(row.original)!, v)"
               />
               <button

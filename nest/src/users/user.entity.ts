@@ -40,7 +40,8 @@ export class User extends BaseEntity {
     type: 'varchar',
     length: 16,
     default: 'member',
-    comment: 'テナント内ロール (admin = テナント管理者 / member = 通常)',
+    comment:
+      'テナント内ロール (admin = テナント管理者 / power_user / member = 通常 / readonly = 閲覧のみ)',
   })
   role!: UserRole;
 
@@ -72,4 +73,4 @@ export class User extends BaseEntity {
   apiKeyCreatedAt!: Date | null;
 }
 
-export type UserRole = 'admin' | 'power_user' | 'member';
+export type UserRole = 'admin' | 'power_user' | 'member' | 'readonly';

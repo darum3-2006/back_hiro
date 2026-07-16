@@ -18,6 +18,9 @@ const emit = defineEmits<{
 }>();
 
 const api = useApi();
+
+// readonly（閲覧のみ）ユーザーには編集 UI を出さない（API 側でも 403 で拒否される）
+const { isReadonly } = useAuth();
 const toast = useToast();
 const route = useRoute();
 const router = useRouter();
@@ -140,6 +143,7 @@ const removeRelation = async (r: TaskRelationView) => {
             />
           </button>
           <UButton
+            v-if="!isReadonly"
             icon="i-lucide-x"
             color="neutral"
             variant="ghost"
@@ -192,7 +196,7 @@ const removeRelation = async (r: TaskRelationView) => {
       </div>
     </div>
     <UButton
-      v-else
+      v-else-if="!isReadonly"
       color="neutral"
       variant="ghost"
       size="xs"

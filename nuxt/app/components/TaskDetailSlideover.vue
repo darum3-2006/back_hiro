@@ -44,6 +44,9 @@ const isPlannedCompletionOverdue = computed(
 
 const api = useApi();
 
+// readonly（閲覧のみ）ユーザーには編集 UI を一切出さない（API 側でも 403 で拒否される）
+const { isReadonly } = useAuth();
+
 const props = defineProps<{
   task: Task | null;
   /** 同プロジェクトの全タスク（#番号 リンク解決用） */
@@ -242,6 +245,7 @@ const hasTextSelection = () => {
 };
 
 const startEdit = (field: EditableField, current: string | null) => {
+  if (isReadonly.value) return;
   if (hasTextSelection()) return;
   editingField.value = field;
   editBuffer.value = current ?? '';
@@ -382,6 +386,14 @@ const memberSelectItems = computed(() =>
   Object.values(props.memberMap).map((m) => ({ value: m.id, label: m.displayName })),
 );
 
+/** 担当者用（readonly ユーザー紐づきメンバーは選べない）。依頼者は memberSelectItems を使う */
+const assigneeSelectItems = computed(() =>
+  assignableMembers(Object.values(props.memberMap)).map((m) => ({
+    value: m.id,
+    label: m.displayName,
+  })),
+);
+
 const departmentSelectItems = computed(() =>
   Object.values(props.departmentMap).map((d) => ({ value: d.code, label: d.name })),
 );
@@ -500,6 +512,7 @@ const flagsList = computed(() => Object.values(props.flagMap));
             <p class="text-xs text-muted mb-1">ステータス</p>
             <SelectMenu
               v-if="statusMap[task.statusCode]"
+              :disabled="isReadonly"
               :items="statusSelectItems"
               :current="task.statusCode"
               default-icon="i-lucide-circle-dashed"
@@ -516,6 +529,7 @@ const flagsList = computed(() => Object.values(props.flagMap));
           <div>
             <p class="text-xs text-muted mb-1">優先度</p>
             <SelectMenu
+              :disabled="isReadonly"
               :items="prioritySelectItems"
               :current="task.priorityCode"
               allow-none
@@ -541,7 +555,8 @@ const flagsList = computed(() => Object.values(props.flagMap));
           <div>
             <p class="text-xs text-muted mb-1">担当者</p>
             <SelectMenu
-              :items="memberSelectItems"
+              :disabled="isReadonly"
+              :items="assigneeSelectItems"
               :current="task.assigneeMemberId"
               :self-value="currentMemberId"
               allow-none
@@ -567,6 +582,7 @@ const flagsList = computed(() => Object.values(props.flagMap));
           <div>
             <p class="text-xs text-muted mb-1">期限</p>
             <DatePopover
+              :disabled="isReadonly"
               :model-value="task.deadline"
               @update:model-value="(v: string | null) => emit('change-field', { deadline: v })"
             >
@@ -581,6 +597,7 @@ const flagsList = computed(() => Object.values(props.flagMap));
           <div>
             <p class="text-xs text-muted mb-1">依頼部署</p>
             <SelectMenu
+              :disabled="isReadonly"
               :items="departmentSelectItems"
               :current="task.requestingDeptCode"
               allow-none
@@ -599,6 +616,7 @@ const flagsList = computed(() => Object.values(props.flagMap));
           <div>
             <p class="text-xs text-muted mb-1">依頼者</p>
             <SelectMenu
+              :disabled="isReadonly"
               :items="memberSelectItems"
               :current="task.requesterMemberId"
               allow-none
@@ -629,6 +647,7 @@ const flagsList = computed(() => Object.values(props.flagMap));
           <div>
             <p class="text-xs text-muted mb-1">着手予定日</p>
             <DatePopover
+              :disabled="isReadonly"
               :model-value="task.plannedStartDate"
               @update:model-value="
                 (v: string | null) => emit('change-field', { plannedStartDate: v })
@@ -645,6 +664,7 @@ const flagsList = computed(() => Object.values(props.flagMap));
           <div>
             <p class="text-xs text-muted mb-1">完了予定日</p>
             <DatePopover
+              :disabled="isReadonly"
               :model-value="task.plannedCompletionDate"
               @update:model-value="
                 (v: string | null) => emit('change-field', { plannedCompletionDate: v })
@@ -661,6 +681,7 @@ const flagsList = computed(() => Object.values(props.flagMap));
           <div>
             <p class="text-xs text-muted mb-1">リリース予定日</p>
             <DatePopover
+              :disabled="isReadonly"
               :model-value="task.plannedReleaseDate"
               @update:model-value="
                 (v: string | null) => emit('change-field', { plannedReleaseDate: v })
@@ -682,6 +703,7 @@ const flagsList = computed(() => Object.values(props.flagMap));
         <div>
           <p class="text-xs text-muted mb-1">タグ</p>
           <TagPicker
+            :disabled="isReadonly"
             :tags="tagsList"
             :selected="task.tagCodes"
             @update:selected="(codes: string[]) => emit('change-field', { tagCodes: codes })"
@@ -698,7 +720,7 @@ const flagsList = computed(() => Object.values(props.flagMap));
                 v-if="task.tagCodes.length === 0"
                 color="neutral"
                 variant="outline"
-                label="+ タグ"
+                :label="isReadonly ? 'なし' : '+ タグ'"
               />
             </button>
           </TagPicker>
@@ -707,6 +729,7 @@ const flagsList = computed(() => Object.values(props.flagMap));
         <div>
           <p class="text-xs text-muted mb-1">フラグ</p>
           <TagPicker
+            :disabled="isReadonly"
             :tags="flagsList"
             :selected="task.flagCodes"
             @update:selected="(codes: string[]) => emit('change-field', { flagCodes: codes })"
@@ -723,7 +746,7 @@ const flagsList = computed(() => Object.values(props.flagMap));
                 v-if="task.flagCodes.length === 0"
                 color="neutral"
                 variant="outline"
-                label="+ フラグ"
+                :label="isReadonly ? 'なし' : '+ フラグ'"
               />
             </button>
           </TagPicker>
@@ -780,6 +803,7 @@ const flagsList = computed(() => Object.values(props.flagMap));
                   @click="copyLink(link.url)"
                 />
                 <UButton
+                  v-if="!isReadonly"
                   size="xs"
                   color="neutral"
                   variant="ghost"
@@ -788,6 +812,7 @@ const flagsList = computed(() => Object.values(props.flagMap));
                   @click="startEditLink(i, link)"
                 />
                 <UButton
+                  v-if="!isReadonly"
                   size="xs"
                   color="neutral"
                   variant="ghost"
@@ -835,7 +860,7 @@ const flagsList = computed(() => Object.values(props.flagMap));
           </div>
 
           <UButton
-            v-if="editingLinkIndex !== -1"
+            v-if="!isReadonly && editingLinkIndex !== -1"
             size="xs"
             color="neutral"
             variant="ghost"
@@ -905,6 +930,7 @@ const flagsList = computed(() => Object.values(props.flagMap));
                       </span>
                       <UButton
                         v-if="
+                          !isReadonly &&
                           item.comment.authorMemberId === currentMemberId &&
                           editingCommentId !== item.comment.id
                         "
@@ -991,7 +1017,7 @@ const flagsList = computed(() => Object.values(props.flagMap));
               </template>
             </div>
 
-            <div class="mt-4 space-y-2">
+            <div v-if="!isReadonly" class="mt-4 space-y-2">
               <MarkdownEditor
                 v-model="commentBody"
                 :candidates="mentionCandidates"

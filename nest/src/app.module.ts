@@ -1,12 +1,13 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
+import { ReadonlyWriteBlockInterceptor } from './auth/readonly-write-block.interceptor';
 import { buildDatabaseOptions } from './config/database.config';
 import { CommentsModule } from './comments/comments.module';
 import { DepartmentsModule } from './departments/departments.module';
@@ -55,6 +56,11 @@ import { UsersModule } from './users/users.module';
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    // readonly（閲覧のみ）ユーザーの書き込み系リクエストを一括拒否
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: ReadonlyWriteBlockInterceptor,
     },
   ],
 })

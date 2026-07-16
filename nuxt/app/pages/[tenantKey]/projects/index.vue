@@ -7,7 +7,7 @@ const api = useApi();
 const { data: projects, refresh: refreshProjects } = await useProjects();
 const projectCreateModalOpen = useProjectCreateModalOpen();
 const currentTenantKey = useCurrentTenantKey();
-const { me } = useAuth();
+const { me, isReadonly } = useAuth();
 const isAdmin = computed(() => me.value?.role === 'admin');
 
 const showArchived = ref(false);
@@ -73,6 +73,7 @@ const columns: TableColumn<Project>[] = [
         <template #right>
           <UCheckbox v-model="showArchived" label="アーカイブ済みも表示" />
           <UButton
+            v-if="!isReadonly"
             color="primary"
             icon="i-lucide-plus"
             label="新規プロジェクト"
@@ -89,6 +90,7 @@ const columns: TableColumn<Project>[] = [
         description="新規プロジェクトを作成して、タスクの管理を始めましょう"
       >
         <UButton
+          v-if="!isReadonly"
           color="primary"
           icon="i-lucide-plus"
           label="新規プロジェクト"
@@ -118,7 +120,7 @@ const columns: TableColumn<Project>[] = [
         <template #actions-cell="{ row }">
           <div class="flex items-center justify-end gap-1">
             <UButton
-              v-if="!row.original.archivedAt"
+              v-if="!row.original.archivedAt && !isReadonly"
               icon="i-lucide-settings"
               color="neutral"
               variant="ghost"

@@ -35,6 +35,9 @@ const emit = defineEmits<{
 }>();
 
 const api = useApi();
+
+// readonly（閲覧のみ）ユーザーには編集 UI を出さない（API 側でも 403 で拒否される）
+const { isReadonly } = useAuth();
 const toast = useToast();
 
 // IME 変換中フラグ。変換確定/キャンセルの Enter・ESC を本来の操作と区別する
@@ -59,8 +62,9 @@ watch(subtasks, (v) => (rows.value = [...v]), { immediate: true });
 
 const doneCount = computed(() => rows.value.filter((s) => s.done).length);
 
+// サブタスクの担当者用（readonly ユーザー紐づきメンバーは選べない）
 const memberItems = computed(() =>
-  props.members.map((m) => ({ value: m.id, label: m.displayName })),
+  assignableMembers(props.members).map((m) => ({ value: m.id, label: m.displayName })),
 );
 const memberName = (id: string | null): string =>
   id ? (props.members.find((m) => m.id === id)?.displayName ?? '不明') : '担当者なし';
@@ -116,6 +120,7 @@ const toggleDone = (s: Subtask, done: boolean) => patch(s.id, { done });
 const editingTitleId = ref<string | null>(null);
 const titleBuffer = ref('');
 const startEditTitle = (s: Subtask) => {
+  if (isReadonly.value) return;
   editingTitleId.value = s.id;
   titleBuffer.value = s.title;
 };
@@ -192,7 +197,13 @@ const onReorder = async () => {
       このタスクは完了しています。サブタスクの追加・完了解除はできません（先に親のステータスを戻してください）。
     </p>
 
-    <VueDraggable v-model="rows" :animation="150" handle=".subtask-drag" @end="onReorder">
+    <VueDraggable
+      v-model="rows"
+      :animation="150"
+      :disabled="isReadonly"
+      handle=".subtask-drag"
+      @end="onReorder"
+    >
       <div
         v-for="s in rows"
         :key="s.id"
@@ -204,7 +215,7 @@ const onReorder = async () => {
         />
         <USwitch
           :model-value="s.done"
-          :disabled="s.done && parentTerminal"
+          :disabled="isReadonly || (s.done && parentTerminal)"
           size="sm"
           class="mt-0.5"
           :aria-label="`${s.title} を完了`"
@@ -251,6 +262,7 @@ const onReorder = async () => {
           <!-- メタ行: 担当 / 期限 / メモトグル -->
           <div class="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted">
             <SelectMenu
+              :disabled="isReadonly"
               :items="memberItems"
               :current="s.assigneeMemberId"
               :self-value="currentMemberId"
@@ -268,6 +280,7 @@ const onReorder = async () => {
             </SelectMenu>
 
             <DatePopover
+              :disabled="isReadonly"
               :model-value="s.deadline"
               @update:model-value="(v: string | null) => patch(s.id, { deadline: v })"
             >
@@ -290,6 +303,7 @@ const onReorder = async () => {
 
             <TagPicker
               v-if="(flags ?? []).length > 0"
+              :disabled="isReadonly"
               :tags="flags!"
               :selected="s.flagCodes"
               @update:selected="(codes: string[]) => patch(s.id, { flagCodes: codes })"
@@ -349,7 +363,7 @@ const onReorder = async () => {
                 <UButton size="xs" color="primary" label="保存" @click="commitMemo(s)" />
               </template>
               <UButton
-                v-else
+                v-else-if="!isReadonly"
                 size="xs"
                 color="neutral"
                 variant="ghost"
@@ -362,6 +376,7 @@ const onReorder = async () => {
         </div>
 
         <UButton
+          v-if="!isReadonly"
           color="neutral"
           variant="ghost"
           size="xs"
@@ -374,7 +389,7 @@ const onReorder = async () => {
     </VueDraggable>
 
     <!-- 追加 -->
-    <div v-if="!parentTerminal" class="mt-2 flex items-center gap-2">
+    <div v-if="!parentTerminal && !isReadonly" class="mt-2 flex items-center gap-2">
       <UInput
         v-model="newTitle"
         size="sm"

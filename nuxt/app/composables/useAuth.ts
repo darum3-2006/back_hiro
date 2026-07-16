@@ -23,6 +23,9 @@ export const useAuth = () => {
 
   const isAuthenticated = computed(() => Boolean(token.value && me.value));
 
+  /** 閲覧のみ（readonly）ユーザーか。true なら編集系 UI を出さない。 */
+  const isReadonly = computed(() => me.value?.role === 'readonly');
+
   const login = async (input: LoginInput) => {
     const res = await apiLogin($fetch.create({ baseURL: '/api' }), input);
     token.value = res.accessToken;
@@ -64,5 +67,5 @@ export const useAuth = () => {
     }
   };
 
-  return { token, me, isAuthenticated, login, loginWithGoogle, fetchMe, logout };
+  return { token, me, isAuthenticated, isReadonly, login, loginWithGoogle, fetchMe, logout };
 };
