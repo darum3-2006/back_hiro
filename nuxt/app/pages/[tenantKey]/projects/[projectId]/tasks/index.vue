@@ -328,8 +328,10 @@ const statusSelectItems = computed(() =>
 const prioritySelectItems = computed(() =>
   priorities.value.map((p) => ({ label: p.label, value: p.code })),
 );
+// このページでの用途は行内の担当者ピッカー（タスク/サブタスク）のみなので、
+// readonly（閲覧のみ）ユーザー紐づきメンバーを除外する（依頼者の行内編集は無い）
 const memberSelectItems = computed(() =>
-  members.value.map((m) => ({ label: m.displayName, value: m.id })),
+  assignableMembers(members.value).map((m) => ({ label: m.displayName, value: m.id })),
 );
 
 /** 担当者フィルタ用: 実際に誰かに割り当たっているメンバーのみ */
@@ -738,8 +740,17 @@ const updateSubtaskField = async (
   s: SubtaskRow,
   patch: { assigneeMemberId?: string | null; deadline?: string | null; flagCodes?: string[] },
 ) => {
-  await apiUpdateSubtask(api, currentProjectId.value, s.taskId, s.id, patch);
-  await refreshSubtasks();
+  try {
+    await apiUpdateSubtask(api, currentProjectId.value, s.taskId, s.id, patch);
+    await refreshSubtasks();
+  } catch (e) {
+    const message = (e as { data?: { message?: string } }).data?.message;
+    toast.add({
+      title: 'サブタスクを更新できませんでした',
+      description: message,
+      color: 'error',
+    });
+  }
 };
 // 子行クリックで親タスク詳細を開く
 const openParentOfSub = (s: SubtaskRow) => setSelectedTaskSeq(s.parentSeq);
@@ -2012,10 +2023,16 @@ const updateTaskField = async (
   taskId: string,
   patch: Partial<Omit<Task, 'id' | 'projectId' | 'createdAt' | 'seq'>>,
 ) => {
-  const updated = await apiUpdateTask(api, currentProjectId.value, taskId, patch);
-  // 開いているタスクなら、再取得で一覧から外れても詳細が最新を保てるようキャッシュ更新
-  if (openTaskCache.value?.id === updated.id) openTaskCache.value = updated;
-  await refreshTasks();
+  try {
+    const updated = await apiUpdateTask(api, currentProjectId.value, taskId, patch);
+    // 開いているタスクなら、再取得で一覧から外れても詳細が最新を保てるようキャッシュ更新
+    if (openTaskCache.value?.id === updated.id) openTaskCache.value = updated;
+    await refreshTasks();
+  } catch (e) {
+    // バリデーション（400）等の理由をそのままトーストで見せる
+    const message = (e as { data?: { message?: string } }).data?.message;
+    toast.add({ title: 'タスクを更新できませんでした', description: message, color: 'error' });
+  }
 };
 
 // ===== 一括編集: 行選択 =====
@@ -2464,6 +2481,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
           <template #assigneeMemberId-cell="{ row }">
             <SelectMenu
               v-if="isSubRow(row.original)"
+              :disabled="isReadonly"
               :items="memberSelectItems"
               :current="subOf(row.original)!.assigneeMemberId"
               :self-value="currentMemberId"
@@ -2486,6 +2504,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
             </SelectMenu>
             <SelectMenu
               v-else
+              :disabled="isReadonly"
               :items="memberSelectItems"
               :current="row.original.assigneeMemberId"
               :self-value="currentMemberId"
@@ -2508,6 +2527,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
             <span v-if="isSubRow(row.original)" />
             <SelectMenu
               v-else-if="statusMap[row.original.statusCode]"
+              :disabled="isReadonly"
               :items="statusSelectItems"
               :current="row.original.statusCode"
               default-icon="i-lucide-circle-dashed"
@@ -2528,6 +2548,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
             <span v-if="isSubRow(row.original)" />
             <SelectMenu
               v-else
+              :disabled="isReadonly"
               :items="prioritySelectItems"
               :current="row.original.priorityCode"
               allow-none
@@ -2555,6 +2576,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
             <span v-if="isSubRow(row.original)" />
             <TagPicker
               v-else
+              :disabled="isReadonly"
               :tags="tags"
               :selected="row.original.tagCodes"
               @update:selected="
@@ -2584,6 +2606,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
           <template #flagCodes-cell="{ row }">
             <TagPicker
               v-if="isSubRow(row.original)"
+              :disabled="isReadonly"
               :tags="flags"
               :selected="subOf(row.original)!.flagCodes"
               @update:selected="
@@ -2610,6 +2633,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
             </TagPicker>
             <TagPicker
               v-else
+              :disabled="isReadonly"
               :tags="flags"
               :selected="row.original.flagCodes"
               @update:selected="
@@ -2639,6 +2663,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
           <template #deadline-cell="{ row }">
             <DatePopover
               v-if="isSubRow(row.original)"
+              :disabled="isReadonly"
               :model-value="subOf(row.original)!.deadline"
               @update:model-value="
                 (v: string | null) => updateSubtaskField(subOf(row.original)!, { deadline: v })
@@ -2659,6 +2684,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
             </DatePopover>
             <DatePopover
               v-else
+              :disabled="isReadonly"
               :model-value="row.original.deadline"
               @update:model-value="
                 (v: string | null) => updateTaskField(row.original.id, { deadline: v })
@@ -2677,6 +2703,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
             <span v-if="isSubRow(row.original)" />
             <DatePopover
               v-else
+              :disabled="isReadonly"
               :model-value="row.original.plannedStartDate"
               @update:model-value="
                 (v: string | null) => updateTaskField(row.original.id, { plannedStartDate: v })
@@ -2695,6 +2722,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
             <span v-if="isSubRow(row.original)" />
             <DatePopover
               v-else
+              :disabled="isReadonly"
               :model-value="row.original.plannedCompletionDate"
               @update:model-value="
                 (v: string | null) => updateTaskField(row.original.id, { plannedCompletionDate: v })
@@ -2713,6 +2741,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
             <span v-if="isSubRow(row.original)" />
             <DatePopover
               v-else
+              :disabled="isReadonly"
               :model-value="row.original.plannedReleaseDate"
               @update:model-value="
                 (v: string | null) => updateTaskField(row.original.id, { plannedReleaseDate: v })
