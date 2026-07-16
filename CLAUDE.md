@@ -62,7 +62,14 @@ git config core.hooksPath .githooks
 - `nuxt/app/api/*.ts` — バックエンド境界。各関数の JSDoc に `GET /xxx` 等のエンドポイントを明記
 - `nuxt/app/composables/use*.ts` — `useAsyncData` ラッパー。差し替え単位
 - `nuxt/app/pages/[tenantKey]/...` — URL の `tenantKey` は認証ミドルウェアで自テナントと一致確認済み
-- `nest/src/<domain>/` — モジュール単位（`auth` / `users` / `tenants` / `projects` / `tasks` / `comments` / `masters` / `members` / `departments`）
+- `nest/src/<domain>/` — モジュール単位（`auth` / `users` / `tenants` / `projects` / `tasks` / `subtasks` / `task-relations` / `comments` / `masters` / `members` / `departments` / `saved-views` / `notifications` / `slack` / `audit` / `public`）
+  - `subtasks` — 親タスク配下の軽量サブタスク（設計は [docs/SUBTASKS.md](docs/SUBTASKS.md)）
+  - `task-relations` — タスク間の関連（related / precedes / blocks。設計は [docs/TASK_RELATIONS.md](docs/TASK_RELATIONS.md)）
+  - `saved-views` — タスク一覧の保存ビュー（private/shared + 短縮コード共有リンク）
+  - `notifications` — アプリ内通知（REST + SSE。タイプ追加は `notification-types.ts` のレジストリに 1 エントリ）
+  - `slack` — プロジェクト別 Incoming Webhook 通知（ベストエフォート送信）
+  - `audit` — 追記専用の監査ログ（タスクの変更履歴 API の実体）
+  - `public` — 公開 API v1（APIキー認証、`/docs` で OpenAPI 配信）
 - `nest/src/common/entities/base.entity.ts` — `created_at` / `updated_at` / `deleted_at` 共通基底
 - `nest/src/data-source.ts` — TypeORM CLI 用エントリ
 - `nest/src/seed/seed.ts` — シードエントリ
