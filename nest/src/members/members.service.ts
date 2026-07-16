@@ -11,7 +11,18 @@ import type { AuthenticatedUser } from '../auth/jwt.strategy';
 import { ProjectsService } from '../projects/projects.service';
 import { CreateMemberDto } from './dto/create-member.dto';
 import { UpdateMemberDto } from './dto/update-member.dto';
+import type { UserRole } from '../users/user.entity';
 import { ProjectMember, type MemberRole } from './member.entity';
+
+/** メンバー一覧のレスポンス。紐づくユーザーのロールを userRole として持つ（未紐付けは null） */
+export interface MemberWithUserRole {
+  id: string;
+  projectId: string;
+  userId: string | null;
+  displayName: string;
+  role: MemberRole;
+  userRole: UserRole | null;
+}
 
 @Injectable()
 export class MembersService {
@@ -27,6 +38,31 @@ export class MembersService {
       where: { projectId },
       order: { createdAt: 'ASC' },
     });
+  }
+
+  /**
+   * メンバー一覧 + 紐づくユーザーのロール。
+   * フロントが担当者ピッカーから readonly（閲覧のみ）ユーザーを除外するために使う。
+   * User エンティティをそのまま返すと passwordHash 等が漏れるため、必要な項目だけに整形する。
+   */
+  async listByProjectWithUserRole(
+    tenantId: string,
+    projectId: string,
+  ): Promise<MemberWithUserRole[]> {
+    await this.projects.findByIdInTenant(tenantId, projectId);
+    const members = await this.members.find({
+      where: { projectId },
+      relations: { user: true },
+      order: { createdAt: 'ASC' },
+    });
+    return members.map((m) => ({
+      id: m.id,
+      projectId: m.projectId,
+      userId: m.userId,
+      displayName: m.displayName,
+      role: m.role,
+      userRole: m.user?.role ?? null,
+    }));
   }
 
   /**

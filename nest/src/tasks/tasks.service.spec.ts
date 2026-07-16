@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import type { EntityManager, Repository } from 'typeorm';
@@ -71,6 +71,7 @@ describe('TasksService', () => {
 
   let statusesRepo: jest.Mocked<Pick<Repository<TaskStatus>, 'findOne' | 'find'>>;
   let subtasksRepo: jest.Mocked<Pick<Repository<Subtask>, 'count'>>;
+  let membersRepo: jest.Mocked<Pick<Repository<ProjectMember>, 'find' | 'findOne'>>;
   let slack: {
     notifyTaskCreated: jest.Mock;
     notifyTaskStatusChanged: jest.Mock;
@@ -188,7 +189,10 @@ describe('TasksService', () => {
         },
         {
           provide: getRepositoryToken(ProjectMember),
-          useValue: { find: jest.fn().mockResolvedValue([]) },
+          useValue: {
+            find: jest.fn().mockResolvedValue([]),
+            findOne: jest.fn().mockResolvedValue(null),
+          },
         },
         {
           provide: getRepositoryToken(Department),
@@ -223,6 +227,7 @@ describe('TasksService', () => {
     tasksRepo = module.get(getRepositoryToken(Task));
     statusesRepo = module.get(getRepositoryToken(TaskStatus));
     subtasksRepo = module.get(getRepositoryToken(Subtask));
+    membersRepo = module.get(getRepositoryToken(ProjectMember));
     slack = module.get(SlackService);
   });
 
@@ -419,6 +424,43 @@ describe('TasksService', () => {
       const saved = em.save.mock.calls[0]![0];
       expect(saved.statusChangedAt).toBeInstanceOf(Date);
     });
+
+    it('readonly ユーザー紐づきメンバーは担当者にできない', async () => {
+      membersRepo.findOne.mockResolvedValue({
+        id: 'm1',
+        projectId,
+        user: { role: 'readonly' },
+      } as ProjectMember);
+
+      await expect(
+        service.create(
+          tenantId,
+          projectId,
+          { content: 'x', statusCode: 'todo', assigneeMemberId: 'm1' },
+          actor,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('readonly ユーザー紐づきメンバーでも依頼者には設定できる', async () => {
+      membersRepo.findOne.mockResolvedValue({
+        id: 'm1',
+        projectId,
+        user: { role: 'readonly' },
+      } as ProjectMember);
+      tasksRepo.findOne
+        .mockResolvedValueOnce(null) // nextShortCode
+        .mockResolvedValueOnce({ ...baseTask }); // 末尾 findInProject
+
+      await expect(
+        service.create(
+          tenantId,
+          projectId,
+          { content: 'x', statusCode: 'todo', requesterMemberId: 'm1' },
+          actor,
+        ),
+      ).resolves.toBeDefined();
+    });
   });
 
   describe('update', () => {
@@ -458,6 +500,19 @@ describe('TasksService', () => {
       await expect(
         service.update(tenantId, projectId, 'unknown', { content: 'x' }, actor),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    it('readonly ユーザー紐づきメンバーへの担当者変更は拒否', async () => {
+      tasksRepo.findOne.mockResolvedValueOnce({ ...baseTask } as Task);
+      membersRepo.findOne.mockResolvedValue({
+        id: 'm1',
+        projectId,
+        user: { role: 'readonly' },
+      } as ProjectMember);
+
+      await expect(
+        service.update(tenantId, projectId, 't1', { assigneeMemberId: 'm1' }, actor),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('non-terminal -> terminal で completedAt が現在時刻にセットされる', async () => {

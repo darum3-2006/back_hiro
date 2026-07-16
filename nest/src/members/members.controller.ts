@@ -28,7 +28,7 @@ export class MembersController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('projectId', new ParseUUIDPipe()) projectId: string,
   ) {
-    return this.members.listByProject(user.tenantId, projectId);
+    return this.members.listByProjectWithUserRole(user.tenantId, projectId);
   }
 
   @Post()

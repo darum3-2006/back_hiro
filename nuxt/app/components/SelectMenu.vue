@@ -17,6 +17,8 @@ const props = defineProps<{
   /** 「自分を割り当て」ショートカットの値（現在ユーザーの member id 等）。候補に含まれ、未選択のときだけ表示 */
   selfValue?: string | null;
   selfLabel?: string;
+  /** true ならメニューを開かず、スロットを表示するだけ（readonly ユーザー等） */
+  disabled?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -93,7 +95,10 @@ watch(open, (v) => {
 </script>
 
 <template>
-  <UPopover v-if="searchable" v-model:open="open">
+  <span v-if="disabled" class="pointer-events-none">
+    <slot />
+  </span>
+  <UPopover v-else-if="searchable" v-model:open="open">
     <slot />
     <template #content>
       <div class="flex flex-col w-64 max-h-80 p-1">

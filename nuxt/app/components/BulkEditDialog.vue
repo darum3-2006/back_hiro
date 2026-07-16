@@ -82,8 +82,9 @@ const statusItems = computed(() => props.statuses.map((s) => ({ label: s.label, 
 const priorityItems = computed(() =>
   props.priorities.map((p) => ({ label: p.label, value: p.code })),
 );
+// 一括編集の対象フィールドは担当者のみなので、readonly ユーザー紐づきメンバーを除外する
 const memberItems = computed(() =>
-  props.members.map((m) => ({ label: m.displayName, value: m.id })),
+  assignableMembers(props.members).map((m) => ({ label: m.displayName, value: m.id })),
 );
 
 const statusLabel = computed(

@@ -4,6 +4,8 @@ import type { Tag } from '~/types/master';
 const props = defineProps<{
   tags: Tag[];
   selected: string[];
+  /** true ならピッカーを開かず、スロットを表示するだけ（readonly ユーザー等） */
+  disabled?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -17,7 +19,10 @@ const toggleTag = (code: string, enabled: boolean) => {
 </script>
 
 <template>
-  <UPopover>
+  <span v-if="disabled" class="pointer-events-none">
+    <slot />
+  </span>
+  <UPopover v-else>
     <slot />
     <template #content>
       <div class="p-2 space-y-1 min-w-48">

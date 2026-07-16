@@ -25,10 +25,17 @@ const emit = defineEmits<{
 
 const selectedView = computed(() => props.views.find((v) => v.id === props.selectedViewId) ?? null);
 
+// readonly（閲覧のみ）ユーザーは自分の private ビューのみ操作可（共有化・引き取りは不可）
+const { isReadonly } = useAuth();
+
 /** 当該ビューを現在ユーザーが編集できるか（owner 本人 / 孤児 shared を admin が引き取り） */
 const canEdit = (view: SavedView): boolean =>
-  view.ownerUserId === props.currentUserId ||
-  (view.ownerUserId === null && view.visibility === 'shared' && props.canManageShared);
+  (view.ownerUserId === props.currentUserId &&
+    (!isReadonly.value || view.visibility === 'private')) ||
+  (view.ownerUserId === null &&
+    view.visibility === 'shared' &&
+    props.canManageShared &&
+    !isReadonly.value);
 
 const triggerLabel = computed(() => selectedView.value?.name ?? 'デフォルトビュー');
 
@@ -204,6 +211,7 @@ const items = computed<DropdownMenuItem[][]>(() => {
             />
           </UFormField>
           <UFormField
+            v-if="!isReadonly"
             label="公開範囲"
             hint="共有にするとプロジェクトの全メンバーが使えます（編集は作成者のみ）"
           >

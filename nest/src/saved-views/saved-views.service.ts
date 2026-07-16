@@ -40,6 +40,9 @@ export class SavedViewsService {
     user: AuthenticatedUser,
     dto: CreateSavedViewDto,
   ): Promise<SavedView> {
+    if (user.role === 'readonly' && (dto.visibility ?? 'private') !== 'private') {
+      throw new ForbiddenException('閲覧専用ユーザーは共有ビューを作成できません');
+    }
     await this.projects.findByIdInTenant(tenantId, projectId);
     const view = this.savedViews.create({
       projectId,
@@ -93,6 +96,7 @@ export class SavedViewsService {
   ): Promise<SavedView> {
     const view = await this.findVisible(tenantId, projectId, id, user);
     await this.assertCanEdit(tenantId, projectId, view, user);
+    this.assertReadonlyScope(user, view, dto.visibility);
     if (dto.name !== undefined) view.name = dto.name.trim();
     if (dto.visibility !== undefined) view.visibility = dto.visibility;
     if (dto.config !== undefined) view.config = dto.config;
@@ -107,6 +111,7 @@ export class SavedViewsService {
   ): Promise<void> {
     const view = await this.findVisible(tenantId, projectId, id, user);
     await this.assertCanEdit(tenantId, projectId, view, user);
+    this.assertReadonlyScope(user, view);
     await this.savedViews.remove(view);
   }
 
@@ -146,6 +151,24 @@ export class SavedViewsService {
   /** 自分の private、または shared なら閲覧可。 */
   private canView(view: SavedView, user: AuthenticatedUser): boolean {
     return view.visibility === 'shared' || view.ownerUserId === user.userId;
+  }
+
+  /**
+   * readonly（閲覧のみ）ユーザーの保存ビュー操作を「自分の private ビュー」に限定する。
+   * shared ビューの編集・削除（孤児ビューの引き取り含む）や、private→shared への変更は不可。
+   */
+  private assertReadonlyScope(
+    user: AuthenticatedUser,
+    view: SavedView,
+    nextVisibility?: 'private' | 'shared',
+  ): void {
+    if (user.role !== 'readonly') return;
+    if (view.visibility === 'shared' || view.ownerUserId !== user.userId) {
+      throw new ForbiddenException('閲覧専用ユーザーは自分の個人ビューのみ操作できます');
+    }
+    if (nextVisibility === 'shared') {
+      throw new ForbiddenException('閲覧専用ユーザーはビューを共有できません');
+    }
   }
 
   /**

@@ -19,6 +19,7 @@ describe('SavedViewsService', () => {
   const projectId = 'project-1';
   const owner: AuthenticatedUser = { userId: 'user-1', tenantId, role: 'member' };
   const other: AuthenticatedUser = { userId: 'user-2', tenantId, role: 'member' };
+  const readonlyUser: AuthenticatedUser = { userId: 'user-3', tenantId, role: 'readonly' };
 
   const config: SavedViewConfig = {
     columns: { order: ['seq', 'content'], visibility: {}, sizing: {} },
@@ -123,6 +124,25 @@ describe('SavedViewsService', () => {
 
       expect(result.visibility).toBe('shared');
     });
+
+    it('readonly ユーザーは private なら作成できる', async () => {
+      const result = await service.create(tenantId, projectId, readonlyUser, {
+        name: 'my view',
+        config,
+      });
+
+      expect(result.visibility).toBe('private');
+    });
+
+    it('readonly ユーザーは shared ビューを作成できない', async () => {
+      await expect(
+        service.create(tenantId, projectId, readonlyUser, {
+          name: 'shared one',
+          visibility: 'shared',
+          config,
+        }),
+      ).rejects.toThrow(ForbiddenException);
+    });
   });
 
   describe('update', () => {
@@ -166,6 +186,32 @@ describe('SavedViewsService', () => {
       await expect(service.update(tenantId, projectId, 'v1', other, { name: 'x' })).rejects.toThrow(
         ForbiddenException,
       );
+    });
+
+    it('readonly ユーザーは自分の private を更新できる', async () => {
+      repo.findOne.mockResolvedValue({ ...baseView, ownerUserId: readonlyUser.userId });
+
+      const result = await service.update(tenantId, projectId, 'v1', readonlyUser, {
+        name: '改名',
+      });
+
+      expect(result.name).toBe('改名');
+    });
+
+    it('readonly ユーザーは private→shared にできない', async () => {
+      repo.findOne.mockResolvedValue({ ...baseView, ownerUserId: readonlyUser.userId });
+
+      await expect(
+        service.update(tenantId, projectId, 'v1', readonlyUser, { visibility: 'shared' }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('readonly ユーザーは孤児 shared の引き取りもできない', async () => {
+      repo.findOne.mockResolvedValue({ ...baseView, ownerUserId: null, visibility: 'shared' });
+
+      await expect(
+        service.update(tenantId, projectId, 'v1', readonlyUser, { name: 'x' }),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 
