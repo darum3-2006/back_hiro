@@ -2907,6 +2907,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
     :flags="flags"
     :members="members"
     :departments="departments"
+    :tasks="tasks"
     @created="onTaskCreated"
   />
 
