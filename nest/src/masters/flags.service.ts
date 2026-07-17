@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, QueryFailedError, Repository } from 'typeorm';
 import { AuditService } from '../audit/audit.service';
 import { ProjectsService } from '../projects/projects.service';
+import { SubtaskFlag } from '../subtasks/subtask-flag.entity';
 import { TaskFlag } from '../tasks/task-flag.entity';
 import { CreateFlagDto } from './dto/create-flag.dto';
 import { UpdateFlagDto } from './dto/update-flag.dto';
@@ -69,8 +70,9 @@ export class FlagsService {
   }
 
   /**
-   * このフラグを全タスクから外す（フラグ定義自体は残す）。
-   * 影響したタスク各々の履歴にフラグ変更を記録する。
+   * このフラグを全タスク・全サブタスクから外す（フラグ定義自体は残す）。
+   * 影響したタスク各々の履歴にフラグ変更を記録する
+   * （サブタスクのフラグ変更は履歴に残さない既存の作法に合わせる）。
    */
   async detachFromAllTasks(
     tenantId: string,
@@ -82,6 +84,7 @@ export class FlagsService {
     await this.taskFlags.manager.transaction(async (em) => {
       const before = await this.flagSetsForTasksWithFlag(em, flag.id);
       await em.delete(TaskFlag, { flagId: flag.id });
+      await em.delete(SubtaskFlag, { flagId: flag.id });
       const nameByCode = await this.flagNameMap(em, projectId);
       await this.recordFlagSetChanges(
         tenantId,
@@ -96,8 +99,8 @@ export class FlagsService {
   }
 
   /**
-   * コピー: source フラグが付いた全タスクに target フラグを追加する（source は残す）。
-   * 既に target が付いているタスクは INSERT IGNORE で重複を無視。影響タスクの履歴に記録。
+   * コピー: source フラグが付いた全タスク・全サブタスクに target フラグを追加する（source は残す）。
+   * 既に target が付いている場合は INSERT IGNORE で重複を無視。影響タスクの履歴に記録。
    */
   async copyToFlag(
     tenantId: string,
@@ -114,6 +117,11 @@ export class FlagsService {
          SELECT tf.task_id, ? FROM task_flags tf WHERE tf.flag_id = ?`,
         [target.id, source.id],
       );
+      await em.query(
+        `INSERT IGNORE INTO subtask_flags (subtask_id, flag_id)
+         SELECT sf.subtask_id, ? FROM subtask_flags sf WHERE sf.flag_id = ?`,
+        [target.id, source.id],
+      );
       const nameByCode = await this.flagNameMap(em, projectId);
       await this.recordFlagSetChanges(
         tenantId,
@@ -128,7 +136,7 @@ export class FlagsService {
   }
 
   /**
-   * 移動: source フラグが付いた全タスクに target を付与し、source を外す。
+   * 移動: source フラグが付いた全タスク・全サブタスクに target を付与し、source を外す。
    * 追加 → 削除 → 履歴記録を 1 トランザクションで行う。
    */
   async moveToFlag(
@@ -146,7 +154,13 @@ export class FlagsService {
          SELECT tf.task_id, ? FROM task_flags tf WHERE tf.flag_id = ?`,
         [target.id, source.id],
       );
+      await em.query(
+        `INSERT IGNORE INTO subtask_flags (subtask_id, flag_id)
+         SELECT sf.subtask_id, ? FROM subtask_flags sf WHERE sf.flag_id = ?`,
+        [target.id, source.id],
+      );
       await em.delete(TaskFlag, { flagId: source.id });
+      await em.delete(SubtaskFlag, { flagId: source.id });
       const nameByCode = await this.flagNameMap(em, projectId);
       await this.recordFlagSetChanges(
         tenantId,

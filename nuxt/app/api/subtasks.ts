@@ -64,3 +64,14 @@ export const apiReorderSubtasks = (
   ids: string[],
 ): Promise<Subtask[]> =>
   api<Subtask[]>(`${base(projectId, taskId)}/reorder`, { method: 'PATCH', body: { ids } });
+
+/** GET /api/projects/:projectId/subtasks/count?flagCode= — フラグ操作の対象件数用 */
+export const apiCountSubtasks = async (
+  api: typeof $fetch,
+  projectId: string,
+  filter: { flagCode?: string } = {},
+): Promise<number> => {
+  const query = filter.flagCode ? `?flagCode=${encodeURIComponent(filter.flagCode)}` : '';
+  const res = await api<{ count: number }>(`/projects/${projectId}/subtasks/count${query}`);
+  return res.count;
+};

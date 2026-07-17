@@ -1,3 +1,4 @@
+import { apiCountSubtasks } from '~/api/subtasks';
 import { apiCountTasks } from '~/api/tasks';
 import type { Department, Flag, MasterColor, Tag, TaskPriority, TaskStatus } from '~/types/master';
 
@@ -267,6 +268,10 @@ export const countFlagReferences = async (
   api: typeof $fetch,
   projectId: string,
   code: string,
-): Promise<{ tasks: number }> => ({
-  tasks: await apiCountTasks(api, projectId, { flagCode: code }),
-});
+): Promise<{ tasks: number; subtasks: number }> => {
+  const [tasks, subtasks] = await Promise.all([
+    apiCountTasks(api, projectId, { flagCode: code }),
+    apiCountSubtasks(api, projectId, { flagCode: code }),
+  ]);
+  return { tasks, subtasks };
+};

@@ -5,6 +5,7 @@ import type { Repository } from 'typeorm';
 import { AuditService } from '../audit/audit.service';
 import type { Project } from '../projects/project.entity';
 import { ProjectsService } from '../projects/projects.service';
+import { SubtaskFlag } from '../subtasks/subtask-flag.entity';
 import { TaskFlag } from '../tasks/task-flag.entity';
 import { Flag } from './flag.entity';
 import { FlagsService } from './flags.service';
@@ -105,12 +106,13 @@ describe('FlagsService', () => {
   });
 
   describe('detachFromAllTasks', () => {
-    it('該当フラグの task_flags を全削除する（定義は残す）', async () => {
+    it('該当フラグの task_flags / subtask_flags を全削除する（定義は残す）', async () => {
       repo.findOne.mockResolvedValue({ id: 'f1', projectId, code: 'a' } as Flag);
 
       await service.detachFromAllTasks(tenantId, projectId, actor, 'a');
 
       expect(emMock.delete).toHaveBeenCalledWith(TaskFlag, { flagId: 'f1' });
+      expect(emMock.delete).toHaveBeenCalledWith(SubtaskFlag, { flagId: 'f1' });
       expect(repo.remove).not.toHaveBeenCalled();
     });
 
@@ -124,14 +126,18 @@ describe('FlagsService', () => {
   });
 
   describe('copyToFlag', () => {
-    it('source が付いた全タスクへ target を追加（INSERT IGNORE、source は残す）', async () => {
+    it('source が付いた全タスク・サブタスクへ target を追加（INSERT IGNORE、source は残す）', async () => {
       repo.findOne
         .mockResolvedValueOnce({ id: 'src', projectId, code: 'a' } as Flag)
         .mockResolvedValueOnce({ id: 'tgt', projectId, code: 'b' } as Flag);
 
       await service.copyToFlag(tenantId, projectId, actor, 'a', 'b');
 
-      expect(emMock.query).toHaveBeenCalledWith(expect.stringContaining('INSERT IGNORE'), [
+      expect(emMock.query).toHaveBeenCalledWith(expect.stringContaining('INTO task_flags'), [
+        'tgt',
+        'src',
+      ]);
+      expect(emMock.query).toHaveBeenCalledWith(expect.stringContaining('INTO subtask_flags'), [
         'tgt',
         'src',
       ]);
@@ -145,18 +151,23 @@ describe('FlagsService', () => {
   });
 
   describe('moveToFlag', () => {
-    it('target を追加してから source を削除する（同一トランザクション）', async () => {
+    it('target を追加してから source を削除する（タスク・サブタスクとも、同一トランザクション）', async () => {
       repo.findOne
         .mockResolvedValueOnce({ id: 'src', projectId, code: 'a' } as Flag)
         .mockResolvedValueOnce({ id: 'tgt', projectId, code: 'b' } as Flag);
 
       await service.moveToFlag(tenantId, projectId, actor, 'a', 'b');
 
-      expect(emMock.query).toHaveBeenCalledWith(expect.stringContaining('INSERT IGNORE'), [
+      expect(emMock.query).toHaveBeenCalledWith(expect.stringContaining('INTO task_flags'), [
+        'tgt',
+        'src',
+      ]);
+      expect(emMock.query).toHaveBeenCalledWith(expect.stringContaining('INTO subtask_flags'), [
         'tgt',
         'src',
       ]);
       expect(emMock.delete).toHaveBeenCalledWith(TaskFlag, { flagId: 'src' });
+      expect(emMock.delete).toHaveBeenCalledWith(SubtaskFlag, { flagId: 'src' });
     });
 
     it('移動元と先が同じなら BadRequest', async () => {

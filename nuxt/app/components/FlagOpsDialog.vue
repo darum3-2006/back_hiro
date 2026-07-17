@@ -27,7 +27,7 @@ type Op = 'copy' | 'move' | 'detach';
 const sourceCode = ref<string | undefined>(undefined);
 const op = ref<Op>('copy');
 const targetCode = ref<string | undefined>(undefined);
-const references = ref<{ tasks: number } | null>(null);
+const references = ref<{ tasks: number; subtasks: number } | null>(null);
 const loadingReferences = ref(false);
 const running = ref(false);
 
@@ -73,7 +73,7 @@ watch(sourceCode, async (code) => {
 
 const canRun = computed(() => {
   if (!sourceCode.value || running.value) return false;
-  if ((references.value?.tasks ?? 0) === 0) return false;
+  if ((references.value?.tasks ?? 0) + (references.value?.subtasks ?? 0) === 0) return false;
   if (needsTarget.value && !targetCode.value) return false;
   return true;
 });
@@ -139,7 +139,7 @@ const run = async () => {
           />
           <p v-if="loadingReferences" class="text-xs text-muted mt-1">対象を確認中…</p>
           <p v-else-if="references" class="text-xs text-muted mt-1">
-            対象タスク: {{ references.tasks }} 件
+            対象タスク: {{ references.tasks }} 件・サブタスク: {{ references.subtasks }} 件
           </p>
         </div>
 
