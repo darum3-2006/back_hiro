@@ -17,6 +17,8 @@ const props = defineProps<{
   flags: Flag[];
   members: Member[];
   departments: Department[];
+  /** 説明プレビューの #連番 リンク解決用（同プロジェクトの全タスク） */
+  tasks?: Task[];
 }>();
 
 const emit = defineEmits<{
@@ -207,13 +209,18 @@ const departmentSelectItems = computed(() =>
         </UFormField>
 
         <UFormField label="説明" :error="errors.description">
-          <UTextarea
-            v-model="draft.description"
+          <MarkdownEditor
+            :model-value="draft.description"
+            :tasks="tasks ?? []"
             :rows="4"
-            autoresize
-            placeholder="詳細を記入"
-            class="w-full"
-            @update:model-value="clearField('description')"
+            show-images
+            placeholder="詳細を記入（Markdown 可）"
+            @update:model-value="
+              (v: string) => {
+                draft.description = v;
+                clearField('description');
+              }
+            "
           />
         </UFormField>
 
