@@ -569,6 +569,14 @@ const onTaskCreated = async (task: Task) => {
     description: `#${task.seq} ${task.content}`,
     color: 'success',
     icon: 'i-lucide-check',
+    actions: [
+      {
+        label: '開く',
+        color: 'success',
+        variant: 'outline',
+        onClick: () => setSelectedTaskSeq(task.seq),
+      },
+    ],
   });
 };
 
