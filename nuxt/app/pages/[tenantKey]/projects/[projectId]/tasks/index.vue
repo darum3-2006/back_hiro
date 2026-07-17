@@ -502,6 +502,11 @@ const createSlideoverOpen = ref(false);
 const flagOpsOpen = ref(false);
 const toast = useToast();
 
+// フラグ操作はサブタスクのフラグも書き換えるので、タスクと合わせて子行も再取得する
+const onFlagOpsDone = async () => {
+  await Promise.all([refreshTasks(), refreshSubtasks()]);
+};
+
 // URL の task パラメータを検証・正規化する。
 // - 見つからない番号/ID → 通知して一覧へ戻す（空パネルを出さない）
 // - UUID 等 seq 以外で解決できた場合 → URL を seq へ正規化
@@ -2923,7 +2928,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
     v-model:open="flagOpsOpen"
     :project-id="currentProjectId"
     :flags="flags"
-    @done="refreshTasks"
+    @done="onFlagOpsDone"
   />
 
   <BulkEditDialog

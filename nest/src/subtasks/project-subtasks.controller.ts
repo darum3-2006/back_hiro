@@ -1,4 +1,4 @@
-import { Controller, Get, Param, ParseUUIDPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, ParseUUIDPipe, Query, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
@@ -16,5 +16,15 @@ export class ProjectSubtasksController {
     @Param('projectId', new ParseUUIDPipe()) projectId: string,
   ) {
     return this.subtasks.listByProject(user.tenantId, projectId);
+  }
+
+  /** GET /api/projects/:projectId/subtasks/count?flagCode= — フラグ操作の対象件数用 */
+  @Get('count')
+  async count(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('projectId', new ParseUUIDPipe()) projectId: string,
+    @Query('flagCode') flagCode?: string,
+  ) {
+    return { count: await this.subtasks.countByProject(user.tenantId, projectId, flagCode) };
   }
 }

@@ -60,6 +60,22 @@ export class SubtasksService {
   }
 
   /** プロジェクト内の全サブタスクを、親タスクの seq / content 付きで返す（一覧の子行用）。 */
+  /**
+   * プロジェクト内で指定フラグが付いたサブタスクの件数。
+   * フラグ操作ダイアログの「対象件数」表示用（flagCode 省略時はプロジェクト内全件）。
+   */
+  async countByProject(tenantId: string, projectId: string, flagCode?: string): Promise<number> {
+    await this.projects.findByIdInTenant(tenantId, projectId);
+    if (!flagCode) return this.subtasks.count({ where: { projectId } });
+    return this.subtaskFlags
+      .createQueryBuilder('sf')
+      .innerJoin(Flag, 'f', 'f.id = sf.flag_id AND f.deleted_at IS NULL')
+      .innerJoin(Subtask, 's', 's.id = sf.subtask_id AND s.deleted_at IS NULL')
+      .where('s.project_id = :projectId', { projectId })
+      .andWhere('f.project_id = :projectId AND f.code = :flagCode', { projectId, flagCode })
+      .getCount();
+  }
+
   async listByProject(tenantId: string, projectId: string): Promise<SubtaskRowResponse[]> {
     await this.projects.findByIdInTenant(tenantId, projectId);
     const subs = await this.subtasks.find({
