@@ -6,7 +6,7 @@ const props = defineProps<{
   views: SavedView[];
   selectedViewId: string | null;
   currentUserId: string | null;
-  /** プロジェクト管理者か（孤児化した共有ビューの引き取り可否に使う） */
+  /** 管理者か（テナント admin / プロジェクト admin。共有ビューの削除・公開範囲変更に使う） */
   canManageShared: boolean;
   /** 現在の表示状態が選択中ビューと異なるか */
   dirty: boolean;
@@ -25,17 +25,24 @@ const emit = defineEmits<{
 
 const selectedView = computed(() => props.views.find((v) => v.id === props.selectedViewId) ?? null);
 
-// readonly（閲覧のみ）ユーザーは自分の private ビューのみ操作可（共有化・引き取りは不可）
+// readonly（閲覧のみ）ユーザーは自分の private ビューのみ操作可（共有ビューは一切操作不可）
 const { isReadonly } = useAuth();
 
-/** 当該ビューを現在ユーザーが編集できるか（owner 本人 / 孤児 shared を admin が引き取り） */
-const canEdit = (view: SavedView): boolean =>
-  (view.ownerUserId === props.currentUserId &&
-    (!isReadonly.value || view.visibility === 'private')) ||
-  (view.ownerUserId === null &&
-    view.visibility === 'shared' &&
-    props.canManageShared &&
-    !isReadonly.value);
+/** ビューが自分のものか（孤児 owner=null は除外） */
+const isOwner = (view: SavedView): boolean =>
+  view.ownerUserId !== null && view.ownerUserId === props.currentUserId;
+
+/** 名前・設定（上書き保存）を編集できるか: 自分のビュー、共有ビューは全メンバー */
+const canEditContent = (view: SavedView): boolean =>
+  isReadonly.value
+    ? isOwner(view) && view.visibility === 'private'
+    : isOwner(view) || view.visibility === 'shared';
+
+/** 削除・公開範囲の変更ができるか: 作成者本人、共有ビューは admin も可 */
+const canDeleteOrChangeVisibility = (view: SavedView): boolean =>
+  isReadonly.value
+    ? isOwner(view) && view.visibility === 'private'
+    : isOwner(view) || (view.visibility === 'shared' && props.canManageShared);
 
 const triggerLabel = computed(() => selectedView.value?.name ?? 'デフォルトビュー');
 
@@ -61,6 +68,16 @@ const openRename = () => {
   draftShared.value = view.visibility === 'shared';
   modalOpen.value = true;
 };
+
+/**
+ * モーダルに公開範囲スイッチを出すか。
+ * 新規作成は readonly 以外なら常に可。既存の変更は削除と同じ権限（作成者 / admin）に限定
+ */
+const showVisibilityField = computed(() => {
+  if (isReadonly.value) return false;
+  if (modalMode.value === 'create') return true;
+  return selectedView.value ? canDeleteOrChangeVisibility(selectedView.value) : false;
+});
 
 // IME 変換中フラグ。変換確定/キャンセルの Enter・ESC を本来の確定/閉じる操作と
 // 区別するために使う（keydown 時点では compositionend より前なので true のまま）。
@@ -148,7 +165,7 @@ const items = computed<DropdownMenuItem[][]>(() => {
 
   const actions: DropdownMenuItem[] = [];
   const view = selectedView.value;
-  if (view && canEdit(view) && props.dirty) {
+  if (view && canEditContent(view) && props.dirty) {
     actions.push({
       label: '現在の状態を上書き保存',
       icon: 'i-lucide-save',
@@ -160,14 +177,14 @@ const items = computed<DropdownMenuItem[][]>(() => {
     icon: 'i-lucide-plus',
     onSelect: () => openCreate(),
   });
-  if (view && canEdit(view)) {
+  if (view && canEditContent(view)) {
     actions.push({
-      label: '名前 / 公開範囲を変更…',
+      label: canDeleteOrChangeVisibility(view) ? '名前 / 公開範囲を変更…' : '名前を変更…',
       icon: 'i-lucide-pencil',
       onSelect: () => openRename(),
     });
   }
-  if (view && !canEdit(view)) {
+  if (view && !isOwner(view)) {
     actions.push({
       label: '複製して自分のビューにする',
       icon: 'i-lucide-copy',
@@ -189,7 +206,7 @@ const items = computed<DropdownMenuItem[][]>(() => {
       onSelect: () => emit('clear'),
     });
   }
-  if (view && canEdit(view)) {
+  if (view && canDeleteOrChangeVisibility(view)) {
     actions.push({
       label: 'このビューを削除',
       icon: 'i-lucide-trash-2',
@@ -235,9 +252,9 @@ const items = computed<DropdownMenuItem[][]>(() => {
             />
           </UFormField>
           <UFormField
-            v-if="!isReadonly"
+            v-if="showVisibilityField"
             label="公開範囲"
-            hint="共有にするとプロジェクトの全メンバーが使えます（編集は作成者のみ）"
+            hint="共有にすると全メンバーが使え、名前や条件を編集できます（削除・公開範囲の変更は作成者と管理者のみ）"
           >
             <USwitch v-model="draftShared" label="プロジェクトで共有する" />
           </UFormField>

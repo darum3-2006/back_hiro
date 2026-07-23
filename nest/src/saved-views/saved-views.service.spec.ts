@@ -162,30 +162,64 @@ describe('SavedViewsService', () => {
       );
     });
 
-    it('他人の shared は閲覧できるが編集は Forbidden', async () => {
+    it('他人の shared でも名前・config は編集できる（admin 不要）', async () => {
       repo.findOne.mockResolvedValue({ ...baseView, visibility: 'shared' });
 
-      await expect(service.update(tenantId, projectId, 'v1', other, { name: 'x' })).rejects.toThrow(
-        ForbiddenException,
-      );
+      const result = await service.update(tenantId, projectId, 'v1', other, { name: '改名' });
+
+      expect(result.name).toBe('改名');
+      expect(members.assertProjectAdmin).not.toHaveBeenCalled();
     });
 
-    it('owner=null の孤児 shared は ProjectMember admin が引き取り可', async () => {
+    it('他人の shared の公開範囲変更は admin なら可', async () => {
+      repo.findOne.mockResolvedValue({ ...baseView, visibility: 'shared' });
+
+      const result = await service.update(tenantId, projectId, 'v1', other, {
+        visibility: 'private',
+      });
+
+      expect(members.assertProjectAdmin).toHaveBeenCalledWith(tenantId, projectId, other);
+      expect(result.visibility).toBe('private');
+    });
+
+    it('他人の shared の公開範囲変更は admin でなければ Forbidden', async () => {
+      repo.findOne.mockResolvedValue({ ...baseView, visibility: 'shared' });
+      members.assertProjectAdmin.mockRejectedValue(new ForbiddenException());
+
+      await expect(
+        service.update(tenantId, projectId, 'v1', other, { visibility: 'private' }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('公開範囲が同値なら admin チェックしない', async () => {
+      repo.findOne.mockResolvedValue({ ...baseView, visibility: 'shared' });
+
+      await service.update(tenantId, projectId, 'v1', other, {
+        name: 'x',
+        visibility: 'shared',
+      });
+
+      expect(members.assertProjectAdmin).not.toHaveBeenCalled();
+    });
+
+    it('owner 本人は公開範囲を変更できる（admin 不要）', async () => {
+      repo.findOne.mockResolvedValue({ ...baseView, visibility: 'shared' });
+
+      const result = await service.update(tenantId, projectId, 'v1', owner, {
+        visibility: 'private',
+      });
+
+      expect(result.visibility).toBe('private');
+      expect(members.assertProjectAdmin).not.toHaveBeenCalled();
+    });
+
+    it('owner=null の孤児 shared も名前・config は誰でも編集できる', async () => {
       repo.findOne.mockResolvedValue({ ...baseView, ownerUserId: null, visibility: 'shared' });
 
       const result = await service.update(tenantId, projectId, 'v1', other, { name: '引き取り' });
 
-      expect(members.assertProjectAdmin).toHaveBeenCalledWith(tenantId, projectId, other);
       expect(result.name).toBe('引き取り');
-    });
-
-    it('孤児 shared でも admin でなければ assertProjectAdmin が弾く', async () => {
-      repo.findOne.mockResolvedValue({ ...baseView, ownerUserId: null, visibility: 'shared' });
-      members.assertProjectAdmin.mockRejectedValue(new ForbiddenException());
-
-      await expect(service.update(tenantId, projectId, 'v1', other, { name: 'x' })).rejects.toThrow(
-        ForbiddenException,
-      );
+      expect(members.assertProjectAdmin).not.toHaveBeenCalled();
     });
 
     it('readonly ユーザーは自分の private を更新できる', async () => {
@@ -206,7 +240,15 @@ describe('SavedViewsService', () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it('readonly ユーザーは孤児 shared の引き取りもできない', async () => {
+    it('readonly ユーザーは shared ビューを編集できない', async () => {
+      repo.findOne.mockResolvedValue({ ...baseView, visibility: 'shared' });
+
+      await expect(
+        service.update(tenantId, projectId, 'v1', readonlyUser, { name: 'x' }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('readonly ユーザーは孤児 shared の編集もできない', async () => {
       repo.findOne.mockResolvedValue({ ...baseView, ownerUserId: null, visibility: 'shared' });
 
       await expect(
@@ -281,6 +323,43 @@ describe('SavedViewsService', () => {
       await expect(service.remove(tenantId, projectId, 'v1', other)).rejects.toThrow(
         NotFoundException,
       );
+    });
+
+    it('他人の shared は admin なら削除できる', async () => {
+      repo.findOne.mockResolvedValue({ ...baseView, visibility: 'shared' });
+
+      await service.remove(tenantId, projectId, 'v1', other);
+
+      expect(members.assertProjectAdmin).toHaveBeenCalledWith(tenantId, projectId, other);
+      expect(repo.remove).toHaveBeenCalled();
+    });
+
+    it('他人の shared は admin でなければ Forbidden', async () => {
+      repo.findOne.mockResolvedValue({ ...baseView, visibility: 'shared' });
+      members.assertProjectAdmin.mockRejectedValue(new ForbiddenException());
+
+      await expect(service.remove(tenantId, projectId, 'v1', other)).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(repo.remove).not.toHaveBeenCalled();
+    });
+
+    it('owner=null の孤児 shared は admin が削除できる', async () => {
+      repo.findOne.mockResolvedValue({ ...baseView, ownerUserId: null, visibility: 'shared' });
+
+      await service.remove(tenantId, projectId, 'v1', other);
+
+      expect(members.assertProjectAdmin).toHaveBeenCalledWith(tenantId, projectId, other);
+      expect(repo.remove).toHaveBeenCalled();
+    });
+
+    it('readonly ユーザーは shared を削除できない', async () => {
+      repo.findOne.mockResolvedValue({ ...baseView, visibility: 'shared' });
+
+      await expect(service.remove(tenantId, projectId, 'v1', readonlyUser)).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(members.assertProjectAdmin).not.toHaveBeenCalled();
     });
   });
 });
