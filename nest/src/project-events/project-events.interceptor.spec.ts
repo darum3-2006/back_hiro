@@ -1,5 +1,8 @@
 import type { CallHandler, ExecutionContext } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import { firstValueFrom, of } from 'rxjs';
+import type { Project } from '../projects/project.entity';
+import type { ProjectsService } from '../projects/projects.service';
 import { ProjectEventsInterceptor } from './project-events.interceptor';
 import { ProjectEventsService, type ProjectEvent } from './project-events.service';
 
@@ -25,6 +28,7 @@ describe('ProjectEventsService', () => {
 
 describe('ProjectEventsInterceptor', () => {
   let service: jest.Mocked<Pick<ProjectEventsService, 'emit'>>;
+  let projects: jest.Mocked<Pick<ProjectsService, 'findByKeyInTenant'>>;
   let interceptor: ProjectEventsInterceptor;
 
   const user = { userId: 'user-1', tenantId: 'tenant-1', role: 'member' };
@@ -48,8 +52,15 @@ describe('ProjectEventsInterceptor', () => {
 
   beforeEach(() => {
     service = { emit: jest.fn() };
-    interceptor = new ProjectEventsInterceptor(service as unknown as ProjectEventsService);
+    projects = { findByKeyInTenant: jest.fn().mockResolvedValue({ id: 'p9' } as Project) };
+    interceptor = new ProjectEventsInterceptor(
+      service as unknown as ProjectEventsService,
+      projects as unknown as ProjectsService,
+    );
   });
+
+  /** :key 解決の fire-and-forget な then/catch を消化する */
+  const flushAsync = () => new Promise((resolve) => setTimeout(resolve, 0));
 
   it('タスク作成（POST /projects/:projectId/tasks）で tasks.changed を emit', async () => {
     await run({
@@ -216,6 +227,68 @@ describe('ProjectEventsInterceptor', () => {
       params: { projectId: 'p1' },
     });
 
+    expect(service.emit).not.toHaveBeenCalled();
+  });
+
+  it('公開 API v1 は :key を解決して emit する（taskId なし）', async () => {
+    await run({
+      method: 'POST',
+      path: '/api/v1/projects/acme-pj/tasks',
+      params: { key: 'acme-pj' },
+      user,
+    });
+    await flushAsync();
+
+    expect(projects.findByKeyInTenant).toHaveBeenCalledWith('tenant-1', 'acme-pj');
+    expect(service.emit).toHaveBeenCalledWith('p9', {
+      type: 'tasks.changed',
+      taskId: undefined,
+      originUserId: 'user-1',
+      originClientId: undefined,
+    });
+  });
+
+  it('公開 API v1 のステータス変更アクションも tasks.changed になる', async () => {
+    await run({
+      method: 'POST',
+      path: '/api/v1/projects/acme-pj/tasks/5/status',
+      params: { key: 'acme-pj', seq: '5' },
+      user,
+    });
+    await flushAsync();
+
+    expect(service.emit).toHaveBeenCalledWith('p9', {
+      type: 'tasks.changed',
+      taskId: undefined,
+      originUserId: 'user-1',
+      originClientId: undefined,
+    });
+  });
+
+  it('公開 API v1 で :key が解決できない場合は emit しない（エラーにもしない）', async () => {
+    projects.findByKeyInTenant.mockRejectedValue(new NotFoundException());
+
+    await run({
+      method: 'POST',
+      path: '/api/v1/projects/unknown/tasks',
+      params: { key: 'unknown' },
+      user,
+    });
+    await flushAsync();
+
+    expect(service.emit).not.toHaveBeenCalled();
+  });
+
+  it('/v1/projects 配下でないルートでは :key があっても解決しない', async () => {
+    await run({
+      method: 'POST',
+      path: '/api/something/x',
+      params: { key: 'x' },
+      user,
+    });
+    await flushAsync();
+
+    expect(projects.findByKeyInTenant).not.toHaveBeenCalled();
     expect(service.emit).not.toHaveBeenCalled();
   });
 });
