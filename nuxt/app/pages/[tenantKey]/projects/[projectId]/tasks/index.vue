@@ -69,14 +69,30 @@ const {
 } = await useTasks(currentProjectId, includeCompleted);
 const { data: projectSubtasks, refresh: refreshSubtasks } =
   await useProjectSubtasks(currentProjectId);
-const { data: statuses } = await useTaskStatuses(currentProjectId);
-const { data: priorities } = await useTaskPriorities(currentProjectId);
-const { data: tags } = await useTags(currentProjectId);
-const { data: flags } = await useFlags(currentProjectId);
-const { data: members } = await useMembers(currentProjectId);
+const { data: statuses, refresh: refreshStatuses } = await useTaskStatuses(currentProjectId);
+const { data: priorities, refresh: refreshPriorities } = await useTaskPriorities(currentProjectId);
+const { data: tags, refresh: refreshTags } = await useTags(currentProjectId);
+const { data: flags, refresh: refreshFlags } = await useFlags(currentProjectId);
+const { data: members, refresh: refreshMembers } = await useMembers(currentProjectId);
 const { data: departments } = await useDepartments();
 const { data: projects } = await useProjects();
 const { data: savedViews, refresh: refreshSavedViews } = await useSavedViews(currentProjectId);
+
+// 他ユーザーの変更（SSE）を受けて表示中のデータを自動反映する
+useProjectEvents(currentProjectId, {
+  'tasks.changed': () => {
+    void refreshTasks();
+    void refreshSubtasks();
+  },
+  'masters.changed': () => {
+    void refreshStatuses();
+    void refreshPriorities();
+    void refreshTags();
+    void refreshFlags();
+  },
+  'members.changed': () => void refreshMembers(),
+  'views.changed': () => void refreshSavedViews(),
+});
 const currentProject = computed(() => projects.value.find((p) => p.id === currentProjectId.value));
 
 const currentMemberId = computed<string | null>(() => {

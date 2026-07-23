@@ -25,11 +25,11 @@ const includeCompleted = computed(
 useTaskFilterMemory();
 
 const { data: tasks, refresh: refreshTasks } = await useTasks(currentProjectId, includeCompleted);
-const { data: statuses } = await useTaskStatuses(currentProjectId);
-const { data: priorities } = await useTaskPriorities(currentProjectId);
-const { data: tags } = await useTags(currentProjectId);
-const { data: flags } = await useFlags(currentProjectId);
-const { data: members } = await useMembers(currentProjectId);
+const { data: statuses, refresh: refreshStatuses } = await useTaskStatuses(currentProjectId);
+const { data: priorities, refresh: refreshPriorities } = await useTaskPriorities(currentProjectId);
+const { data: tags, refresh: refreshTags } = await useTags(currentProjectId);
+const { data: flags, refresh: refreshFlags } = await useFlags(currentProjectId);
+const { data: members, refresh: refreshMembers } = await useMembers(currentProjectId);
 const { data: departments } = await useDepartments();
 
 const filters = useTaskFilters({ tasks, statuses, priorities, members, tags, flags });
@@ -171,6 +171,22 @@ const slideoverOpen = computed(() => selectedTask.value !== null);
 
 // ===== 関連タスク（G2: 選択時ハイライト / G3: 依存違反の警告） =====
 const { data: relations, refresh: refreshRelations } = await useProjectRelations(currentProjectId);
+
+// 他ユーザーの変更（SSE）を受けて表示中のデータを自動反映する
+// （関連タスクの変更も tasks.changed として届くので合わせて取り直す）
+useProjectEvents(currentProjectId, {
+  'tasks.changed': () => {
+    void refreshTasks();
+    void refreshRelations();
+  },
+  'masters.changed': () => {
+    void refreshStatuses();
+    void refreshPriorities();
+    void refreshTags();
+    void refreshFlags();
+  },
+  'members.changed': () => void refreshMembers(),
+});
 const tasksById = computed(() => new Map(tasks.value.map((t) => [t.id, t])));
 
 // タスク id → 関連するタスク id 集合（両方向・全種別）

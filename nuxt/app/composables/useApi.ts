@@ -37,11 +37,11 @@ export const useApi = () => {
   const base = $fetch.create({
     baseURL: '/api',
     onRequest({ options }) {
-      if (token.value) {
-        const headers = new Headers(options.headers as HeadersInit | undefined);
-        headers.set('Authorization', `Bearer ${token.value}`);
-        options.headers = headers;
-      }
+      const headers = new Headers(options.headers as HeadersInit | undefined);
+      if (token.value) headers.set('Authorization', `Bearer ${token.value}`);
+      // SSE のデータ更新イベントで自タブ発の変更を識別するためのタブ ID
+      headers.set('X-Client-Id', CLIENT_ID);
+      options.headers = headers;
     },
   });
 
