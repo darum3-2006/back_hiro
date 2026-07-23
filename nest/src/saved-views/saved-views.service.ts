@@ -134,6 +134,7 @@ export class SavedViewsService {
       name: `${source.name} のコピー`.slice(0, 100),
       visibility: 'private',
       config: source.config,
+      shortCode: await this.nextShortCode(),
     });
     return this.savedViews.save(copy);
   }

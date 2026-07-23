@@ -258,8 +258,9 @@ describe('SavedViewsService', () => {
   });
 
   describe('duplicate', () => {
-    it('shared ビューを自分の private として複製する', async () => {
-      repo.findOne.mockResolvedValue({
+    it('shared ビューを自分の private として複製する（shortCode も新規採番）', async () => {
+      // 1 回目の findOne は複製元の取得、以降は shortCode の衝突チェック（衝突なし）
+      repo.findOne.mockResolvedValueOnce({
         ...baseView,
         ownerUserId: owner.userId,
         visibility: 'shared',
@@ -271,6 +272,8 @@ describe('SavedViewsService', () => {
       expect(result.visibility).toBe('private');
       expect(result.name).toBe('My View のコピー');
       expect(result.config).toBe(config);
+      expect(result.shortCode).toHaveLength(10);
+      expect(result.shortCode).not.toBe(baseView.shortCode);
     });
   });
 
