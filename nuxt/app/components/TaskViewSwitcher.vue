@@ -112,19 +112,39 @@ const confirmDelete = () => {
   deleteModalOpen.value = false;
 };
 
+const toViewItem = (v: SavedView): DropdownMenuItem => ({
+  label: v.name,
+  icon: v.visibility === 'shared' ? 'i-lucide-users' : 'i-lucide-lock',
+  type: 'checkbox',
+  checked: v.id === props.selectedViewId,
+  // 自分が作った共有ビューは「自分」バッジで識別できるようにする（private は元々自分のみ）
+  slot:
+    v.visibility === 'shared' && v.ownerUserId === props.currentUserId ? 'own-shared' : undefined,
+  onSelect: (e: Event) => {
+    e.preventDefault();
+    emit('select', v.id);
+  },
+});
+
 const items = computed<DropdownMenuItem[][]>(() => {
-  // プルダウンは名前の昇順（日本語考慮）で並べる
-  const sortedViews = [...props.views].sort((a, b) => a.name.localeCompare(b.name, 'ja'));
-  const viewItems: DropdownMenuItem[] = sortedViews.map((v) => ({
-    label: v.name,
-    icon: v.visibility === 'shared' ? 'i-lucide-users' : 'i-lucide-lock',
-    type: 'checkbox',
-    checked: v.id === props.selectedViewId,
-    onSelect: (e: Event) => {
-      e.preventDefault();
-      emit('select', v.id);
-    },
-  }));
+  // private / 共有でセクション分けする。各セクション内は名前の昇順（日本語考慮）で、
+  // 共有ビューの並びは全メンバーで同じになる（所有者による並び替えはしない）
+  const sortViews = (views: SavedView[]) =>
+    [...views].sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+  const privateViews = sortViews(props.views.filter((v) => v.visibility === 'private'));
+  const sharedViews = sortViews(props.views.filter((v) => v.visibility === 'shared'));
+
+  const viewGroups: DropdownMenuItem[][] = [];
+  if (privateViews.length > 0 && sharedViews.length > 0) {
+    viewGroups.push(
+      [{ label: 'プライベートビュー', type: 'label' }, ...privateViews.map(toViewItem)],
+      [{ label: '共有ビュー', type: 'label' }, ...sharedViews.map(toViewItem)],
+    );
+  } else {
+    // 片方しかないときはラベルを出さずフラットに並べる（アイコンで区別できる）
+    const all = [...privateViews, ...sharedViews];
+    if (all.length > 0) viewGroups.push(all.map(toViewItem));
+  }
 
   const actions: DropdownMenuItem[] = [];
   const view = selectedView.value;
@@ -178,7 +198,7 @@ const items = computed<DropdownMenuItem[][]>(() => {
     });
   }
 
-  return viewItems.length > 0 ? [viewItems, actions] : [actions];
+  return [...viewGroups, actions];
 });
 </script>
 
@@ -190,6 +210,10 @@ const items = computed<DropdownMenuItem[][]>(() => {
         <span class="truncate max-w-40">{{ triggerLabel }}</span>
         <span v-if="dirty" class="text-warning" aria-label="未保存の変更あり">●</span>
       </UButton>
+      <template #own-shared-label="{ item }">
+        <span class="truncate">{{ (item as DropdownMenuItem).label }}</span>
+        <UBadge color="neutral" variant="subtle" size="sm" label="自分" />
+      </template>
     </UDropdownMenu>
 
     <AppModal
