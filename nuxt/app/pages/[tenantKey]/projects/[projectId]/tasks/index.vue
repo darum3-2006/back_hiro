@@ -2939,6 +2939,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
     :members="members"
     :tags="tags"
     :flags="flags"
+    :current-member-id="currentMemberId"
     :applying="bulkApplying"
     @apply="applyBulkEdit"
   />

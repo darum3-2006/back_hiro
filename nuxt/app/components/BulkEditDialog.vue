@@ -16,6 +16,8 @@ const props = defineProps<{
   members: Member[];
   tags: Tag[];
   flags: Flag[];
+  /** 「自分を割り当て」用の現在ユーザーの member id */
+  currentMemberId?: string | null;
   /** 適用中（API 実行中）。確認ボタンの loading に使う */
   applying?: boolean;
 }>();
@@ -261,6 +263,7 @@ const modeItems = [
                 default-icon="i-lucide-user"
                 searchable
                 search-placeholder="名前で検索…"
+                :self-value="currentMemberId"
                 @select="(c: string | null) => (assigneeMemberId = c)"
               >
                 <UButton
