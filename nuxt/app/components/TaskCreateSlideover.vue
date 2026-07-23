@@ -279,6 +279,7 @@ const departmentSelectItems = computed(() =>
               default-icon="i-lucide-user"
               searchable
               search-placeholder="名前で検索…"
+              :self-value="currentMemberId"
               @select="(c: string | null) => (draft.assigneeMemberId = c)"
             >
               <button class="text-sm hover:underline cursor-pointer text-left">
