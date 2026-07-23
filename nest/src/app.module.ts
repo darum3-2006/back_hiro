@@ -14,6 +14,7 @@ import { DepartmentsModule } from './departments/departments.module';
 import { MastersModule } from './masters/masters.module';
 import { MembersModule } from './members/members.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { ProjectEventsModule } from './project-events/project-events.module';
 import { ProjectsModule } from './projects/projects.module';
 import { PublicModule } from './public/public.module';
 import { SavedViewsModule } from './saved-views/saved-views.module';
@@ -43,6 +44,7 @@ import { UsersModule } from './users/users.module';
     MembersModule,
     MastersModule,
     NotificationsModule,
+    ProjectEventsModule,
     TasksModule,
     CommentsModule,
     PublicModule,

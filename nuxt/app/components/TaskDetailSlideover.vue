@@ -89,6 +89,20 @@ const { data: activities, refresh: refreshActivities } = await useTaskActivities
   taskIdRef,
 );
 
+// 他ユーザーの変更（SSE）を受けて、開いているタスクのコメント・変更履歴を自動反映する
+// （タスク本体のフィールドは親ページの一覧再取得経由で props が更新される）
+useProjectEvents(projectIdRef, {
+  'comments.changed': (e) => {
+    if (e.taskId && e.taskId !== taskIdRef.value) return;
+    void refreshComments();
+    void refreshActivities();
+  },
+  'tasks.changed': (e) => {
+    if (e.taskId && e.taskId !== taskIdRef.value) return;
+    void refreshActivities();
+  },
+});
+
 // サブタスク変更時は親タスクの変更履歴（監査ログ）に相乗りしているので取り直す
 const onSubtasksChanged = () => {
   void refreshActivities();
