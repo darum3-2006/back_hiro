@@ -95,8 +95,13 @@ export class SavedViewsService {
     dto: UpdateSavedViewDto,
   ): Promise<SavedView> {
     const view = await this.findVisible(tenantId, projectId, id, user);
-    await this.assertCanEdit(tenantId, projectId, view, user);
     this.assertReadonlyScope(user, view, dto.visibility);
+    // 公開範囲の変更は実質的に共有解除（全メンバーから見えなくなる）なので削除と同じ権限に限定。
+    // 名前・config の編集は閲覧できるビューなら誰でも可
+    //（private は findVisible で owner 以外 404、shared は全メンバー編集可）
+    if (dto.visibility !== undefined && dto.visibility !== view.visibility) {
+      await this.assertOwnerOrAdmin(tenantId, projectId, view, user);
+    }
     if (dto.name !== undefined) view.name = dto.name.trim();
     if (dto.visibility !== undefined) view.visibility = dto.visibility;
     if (dto.config !== undefined) view.config = dto.config;
@@ -110,8 +115,8 @@ export class SavedViewsService {
     user: AuthenticatedUser,
   ): Promise<void> {
     const view = await this.findVisible(tenantId, projectId, id, user);
-    await this.assertCanEdit(tenantId, projectId, view, user);
     this.assertReadonlyScope(user, view);
+    await this.assertOwnerOrAdmin(tenantId, projectId, view, user);
     await this.savedViews.remove(view);
   }
 
@@ -172,22 +177,28 @@ export class SavedViewsService {
   }
 
   /**
-   * 編集/削除の可否を判定する。
+   * 削除・公開範囲変更の可否を判定する。
    * - 作成者本人は常に可
-   * - 作成者が削除済み（owner=NULL）かつ shared な孤児ビューは ProjectMember admin が引き取り可
+   * - shared ビュー（孤児含む）はテナント admin / プロジェクト admin も可
    * - それ以外（他人のビュー）は不可
    */
-  private async assertCanEdit(
+  private async assertOwnerOrAdmin(
     tenantId: string,
     projectId: string,
     view: SavedView,
     user: AuthenticatedUser,
   ): Promise<void> {
     if (view.ownerUserId === user.userId) return;
-    if (view.ownerUserId === null && view.visibility === 'shared') {
-      await this.members.assertProjectAdmin(tenantId, projectId, user);
-      return;
+    if (view.visibility === 'shared') {
+      try {
+        await this.members.assertProjectAdmin(tenantId, projectId, user);
+        return;
+      } catch {
+        throw new ForbiddenException(
+          '共有ビューの削除・公開範囲の変更は作成者または管理者のみ実行できます',
+        );
+      }
     }
-    throw new ForbiddenException('このビューを編集する権限がありません');
+    throw new ForbiddenException('このビューを操作する権限がありません');
   }
 }

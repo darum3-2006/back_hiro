@@ -1802,7 +1802,7 @@ const currentTenantKey = useCurrentTenantKey();
 const lastViewKey = computed(() => `tasks:last-view:${currentProjectId.value}`);
 const selectedViewId = ref<string | null>(null);
 
-// 孤児化した共有ビュー（owner=null）を引き取れる権限（テナント admin or プロジェクト admin）
+// 共有ビューの削除・公開範囲変更ができる権限（テナント admin or プロジェクト admin）
 const canManageShared = computed(() => {
   if (me.value?.role === 'admin') return true;
   const uid = currentUserId.value;
