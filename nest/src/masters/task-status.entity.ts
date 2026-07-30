@@ -15,7 +15,11 @@ export type MasterColor =
   | 'amber'
   | 'fuchsia'
   | 'emerald'
-  | 'violet';
+  | 'violet'
+  | 'cyan'
+  | 'indigo'
+  | 'mauve'
+  | 'olive';
 
 @Entity({ name: 'task_statuses', comment: 'タスクステータス（プロジェクト単位）' })
 @Index('uq_task_statuses_project_code', ['projectId', 'code'], { unique: true })

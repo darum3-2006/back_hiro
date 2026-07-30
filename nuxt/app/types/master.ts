@@ -11,7 +11,11 @@ export type MasterColor =
   | 'amber'
   | 'fuchsia'
   | 'emerald'
-  | 'violet';
+  | 'violet'
+  | 'cyan'
+  | 'indigo'
+  | 'mauve'
+  | 'olive';
 
 export interface TaskStatus {
   projectId: string;

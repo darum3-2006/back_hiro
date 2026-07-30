@@ -12,4 +12,8 @@ export const MASTER_COLORS = [
   'fuchsia',
   'emerald',
   'violet',
+  'cyan',
+  'indigo',
+  'mauve',
+  'olive',
 ] as const;

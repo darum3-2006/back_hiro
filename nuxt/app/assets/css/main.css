@@ -1,10 +1,10 @@
 @import 'tailwindcss';
 @import '@nuxt/ui';
 
-/* マスタの色 (rose/sky/amber/fuchsia/emerald/violet) は Nuxt UI 4 が
+/* マスタの色 (rose/sky/amber/fuchsia/emerald/violet/cyan/indigo/mauve/olive) は Nuxt UI 4 が
    テーマで利用するが、Tailwind v4 の JIT は実際に書かれていないクラスを
    生成しないため、ここで bundle に含めるよう明示する。 */
-@source inline("{bg,text,border,ring,divide,outline,decoration,from,via,to}-{rose,sky,amber,fuchsia,emerald,violet}-{50,100,200,300,400,500,600,700,800,900,950}");
+@source inline("{bg,text,border,ring,divide,outline,decoration,from,via,to}-{rose,sky,amber,fuchsia,emerald,violet,cyan,indigo,mauve,olive}-{50,100,200,300,400,500,600,700,800,900,950}");
 
 @theme static {
   --font-sans: 'Public Sans', sans-serif;
@@ -18,6 +18,36 @@
   --color-fuchsia: var(--color-fuchsia-500);
   --color-emerald: var(--color-emerald-500);
   --color-violet: var(--color-violet-500);
+  --color-cyan: var(--color-cyan-500);
+  --color-indigo: var(--color-indigo-500);
+  --color-mauve: var(--color-mauve-500);
+  --color-olive: var(--color-olive-500);
+
+  /* mauve / olive は Tailwind 標準にないため、ここでパレット（50〜950）を定義する。
+     階調バランスは Tailwind の既存パレットに合わせて手調整したもの。 */
+  --color-mauve-50: #faf7fa;
+  --color-mauve-100: #f5edf5;
+  --color-mauve-200: #ebdcea;
+  --color-mauve-300: #dbc1d9;
+  --color-mauve-400: #c49dc2;
+  --color-mauve-500: #ad7fab;
+  --color-mauve-600: #94648f;
+  --color-mauve-700: #7c5177;
+  --color-mauve-800: #674563;
+  --color-mauve-900: #573c54;
+  --color-mauve-950: #35202f;
+
+  --color-olive-50: #f9faeb;
+  --color-olive-100: #f1f3d4;
+  --color-olive-200: #e3e8ae;
+  --color-olive-300: #cdd67e;
+  --color-olive-400: #b6c156;
+  --color-olive-500: #98a538;
+  --color-olive-600: #77832a;
+  --color-olive-700: #5b6424;
+  --color-olive-800: #4a5122;
+  --color-olive-900: #3f4520;
+  --color-olive-950: #21250c;
 
   --color-green-50: #effdf5;
   --color-green-100: #d9fbe8;
