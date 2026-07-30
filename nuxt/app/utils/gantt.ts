@@ -177,6 +177,10 @@ export const ganttBarColorClass = (color: MasterColor | undefined): string => {
     fuchsia: 'bg-fuchsia-500',
     emerald: 'bg-emerald-500',
     violet: 'bg-violet-500',
+    cyan: 'bg-cyan-500',
+    indigo: 'bg-indigo-500',
+    mauve: 'bg-mauve-500',
+    olive: 'bg-olive-500',
   };
   return color ? map[color] : 'bg-primary';
 };

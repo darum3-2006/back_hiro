@@ -29,6 +29,11 @@ export default defineNuxtConfig({
         'fuchsia',
         'emerald',
         'violet',
+        'cyan',
+        'indigo',
+        // mauve / olive は Tailwind 標準にないカスタムパレット（main.css の @theme で定義）
+        'mauve',
+        'olive',
       ],
     },
   },

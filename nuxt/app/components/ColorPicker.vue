@@ -18,10 +18,14 @@ const colors: { value: MasterColor; label: string }[] = [
   { value: 'error', label: 'レッド' },
   { value: 'rose', label: 'ローズ' },
   { value: 'sky', label: 'スカイ' },
+  { value: 'cyan', label: 'シアン' },
   { value: 'amber', label: 'アンバー' },
+  { value: 'olive', label: 'オリーブ' },
   { value: 'emerald', label: 'エメラルド' },
+  { value: 'indigo', label: 'インディゴ' },
   { value: 'violet', label: 'バイオレット' },
   { value: 'fuchsia', label: 'フューシャ' },
+  { value: 'mauve', label: 'モーブ' },
 ];
 </script>
 
