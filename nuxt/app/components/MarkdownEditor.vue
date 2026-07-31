@@ -19,6 +19,8 @@ const props = withDefaults(
     rows?: number;
     placeholder?: string;
     disabled?: boolean;
+    /** マウント時に編集欄へフォーカスする（編集モード開始で表示されるケース用） */
+    autofocus?: boolean;
   }>(),
   {
     tasks: () => [],
@@ -28,6 +30,7 @@ const props = withDefaults(
     rows: 3,
     placeholder: '',
     disabled: false,
+    autofocus: false,
   },
 );
 
@@ -67,6 +70,7 @@ const hasContent = computed(() => props.modelValue.trim().length > 0);
       :rows="rows"
       :placeholder="placeholder"
       :disabled="disabled"
+      :autofocus="autofocus"
       @update:model-value="(v: string) => emit('update:modelValue', v)"
       @submit="emit('submit')"
     />

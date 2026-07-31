@@ -266,6 +266,12 @@ const startEdit = (field: EditableField, current: string | null) => {
   cancelling.value = false;
 };
 
+/** 説明内のリンクをクリックしたときはリンクを開くだけにして、編集モードには入らない */
+const onDescriptionClick = (e: MouseEvent) => {
+  if ((e.target as HTMLElement | null)?.closest('a')) return;
+  startEdit('description', props.task?.description ?? null);
+};
+
 const commitEdit = () => {
   if (cancelling.value) {
     cancelling.value = false;
@@ -298,9 +304,20 @@ const cancelEdit = () => {
 
 // 内容欄の Enter/ESC を IME ガード（共通コンポーザブル）。
 // ESC は stop=true で伝播を止め、編集中にスライドインが閉じないようにする。
-const { onCompositionStart, onCompositionEnd, onEnter, onEscape } = useImeGuard();
+const { onCompositionStart, onCompositionEnd, onEnter, onEscape, isComposing } = useImeGuard();
 const onContentEnter = onEnter(commitEdit);
 const onContentEscape = onEscape(cancelEdit, { stop: true });
+
+// 説明・コメント編集中の ESC はスライドオーバーへ伝播させない（閉じるのを防ぐ）。
+// メンション候補を閉じただけ（MentionTextarea が preventDefault 済み）や
+// IME 変換キャンセルは編集を続行し、それ以外は編集をキャンセルする
+const onEditorEscape = (cancel: () => void) => (e: KeyboardEvent) => {
+  e.stopPropagation();
+  if (e.defaultPrevented || isComposing(e)) return;
+  cancel();
+};
+const onDescriptionEscape = onEditorEscape(cancelEdit);
+const onCommentEditEscape = onEditorEscape(cancelCommentEdit);
 
 // ===== Links inline edit =====
 const editingLinkIndex = ref<number | null>(null);
@@ -484,12 +501,17 @@ const flagsList = computed(() => Object.values(props.flagMap));
               label="画像を表示する"
             />
           </div>
-          <div v-if="editingField === 'description'" class="space-y-2">
+          <div
+            v-if="editingField === 'description'"
+            class="space-y-2"
+            @keydown.esc="onDescriptionEscape"
+          >
             <MarkdownEditor
               v-model="editBuffer"
               :tasks="tasks"
               :show-images="showImages"
               :rows="5"
+              autofocus
               placeholder="説明（Markdown 可・Cmd/Ctrl+Enter で保存）…"
               @submit="commitEdit"
             />
@@ -507,7 +529,7 @@ const flagsList = computed(() => Object.values(props.flagMap));
           <div
             v-else
             class="text-sm text-left w-full hover:bg-elevated/40 rounded px-1 -mx-1 min-h-6 cursor-text"
-            @click="startEdit('description', task.description)"
+            @click="onDescriptionClick"
           >
             <MarkdownContent
               v-if="task.description"
@@ -957,7 +979,11 @@ const flagsList = computed(() => Object.values(props.flagMap));
                       />
                     </div>
 
-                    <div v-if="editingCommentId === item.comment.id" class="mt-1 space-y-2">
+                    <div
+                      v-if="editingCommentId === item.comment.id"
+                      class="mt-1 space-y-2"
+                      @keydown.esc="onCommentEditEscape"
+                    >
                       <MarkdownEditor
                         v-model="commentEditBuffer"
                         :candidates="mentionCandidates"
@@ -965,6 +991,7 @@ const flagsList = computed(() => Object.values(props.flagMap));
                         :mention-names="mentionNames"
                         :show-images="showImages"
                         :rows="3"
+                        autofocus
                         placeholder="コメントを編集（@ でメンション・Markdown 可）…"
                         @submit="saveCommentEdit"
                       />
