@@ -13,8 +13,10 @@ const props = withDefaults(
     rows?: number;
     placeholder?: string;
     disabled?: boolean;
+    /** マウント時にフォーカスする（編集モード開始で表示されるケース用） */
+    autofocus?: boolean;
   }>(),
-  { rows: 3, placeholder: '', disabled: false },
+  { rows: 3, placeholder: '', disabled: false, autofocus: false },
 );
 
 const emit = defineEmits<{
@@ -131,6 +133,15 @@ const onBlur = () => {
     mentionStart.value = -1;
   }, 150);
 };
+
+onMounted(() => {
+  if (!props.autofocus) return;
+  const el = taRef.value;
+  if (!el) return;
+  el.focus();
+  // 既存テキストの続きから入力できるようカーソルは末尾に置く
+  el.setSelectionRange(el.value.length, el.value.length);
+});
 </script>
 
 <template>

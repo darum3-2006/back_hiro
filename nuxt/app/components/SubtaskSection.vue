@@ -343,6 +343,7 @@ const onReorder = async () => {
               :model-value="memoBuffer"
               :tasks="tasks ?? []"
               :rows="4"
+              autofocus
               placeholder="メモ（Markdown 可・Cmd/Ctrl+Enter で保存）"
               @update:model-value="(v: string) => (memoBuffer = v)"
               @submit="commitMemo(s)"
