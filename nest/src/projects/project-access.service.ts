@@ -57,6 +57,23 @@ export class ProjectAccessService {
     return byUser;
   }
 
+  /**
+   * 指定ユーザーのうち、このプロジェクトの閲覧を許可されている ID を返す。
+   * admin は設定行を持たなくても閲覧できるため、ここには現れない（呼び出し側でロールを見る）。
+   */
+  async listUserIdsForProject(
+    tenantId: string,
+    projectId: string,
+    userIds: string[],
+  ): Promise<string[]> {
+    if (userIds.length === 0) return [];
+    const rows = await this.access.find({
+      where: { tenantId, projectId, userId: In([...new Set(userIds)]) },
+      select: { userId: true },
+    });
+    return rows.map((r) => r.userId);
+  }
+
   async canAccess(user: AuthenticatedUser, projectId: string): Promise<boolean> {
     if (isUnrestricted(user.role)) return true;
     const count = await this.access.countBy({

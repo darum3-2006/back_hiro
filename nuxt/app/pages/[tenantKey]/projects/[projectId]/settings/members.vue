@@ -131,6 +131,11 @@ const columns: TableColumn<Member>[] = [
   { accessorKey: 'role', header: '権限' },
   { id: 'actions', header: '' },
 ];
+
+// このプロジェクトを閲覧できないメンバー。担当に割り当てても通知が届かず一覧にも出ないため、
+// 黙って壊れた状態になる。設定できるのはテナント admin だけなので、案内文を出し分ける。
+const blindMembers = computed(() => members.value.filter((m) => m.canViewProject === false));
+const isTenantAdmin = computed(() => me.value?.role === 'admin');
 </script>
 
 <template>
@@ -148,6 +153,21 @@ const columns: TableColumn<Member>[] = [
         <UButton color="primary" icon="i-lucide-plus" label="メンバーを追加" @click="openCreate" />
       </div>
     </div>
+
+    <!-- 閲覧できないメンバーは黙って壊れた状態（割り当てても通知が届かない）になるので目立たせる。
+         blindMembers が居る時点でメンバーは 1 人以上いるため、下の EmptyState とは排他になる。 -->
+    <UAlert
+      v-if="blindMembers.length > 0"
+      color="error"
+      variant="subtle"
+      icon="i-lucide-eye-off"
+      :title="`${blindMembers.length} 人がこのプロジェクトを閲覧できません`"
+      :description="
+        isTenantAdmin
+          ? '担当者に割り当てても通知が届かず、本人のタスク一覧にも表示されません。ユーザー管理で閲覧できるプロジェクトに追加してください。'
+          : '担当者に割り当てても通知が届かず、本人のタスク一覧にも表示されません。閲覧できるプロジェクトの設定は管理者にお問い合わせください。'
+      "
+    />
 
     <EmptyState
       v-if="members.length === 0"
@@ -173,10 +193,21 @@ const columns: TableColumn<Member>[] = [
         <span class="font-medium">{{ row.original.displayName }}</span>
       </template>
       <template #userId-cell="{ row }">
-        <span v-if="row.original.userId" class="text-sm">
-          {{ userMap[row.original.userId]?.name ?? row.original.userId }}
-          <span class="text-muted"> ({{ userMap[row.original.userId]?.email }})</span>
-        </span>
+        <div v-if="row.original.userId" class="flex items-center gap-2">
+          <span class="text-sm">
+            {{ userMap[row.original.userId]?.name ?? row.original.userId }}
+            <span class="text-muted"> ({{ userMap[row.original.userId]?.email }})</span>
+          </span>
+          <UBadge
+            v-if="row.original.canViewProject === false"
+            color="error"
+            variant="subtle"
+            size="sm"
+            icon="i-lucide-eye-off"
+            label="閲覧不可"
+            title="このプロジェクトの閲覧を許可されていません。担当に割り当てても通知が届きません"
+          />
+        </div>
         <UBadge v-else color="neutral" variant="soft" size="sm" label="未紐付け" />
       </template>
       <template #role-cell="{ row }">
