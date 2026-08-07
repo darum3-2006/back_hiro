@@ -1,6 +1,6 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { ProjectMember } from '../members/member.entity';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
@@ -21,9 +21,15 @@ export class ProjectsService {
     return own?.role === 'admin';
   }
 
-  listByTenant(tenantId: string): Promise<Project[]> {
+  /**
+   * テナント内のプロジェクト一覧。
+   * `accessibleIds` に配列を渡すとその ID に絞る（`ProjectAccessService.accessibleProjectIds`
+   * の戻り値をそのまま渡す想定で、`null` = 制限なし / 空配列 = 0 件）。
+   */
+  listByTenant(tenantId: string, accessibleIds: string[] | null = null): Promise<Project[]> {
+    if (accessibleIds !== null && accessibleIds.length === 0) return Promise.resolve([]);
     return this.projects.find({
-      where: { tenantId },
+      where: accessibleIds === null ? { tenantId } : { tenantId, id: In(accessibleIds) },
       order: { createdAt: 'ASC' },
     });
   }

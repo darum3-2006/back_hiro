@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Observable, Subject } from 'rxjs';
-import { In, IsNull, Repository } from 'typeorm';
+import { In, IsNull, Repository, type SelectQueryBuilder } from 'typeorm';
 import type { AuditChange } from '../audit/audit-log.entity';
 import { ProjectMember } from '../members/member.entity';
 import type { Task } from '../tasks/task.entity';
@@ -30,16 +30,59 @@ export class NotificationsService {
 
   // ===== 取得・既読 =====
 
-  listForUser(tenantId: string, userId: string, limit = 30): Promise<Notification[]> {
-    return this.notifications.find({
-      where: { tenantId, userId },
-      order: { createdAt: 'DESC' },
-      take: limit,
+  /**
+   * 自分宛の通知（新着順）。
+   * `accessibleProjectIds` に配列を渡すと、そのプロジェクトに紐づく通知だけに絞る
+   * （`null` = 制限なし）。プロジェクト横断の通知（project_id が NULL）は常に残す。
+   */
+  listForUser(
+    tenantId: string,
+    userId: string,
+    limit = 30,
+    accessibleProjectIds: string[] | null = null,
+  ): Promise<Notification[]> {
+    const qb = this.notifications
+      .createQueryBuilder('n')
+      .where('n.tenant_id = :tenantId', { tenantId })
+      .andWhere('n.user_id = :userId', { userId });
+    this.applyProjectScope(qb, accessibleProjectIds);
+    return qb.orderBy('n.created_at', 'DESC').take(limit).getMany();
+  }
+
+  unreadCount(
+    tenantId: string,
+    userId: string,
+    accessibleProjectIds: string[] | null = null,
+  ): Promise<number> {
+    const qb = this.notifications
+      .createQueryBuilder('n')
+      .where('n.tenant_id = :tenantId', { tenantId })
+      .andWhere('n.user_id = :userId', { userId })
+      .andWhere('n.read_at IS NULL');
+    this.applyProjectScope(qb, accessibleProjectIds);
+    return qb.getCount();
+  }
+
+  /** 閲覧できるプロジェクトの通知だけに絞る条件を足す（project_id NULL は常に通す）。 */
+  private applyProjectScope(
+    qb: SelectQueryBuilder<Notification>,
+    accessibleProjectIds: string[] | null,
+  ): void {
+    if (accessibleProjectIds === null) return;
+    if (accessibleProjectIds.length === 0) {
+      qb.andWhere('n.project_id IS NULL');
+      return;
+    }
+    qb.andWhere('(n.project_id IS NULL OR n.project_id IN (:...accessibleProjectIds))', {
+      accessibleProjectIds,
     });
   }
 
-  unreadCount(tenantId: string, userId: string): Promise<number> {
-    return this.notifications.count({ where: { tenantId, userId, readAt: IsNull() } });
+  /** SSE で流す 1 件が閲覧可能なプロジェクトのものか（project_id NULL は常に可）。 */
+  isVisibleFor(notification: Notification, accessibleProjectIds: string[] | null): boolean {
+    if (accessibleProjectIds === null) return true;
+    if (notification.projectId === null) return true;
+    return accessibleProjectIds.includes(notification.projectId);
   }
 
   async markRead(tenantId: string, userId: string, id: string): Promise<void> {

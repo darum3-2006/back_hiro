@@ -15,6 +15,7 @@ import {
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
+import { ProjectAccessGuard } from '../auth/project-access.guard';
 import { BulkUpdateTasksDto } from './dto/bulk-update-tasks.dto';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { TaskFilterDto } from './dto/task-filter.dto';
@@ -22,7 +23,7 @@ import { UpdateTaskDto } from './dto/update-task.dto';
 import { TasksService } from './tasks.service';
 
 @Controller('projects/:projectId/tasks')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, ProjectAccessGuard)
 export class TasksController {
   constructor(private readonly tasks: TasksService) {}
 

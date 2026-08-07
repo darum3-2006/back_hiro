@@ -181,7 +181,12 @@ export class TasksService {
    * - アーカイブ済みプロジェクトは除外
    * - 並び: 期限の昇順（未設定は末尾）、次いで作成順
    */
-  async listMyOpenTasks(tenantId: string, userId: string): Promise<MyTaskResponse[]> {
+  async listMyOpenTasks(
+    tenantId: string,
+    userId: string,
+    accessibleProjectIds: string[] | null,
+  ): Promise<MyTaskResponse[]> {
+    if (accessibleProjectIds !== null && accessibleProjectIds.length === 0) return [];
     const rows = await this.tasks
       .createQueryBuilder('t')
       .innerJoin('t.project', 'p')
@@ -191,6 +196,10 @@ export class TasksService {
       .andWhere('p.archived_at IS NULL')
       .andWhere('am.user_id = :userId', { userId })
       .andWhere('s.is_terminal = false')
+      .andWhere(
+        accessibleProjectIds === null ? '1 = 1' : 't.project_id IN (:...accessibleProjectIds)',
+        accessibleProjectIds === null ? {} : { accessibleProjectIds },
+      )
       .orderBy('t.deadline IS NULL', 'ASC')
       .addOrderBy('t.deadline', 'ASC')
       .addOrderBy('t.created_at', 'ASC')
@@ -241,9 +250,15 @@ export class TasksService {
    * グローバル検索（テナント横断）。タイトル/説明/関連リンク(URL・ラベル)の部分一致、
    * short_code 完全一致、seq（#15 / 15）一致でタスクを引く。アーカイブ済みプロジェクトは除外。
    */
-  async search(tenantId: string, rawQuery: string, limit = 20): Promise<TaskSearchResult[]> {
+  async search(
+    tenantId: string,
+    rawQuery: string,
+    limit = 20,
+    accessibleProjectIds: string[] | null = null,
+  ): Promise<TaskSearchResult[]> {
     const q = rawQuery.trim();
     if (!q) return [];
+    if (accessibleProjectIds !== null && accessibleProjectIds.length === 0) return [];
     const take = Math.min(Math.max(limit, 1), 50);
     const like = `%${escapeLike(q)}%`;
     // 「#15」「15」のような数値はプロジェクト内連番(seq)としても照合する
@@ -261,6 +276,10 @@ export class TasksService {
         `(t.content LIKE :like OR t.description LIKE :like OR t.links LIKE :like
           OR t.short_code = :code${seq !== null ? ' OR t.seq = :seq' : ''})`,
         seq !== null ? { like, code: q, seq } : { like, code: q },
+      )
+      .andWhere(
+        accessibleProjectIds === null ? '1 = 1' : 't.project_id IN (:...accessibleProjectIds)',
+        accessibleProjectIds === null ? {} : { accessibleProjectIds },
       )
       // 短縮コード完全一致を最優先、次いでタイトル一致、あとは新しい順
       .orderBy('t.short_code = :code', 'DESC')

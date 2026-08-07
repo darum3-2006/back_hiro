@@ -8,6 +8,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
+import { ProjectAccessService } from '../projects/project-access.service';
 import { ProjectsService } from '../projects/projects.service';
 import { CreateMemberDto } from './dto/create-member.dto';
 import { UpdateMemberDto } from './dto/update-member.dto';
@@ -22,6 +23,11 @@ export interface MemberWithUserRole {
   displayName: string;
   role: MemberRole;
   userRole: UserRole | null;
+  /**
+   * このメンバーがこのプロジェクトを閲覧できるか（User 未紐付けのメンバーは対象外で null）。
+   * false のメンバーは担当に割り当てても通知が届かず一覧にも出ないため、設定画面で警告する。
+   */
+  canViewProject: boolean | null;
 }
 
 @Injectable()
@@ -30,6 +36,7 @@ export class MembersService {
     @InjectRepository(ProjectMember)
     private readonly members: Repository<ProjectMember>,
     private readonly projects: ProjectsService,
+    private readonly access: ProjectAccessService,
   ) {}
 
   async listByProject(tenantId: string, projectId: string): Promise<ProjectMember[]> {
@@ -41,8 +48,8 @@ export class MembersService {
   }
 
   /**
-   * メンバー一覧 + 紐づくユーザーのロール。
-   * フロントが担当者ピッカーから readonly（閲覧のみ）ユーザーを除外するために使う。
+   * メンバー一覧 + 紐づくユーザーのロール・このプロジェクトを閲覧できるか。
+   * userRole はフロントが担当者ピッカーから readonly（閲覧のみ）ユーザーを除外するために使う。
    * User エンティティをそのまま返すと passwordHash 等が漏れるため、必要な項目だけに整形する。
    */
   async listByProjectWithUserRole(
@@ -55,6 +62,16 @@ export class MembersService {
       relations: { user: true },
       order: { createdAt: 'ASC' },
     });
+
+    // User 紐付きメンバーの閲覧可否をまとめて引く（admin は設定に関係なく閲覧可）
+    const viewerIds = new Set(
+      await this.access.listUserIdsForProject(
+        tenantId,
+        projectId,
+        members.flatMap((m) => (m.userId ? [m.userId] : [])),
+      ),
+    );
+
     return members.map((m) => ({
       id: m.id,
       projectId: m.projectId,
@@ -62,6 +79,8 @@ export class MembersService {
       displayName: m.displayName,
       role: m.role,
       userRole: m.user?.role ?? null,
+      canViewProject:
+        m.userId === null ? null : m.user?.role === 'admin' || viewerIds.has(m.userId),
     }));
   }
 

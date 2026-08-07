@@ -1,4 +1,12 @@
-import { IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import {
+  ArrayUnique,
+  IsIn,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 
 export class UpdateUserDto {
   @IsOptional()
@@ -17,4 +25,13 @@ export class UpdateUserDto {
   @MinLength(8)
   @MaxLength(72)
   password?: string;
+
+  /**
+   * 閲覧を許可するプロジェクト（指定した内容で丸ごと置き換える）。
+   * 省略時は変更しない。admin はこの設定に関係なく全プロジェクトを閲覧できる。
+   */
+  @IsOptional()
+  @ArrayUnique()
+  @IsUUID('4', { each: true })
+  projectIds?: string[];
 }

@@ -14,6 +14,7 @@ import {
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
+import { ProjectAccessGuard } from '../auth/project-access.guard';
 import { CreateTaskPriorityDto } from './dto/create-task-priority.dto';
 import { MoveDto } from './dto/move.dto';
 import { ReorderDto } from './dto/reorder.dto';
@@ -21,7 +22,7 @@ import { UpdateTaskPriorityDto } from './dto/update-task-priority.dto';
 import { TaskPrioritiesService } from './task-priorities.service';
 
 @Controller('projects/:projectId/task-priorities')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, ProjectAccessGuard)
 export class TaskPrioritiesController {
   constructor(private readonly priorities: TaskPrioritiesService) {}
 

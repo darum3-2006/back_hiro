@@ -13,13 +13,14 @@ import {
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
+import { ProjectAccessGuard } from '../auth/project-access.guard';
 import { CreateFlagDto } from './dto/create-flag.dto';
 import { FlagTargetDto } from './dto/flag-target.dto';
 import { UpdateFlagDto } from './dto/update-flag.dto';
 import { FlagsService } from './flags.service';
 
 @Controller('projects/:projectId/flags')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, ProjectAccessGuard)
 export class FlagsController {
   constructor(private readonly flags: FlagsService) {}
 

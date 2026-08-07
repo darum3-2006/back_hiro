@@ -14,6 +14,7 @@ import { AdminGuard } from '../auth/admin.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
+import { ProjectAccessService } from '../projects/project-access.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import type { User, UserRole } from './user.entity';
@@ -24,25 +25,40 @@ interface UserSummary {
   name: string;
   email: string;
   role: UserRole;
+  /**
+   * 閲覧を許可されたプロジェクト。admin はこの設定に関係なく全件見られる。
+   * 設定できるのは admin だけなので、admin 以外には返さない（`undefined`）。
+   * この一覧はメンション候補の取得などで全ユーザーが叩くため、他人の閲覧範囲や
+   * 自分に見えないプロジェクトの ID を漏らさないようにする。
+   */
+  projectIds?: string[];
 }
 
-const toSummary = (u: User): UserSummary => ({
+const toSummary = (u: User, projectIds: string[] | undefined): UserSummary => ({
   id: u.id,
   name: u.name,
   email: u.email,
   role: u.role,
+  ...(projectIds === undefined ? {} : { projectIds }),
 });
 
 @Controller('users')
 @UseGuards(JwtAuthGuard)
 export class UsersController {
-  constructor(private readonly users: UsersService) {}
+  constructor(
+    private readonly users: UsersService,
+    private readonly access: ProjectAccessService,
+  ) {}
 
   @Get()
   async list(@CurrentUser() user: AuthenticatedUser): Promise<UserSummary[]> {
-    const list = await this.users.listByTenant(user.tenantId);
+    const isAdmin = user.role === 'admin';
+    const [list, accessByUser] = await Promise.all([
+      this.users.listByTenant(user.tenantId),
+      isAdmin ? this.access.listProjectIdsByUser(user.tenantId) : null,
+    ]);
     // パスワードハッシュは絶対に外向きに出さない
-    return list.map(toSummary);
+    return list.map((u) => toSummary(u, accessByUser ? (accessByUser.get(u.id) ?? []) : undefined));
   }
 
   @Post()
@@ -52,7 +68,9 @@ export class UsersController {
     @Body() dto: CreateUserDto,
   ): Promise<UserSummary> {
     const created = await this.users.create(user.tenantId, dto);
-    return toSummary(created);
+    // 明示付与運用なので、指定が無ければ 0 件のまま
+    await this.access.replaceForUser(user.tenantId, created.id, dto.projectIds ?? []);
+    return toSummary(created, await this.access.listProjectIds(user.tenantId, created.id));
   }
 
   @Patch(':id')
@@ -63,7 +81,10 @@ export class UsersController {
     @Body() dto: UpdateUserDto,
   ): Promise<UserSummary> {
     const updated = await this.users.update(user.tenantId, user.userId, id, dto);
-    return toSummary(updated);
+    if (dto.projectIds !== undefined) {
+      await this.access.replaceForUser(user.tenantId, updated.id, dto.projectIds);
+    }
+    return toSummary(updated, await this.access.listProjectIds(user.tenantId, updated.id));
   }
 
   @Delete(':id')

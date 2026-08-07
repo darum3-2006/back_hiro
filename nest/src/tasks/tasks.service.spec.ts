@@ -365,7 +365,7 @@ describe('TasksService', () => {
       };
       tasksRepo.createQueryBuilder.mockReturnValue(qb as never);
 
-      const result = await service.listMyOpenTasks(tenantId, 'user-1');
+      const result = await service.listMyOpenTasks(tenantId, 'user-1', null);
 
       expect(result).toEqual([
         {
@@ -383,6 +383,34 @@ describe('TasksService', () => {
       ]);
       expect(qb.andWhere).toHaveBeenCalledWith('am.user_id = :userId', { userId: 'user-1' });
       expect(qb.andWhere).toHaveBeenCalledWith('s.is_terminal = false');
+    });
+
+    it('閲覧できるプロジェクトが渡されたら IN で絞り込む', async () => {
+      const qb = {
+        innerJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(),
+        getRawMany: jest.fn().mockResolvedValue([]),
+      };
+      tasksRepo.createQueryBuilder.mockReturnValue(qb as never);
+
+      await service.listMyOpenTasks(tenantId, 'user-1', ['p1', 'p2']);
+
+      expect(qb.andWhere).toHaveBeenCalledWith('t.project_id IN (:...accessibleProjectIds)', {
+        accessibleProjectIds: ['p1', 'p2'],
+      });
+    });
+
+    it('閲覧できるプロジェクトが 0 件ならクエリを投げずに空配列', async () => {
+      tasksRepo.createQueryBuilder.mockClear();
+
+      const result = await service.listMyOpenTasks(tenantId, 'user-1', []);
+
+      expect(result).toEqual([]);
+      expect(tasksRepo.createQueryBuilder).not.toHaveBeenCalled();
     });
   });
 

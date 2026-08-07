@@ -11,9 +11,11 @@ import {
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
+import { ProjectAccessGuard } from '../auth/project-access.guard';
 import { SlackService } from '../slack/slack.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
+import { ProjectAccessService } from './project-access.service';
 import { Project } from './project.entity';
 import { ProjectsService } from './projects.service';
 
@@ -36,16 +38,20 @@ const touchesSlack = (dto: UpdateProjectDto): boolean =>
   dto.slackNotifyTaskCompleted !== undefined;
 
 @Controller('projects')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, ProjectAccessGuard)
 export class ProjectsController {
   constructor(
     private readonly projects: ProjectsService,
+    private readonly access: ProjectAccessService,
     private readonly slack: SlackService,
   ) {}
 
   @Get()
   async list(@CurrentUser() user: AuthenticatedUser): Promise<ProjectResponse[]> {
-    const rows = await this.projects.listByTenant(user.tenantId);
+    const rows = await this.projects.listByTenant(
+      user.tenantId,
+      await this.access.accessibleProjectIds(user),
+    );
     return rows.map(toResponse);
   }
 
@@ -54,13 +60,16 @@ export class ProjectsController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateProjectDto,
   ): Promise<ProjectResponse> {
-    return toResponse(await this.projects.create(user.tenantId, dto));
+    const created = await this.projects.create(user.tenantId, dto);
+    // 明示付与運用のため、作られたばかりのプロジェクトは作成者だけに見えるようにする
+    await this.access.grant(user.tenantId, user.userId, created.id);
+    return toResponse(created);
   }
 
-  @Patch(':id')
+  @Patch(':projectId')
   async update(
     @CurrentUser() user: AuthenticatedUser,
-    @Param('id') id: string,
+    @Param('projectId') id: string,
     @Body() dto: UpdateProjectDto,
   ): Promise<ProjectResponse> {
     // アーカイブ/復元 (archived の切替) は admin のみ許可
@@ -75,10 +84,10 @@ export class ProjectsController {
   }
 
   /** 設定画面の「テスト送信」。プロジェクト管理者 or テナント管理者のみ。 */
-  @Post(':id/slack/test')
+  @Post(':projectId/slack/test')
   async testSlack(
     @CurrentUser() user: AuthenticatedUser,
-    @Param('id') id: string,
+    @Param('projectId') id: string,
   ): Promise<{ ok: true }> {
     await this.assertSlackAdmin(user, id);
     return this.slack.sendTest(user.tenantId, id);

@@ -13,6 +13,15 @@ if (me.value && me.value.role !== 'admin') {
 }
 
 const { data: users, refresh: refreshUsers } = await useUsers();
+const { data: projects } = await useProjects();
+
+const projectNameById = computed(() => new Map(projects.value.map((p) => [p.id, p.name] as const)));
+
+// この画面は admin 専用なので projectIds は必ず返ってくるが、型上は optional なので畳んでおく
+const projectIdsOf = (user: User): string[] => user.projectIds ?? [];
+
+const projectNamesOf = (user: User): string[] =>
+  projectIdsOf(user).map((id) => projectNameById.value.get(id) ?? '(削除済み)');
 
 // ===== Add / Edit =====
 const formModalOpen = ref(false);
@@ -97,6 +106,7 @@ const columns: TableColumn<User>[] = [
   { accessorKey: 'name', header: '名前' },
   { accessorKey: 'email', header: 'メールアドレス' },
   { accessorKey: 'role', header: 'ロール' },
+  { id: 'projects', header: '閲覧できるプロジェクト' },
   { id: 'actions', header: '' },
 ];
 </script>
@@ -128,6 +138,21 @@ const columns: TableColumn<User>[] = [
             variant="subtle"
             :label="USER_ROLE_LABEL[row.original.role]"
           />
+        </template>
+        <!-- プロジェクトが増えても列幅が破綻しないよう、先頭 2 件だけ出して残りは件数に畳む。
+             全件はホバー（title）で見せる。 -->
+        <template #projects-cell="{ row }">
+          <span v-if="row.original.role === 'admin'" class="text-sm text-muted">すべて</span>
+          <span v-else-if="projectIdsOf(row.original).length === 0" class="text-sm text-muted">
+            なし
+          </span>
+          <span
+            v-else
+            class="block max-w-xs truncate text-sm"
+            :title="namesTitle(projectNamesOf(row.original))"
+          >
+            {{ summarizeNames(projectNamesOf(row.original)) }}
+          </span>
         </template>
         <template #actions-cell="{ row }">
           <div class="flex justify-end">

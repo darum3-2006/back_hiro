@@ -6,6 +6,7 @@ import type { TaskStatus } from '../masters/task-status.entity';
 import { TaskStatusesService } from '../masters/task-statuses.service';
 import type { ProjectMember } from '../members/member.entity';
 import { MembersService } from '../members/members.service';
+import { ProjectAccessService } from '../projects/project-access.service';
 import type { Project } from '../projects/project.entity';
 import { ProjectsService } from '../projects/projects.service';
 import type { TaskResponse } from '../tasks/tasks.service';
@@ -73,7 +74,9 @@ describe('PublicTasksController', () => {
         { provide: TasksService, useValue: tasks },
         { provide: TaskStatusesService, useValue: statuses },
         { provide: MembersService, useValue: members },
+        // ApiKeyGuard / ProjectAccessGuard の依存（ガード自体はユニットテストでは発動しない）
         { provide: UsersService, useValue: {} },
+        { provide: ProjectAccessService, useValue: {} },
       ],
     }).compile();
 

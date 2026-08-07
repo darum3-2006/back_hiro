@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, NotFoundException } from '@nest
 import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { QueryFailedError, type Repository } from 'typeorm';
+import { ProjectAccessService } from '../projects/project-access.service';
 import type { Project } from '../projects/project.entity';
 import { ProjectsService } from '../projects/projects.service';
 import { ProjectMember } from './member.entity';
@@ -11,6 +12,7 @@ describe('MembersService', () => {
   let service: MembersService;
   let repo: jest.Mocked<Repository<ProjectMember>>;
   let projects: jest.Mocked<Pick<ProjectsService, 'findByIdInTenant'>>;
+  let access: jest.Mocked<Pick<ProjectAccessService, 'listUserIdsForProject'>>;
 
   const tenantId = 'tenant-1';
   const projectId = 'project-1';
@@ -32,6 +34,7 @@ describe('MembersService', () => {
     projects = {
       findByIdInTenant: jest.fn().mockResolvedValue({ id: projectId } as Project),
     };
+    access = { listUserIdsForProject: jest.fn().mockResolvedValue([]) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -47,6 +50,7 @@ describe('MembersService', () => {
           },
         },
         { provide: ProjectsService, useValue: projects },
+        { provide: ProjectAccessService, useValue: access },
       ],
     }).compile();
 
@@ -73,6 +77,48 @@ describe('MembersService', () => {
       projects.findByIdInTenant.mockRejectedValue(new NotFoundException());
 
       await expect(service.listByProject(tenantId, projectId)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('listByProjectWithUserRole', () => {
+    const memberOf = (over: Partial<ProjectMember>): ProjectMember =>
+      ({ ...baseMember, ...over }) as ProjectMember;
+
+    it('閲覧権のある User 紐付きメンバーは canViewProject: true', async () => {
+      repo.find.mockResolvedValue([memberOf({ id: 'm1', userId: 'u1', user: { role: 'member' } })]);
+      access.listUserIdsForProject.mockResolvedValue(['u1']);
+
+      const [row] = await service.listByProjectWithUserRole(tenantId, projectId);
+
+      expect(row).toMatchObject({ userId: 'u1', userRole: 'member', canViewProject: true });
+      expect(access.listUserIdsForProject).toHaveBeenCalledWith(tenantId, projectId, ['u1']);
+    });
+
+    it('閲覧権が無ければ canViewProject: false（担当にしても通知が届かないため警告する）', async () => {
+      repo.find.mockResolvedValue([memberOf({ id: 'm1', userId: 'u1', user: { role: 'member' } })]);
+      access.listUserIdsForProject.mockResolvedValue([]);
+
+      const [row] = await service.listByProjectWithUserRole(tenantId, projectId);
+
+      expect(row?.canViewProject).toBe(false);
+    });
+
+    it('admin は設定行が無くても canViewProject: true', async () => {
+      repo.find.mockResolvedValue([memberOf({ id: 'm1', userId: 'u1', user: { role: 'admin' } })]);
+      access.listUserIdsForProject.mockResolvedValue([]);
+
+      const [row] = await service.listByProjectWithUserRole(tenantId, projectId);
+
+      expect(row?.canViewProject).toBe(true);
+    });
+
+    it('User 未紐付けのメンバーは対象外で canViewProject: null', async () => {
+      repo.find.mockResolvedValue([memberOf({ id: 'm1', userId: null, user: null })]);
+
+      const [row] = await service.listByProjectWithUserRole(tenantId, projectId);
+
+      expect(row?.canViewProject).toBeNull();
+      expect(access.listUserIdsForProject).toHaveBeenCalledWith(tenantId, projectId, []);
     });
   });
 

@@ -14,6 +14,7 @@ import {
 import { ApiKeyGuard } from '../auth/api-key.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
+import { ProjectAccessGuard } from '../auth/project-access.guard';
 import { TaskStatusesService } from '../masters/task-statuses.service';
 import { MembersService } from '../members/members.service';
 import type { Project } from '../projects/project.entity';
@@ -37,7 +38,7 @@ import { PublicTask, toPublicTask } from './dto/public-task';
  * DELETE は提供しない。
  */
 @Controller('v1/projects/:key/tasks')
-@UseGuards(ApiKeyGuard)
+@UseGuards(ApiKeyGuard, ProjectAccessGuard)
 export class PublicTasksController {
   constructor(
     private readonly projects: ProjectsService,

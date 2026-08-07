@@ -14,12 +14,13 @@ import { AllowReadonly } from '../auth/allow-readonly.decorator';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
+import { ProjectAccessGuard } from '../auth/project-access.guard';
 import { CreateSavedViewDto } from './dto/create-saved-view.dto';
 import { UpdateSavedViewDto } from './dto/update-saved-view.dto';
 import { SavedViewsService } from './saved-views.service';
 
 @Controller('projects/:projectId/saved-views')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, ProjectAccessGuard)
 export class SavedViewsController {
   constructor(private readonly savedViews: SavedViewsService) {}
 

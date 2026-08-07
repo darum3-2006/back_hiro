@@ -2,11 +2,12 @@ import { Controller, Get, Param, ParseUUIDPipe, Query, UseGuards } from '@nestjs
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
+import { ProjectAccessGuard } from '../auth/project-access.guard';
 import { SubtasksService } from './subtasks.service';
 
 /** プロジェクト横断のサブタスク一覧（タスク一覧の子行用）。 */
 @Controller('projects/:projectId/subtasks')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, ProjectAccessGuard)
 export class ProjectSubtasksController {
   constructor(private readonly subtasks: SubtasksService) {}
 
