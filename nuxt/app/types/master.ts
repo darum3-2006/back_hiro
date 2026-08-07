@@ -60,4 +60,6 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
+  /** 閲覧を許可されたプロジェクト ID。admin はこの設定に関係なく全件見られる */
+  projectIds: string[];
 }

@@ -13,13 +13,14 @@ import {
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
+import { ProjectAccessGuard } from '../auth/project-access.guard';
 import { CreateSubtaskDto } from './dto/create-subtask.dto';
 import { ReorderSubtasksDto } from './dto/reorder-subtasks.dto';
 import { UpdateSubtaskDto } from './dto/update-subtask.dto';
 import { SubtasksService } from './subtasks.service';
 
 @Controller('projects/:projectId/tasks/:taskId/subtasks')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, ProjectAccessGuard)
 export class SubtasksController {
   constructor(private readonly subtasks: SubtasksService) {}
 

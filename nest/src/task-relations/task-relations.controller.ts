@@ -12,11 +12,12 @@ import {
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
+import { ProjectAccessGuard } from '../auth/project-access.guard';
 import { CreateTaskRelationDto } from './dto/create-task-relation.dto';
 import { TaskRelationsService } from './task-relations.service';
 
 @Controller('projects/:projectId/tasks/:taskId/relations')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, ProjectAccessGuard)
 export class TaskRelationsController {
   constructor(private readonly relations: TaskRelationsService) {}
 

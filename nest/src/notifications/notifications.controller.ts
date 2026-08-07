@@ -12,24 +12,34 @@ import {
   Sse,
   UseGuards,
 } from '@nestjs/common';
-import { interval, map, merge, type Observable } from 'rxjs';
+import { filter, from, interval, map, merge, type Observable, switchMap } from 'rxjs';
 import { AllowReadonly } from '../auth/allow-readonly.decorator';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
+import { ProjectAccessService } from '../projects/project-access.service';
 import { UpdateNotificationPreferenceDto } from './dto/update-notification-preference.dto';
 import { NotificationsService } from './notifications.service';
 
 @Controller('notifications')
 @UseGuards(JwtAuthGuard)
 export class NotificationsController {
-  constructor(private readonly notifications: NotificationsService) {}
+  constructor(
+    private readonly notifications: NotificationsService,
+    private readonly access: ProjectAccessService,
+  ) {}
 
   /** GET /api/notifications — 自分宛の通知（新着順） */
   @Get()
-  list(@CurrentUser() user: AuthenticatedUser, @Query('limit') limit?: string) {
+  async list(@CurrentUser() user: AuthenticatedUser, @Query('limit') limit?: string) {
     const n = limit ? Math.min(Math.max(Number(limit) || 30, 1), 100) : 30;
-    return this.notifications.listForUser(user.tenantId, user.userId, n);
+    // 閲覧権を外されたプロジェクトの通知（タスク名を含む）は見せない
+    return this.notifications.listForUser(
+      user.tenantId,
+      user.userId,
+      n,
+      await this.access.accessibleProjectIds(user),
+    );
   }
 
   /**
@@ -38,9 +48,16 @@ export class NotificationsController {
    */
   @Sse('stream')
   stream(@CurrentUser() user: AuthenticatedUser): Observable<MessageEvent> {
-    const notifs = this.notifications
-      .stream(user.userId)
-      .pipe(map((n): MessageEvent => ({ data: n })));
+    // 接続時点の閲覧可能プロジェクトで絞る（設定変更は再接続で反映される）
+    const accessible = from(this.access.accessibleProjectIds(user));
+    const notifs = accessible.pipe(
+      switchMap((ids) =>
+        this.notifications
+          .stream(user.userId)
+          .pipe(filter((n) => this.notifications.isVisibleFor(n, ids))),
+      ),
+      map((n): MessageEvent => ({ data: n })),
+    );
     const ping = interval(25_000).pipe(map((): MessageEvent => ({ type: 'ping', data: '' })));
     return merge(notifs, ping);
   }
@@ -48,7 +65,13 @@ export class NotificationsController {
   /** GET /api/notifications/unread-count */
   @Get('unread-count')
   async unreadCount(@CurrentUser() user: AuthenticatedUser) {
-    return { count: await this.notifications.unreadCount(user.tenantId, user.userId) };
+    return {
+      count: await this.notifications.unreadCount(
+        user.tenantId,
+        user.userId,
+        await this.access.accessibleProjectIds(user),
+      ),
+    };
   }
 
   /** GET /api/notifications/preferences — 全タイプの ON/OFF（マイページ通知タブ） */

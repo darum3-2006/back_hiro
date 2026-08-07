@@ -12,6 +12,8 @@ import {
 import { ApiKeyGuard } from '../auth/api-key.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
+import { ProjectAccessGuard } from '../auth/project-access.guard';
+import { ProjectAccessService } from '../projects/project-access.service';
 import { ProjectsService } from '../projects/projects.service';
 import { PublicCreateProjectDto, PublicUpdateProjectDto } from './dto/public-project-input';
 import { PublicProject, toPublicProject } from './dto/public-project';
@@ -23,13 +25,19 @@ import { PublicProject, toPublicProject } from './dto/public-project';
  * DELETE は提供しない（削除の代わりにアーカイブを使う）。
  */
 @Controller('v1/projects')
-@UseGuards(ApiKeyGuard)
+@UseGuards(ApiKeyGuard, ProjectAccessGuard)
 export class PublicProjectsController {
-  constructor(private readonly projects: ProjectsService) {}
+  constructor(
+    private readonly projects: ProjectsService,
+    private readonly access: ProjectAccessService,
+  ) {}
 
   @Get()
   async list(@CurrentUser() user: AuthenticatedUser): Promise<PublicProject[]> {
-    const projects = await this.projects.listByTenant(user.tenantId);
+    const projects = await this.projects.listByTenant(
+      user.tenantId,
+      await this.access.accessibleProjectIds(user),
+    );
     return projects.filter((p) => p.archivedAt === null).map(toPublicProject);
   }
 
@@ -40,6 +48,8 @@ export class PublicProjectsController {
     @Body() dto: PublicCreateProjectDto,
   ): Promise<PublicProject> {
     const created = await this.projects.create(user.tenantId, dto);
+    // 内部 API と同じく、作成者だけに見えるようにする（明示付与運用）
+    await this.access.grant(user.tenantId, user.userId, created.id);
     return toPublicProject(created);
   }
 

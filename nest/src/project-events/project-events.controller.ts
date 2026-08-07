@@ -10,11 +10,12 @@ import { from, interval, map, merge, type Observable, switchMap } from 'rxjs';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
+import { ProjectAccessGuard } from '../auth/project-access.guard';
 import { ProjectsService } from '../projects/projects.service';
 import { ProjectEventsService } from './project-events.service';
 
 @Controller('projects/:projectId/events')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, ProjectAccessGuard)
 export class ProjectEventsController {
   constructor(
     private readonly events: ProjectEventsService,

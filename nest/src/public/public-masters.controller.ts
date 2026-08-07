@@ -2,6 +2,7 @@ import { Controller, Get, Param, UseGuards } from '@nestjs/common';
 import { ApiKeyGuard } from '../auth/api-key.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
+import { ProjectAccessGuard } from '../auth/project-access.guard';
 import { TaskPrioritiesService } from '../masters/task-priorities.service';
 import { TaskStatusesService } from '../masters/task-statuses.service';
 import { TagsService } from '../masters/tags.service';
@@ -26,7 +27,7 @@ import {
  * Task のコード（statusCode 等）/ メンバー ID の表示名解決に使う。
  */
 @Controller('v1/projects/:key')
-@UseGuards(ApiKeyGuard)
+@UseGuards(ApiKeyGuard, ProjectAccessGuard)
 export class PublicMastersController {
   constructor(
     private readonly projects: ProjectsService,

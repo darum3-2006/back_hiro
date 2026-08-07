@@ -14,6 +14,7 @@ import {
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
+import { ProjectAccessGuard } from '../auth/project-access.guard';
 import { CreateTaskStatusDto } from './dto/create-task-status.dto';
 import { MoveDto } from './dto/move.dto';
 import { ReorderDto } from './dto/reorder.dto';
@@ -21,7 +22,7 @@ import { UpdateTaskStatusDto } from './dto/update-task-status.dto';
 import { TaskStatusesService } from './task-statuses.service';
 
 @Controller('projects/:projectId/task-statuses')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, ProjectAccessGuard)
 export class TaskStatusesController {
   constructor(private readonly statuses: TaskStatusesService) {}
 

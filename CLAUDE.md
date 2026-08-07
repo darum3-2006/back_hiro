@@ -53,6 +53,7 @@ git config core.hooksPath .githooks
 - 日時列は Entity では `Date` 型のまま。操作時だけ `dayjs` に変換
 - 秘匿 env は `config.getOrThrow<string>('X')`。ハードコードフォールバック禁止
 - 全テナント所有テーブルに `tenant_id`。Service / Controller では JWT 由来の `user.tenantId` で必ずスコープ
+- `projects/:projectId/...`（内部）/ `v1/projects/:key/...`（公開API）のコントローラには `ProjectAccessGuard` を付ける。テナント横断のエンドポイントは `ProjectAccessService.accessibleProjectIds()` で絞る
 - パスワード DTO は `@MinLength(8)` + `@MaxLength(72)`（bcrypt 切り詰め & hash DoS 対策）
 - 認証系エンドポイントには `@Throttle({ default: { ttl: 60_000, limit: 5 } })` を個別付与
 - 実装/テストが完了しても自動でコミットしない。明示指示を待つ
@@ -78,5 +79,6 @@ git config core.hooksPath .githooks
 
 - Task の `requester` / `assignee` に User を直接参照させない（必ず `ProjectMember` 経由）
 - `tenant_id` フィルタなしの Repository クエリを書かない
+- プロジェクトの閲覧権を `ProjectMember` で代用しない（正本は `user_project_access`。設計は [docs/PROJECT.md](docs/PROJECT.md)）
 - マスタ系（`TaskStatus` / `TaskPriority` / `Tags`）を tenant-scoped で運用しない（project-scoped）
 - 秘匿値（`JWT_SECRET` 等）にハードコードのデフォルトを与えない

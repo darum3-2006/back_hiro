@@ -25,6 +25,7 @@
 ```
 Tenant
 ├─ Users          (tenant-scoped, 認証用)
+│  └─ UserProjectAccess (user × project, 閲覧できるプロジェクトの明示設定)
 ├─ Departments    (tenant-scoped, admin が管理)
 └─ Projects       (tenant-scoped)
    ├─ ProjectMembers (project-scoped, displayName 必須・userId は null 可)
@@ -47,6 +48,28 @@ Tenant
 - Member は独立エンティティ。`userId` は **null 可**（プレースホルダー運用OK）
 - **Why:** 「CS（起票）」「かんとく」のような擬人化メンバーを表現できる
 - **運用ルール:** Task の requester/assignee は **必ず Member を参照**（User 直参照は禁止）。監査ログ（`audit_logs`、実装済み）は User を参照
+
+### プロジェクトの閲覧制限: 明示付与（`user_project_access`）
+
+ユーザーは **`user_project_access` に行があるプロジェクトだけ**を閲覧・操作できる。テナント admin はこの設定に関係なく全プロジェクトを閲覧できる。
+
+- **Why:** 「このユーザーには特定プロジェクトを見せたくない」に応えるため。既定を全開放にすると設定漏れがそのまま情報漏れになるので、明示付与を既定にする
+- **ProjectMember とは別テーブル:** ProjectMember は「タスクの依頼者/担当者になれる主体」で `user_id` が null の擬人化メンバーも含む別概念。兼用すると「見せるためだけにメンバーへ追加する」「メンバーから外したら見えなくなる」副作用が出る
+
+| 対象 | 既定 |
+| --- | --- |
+| 新規プロジェクト | 作成者にだけ付与（内部 API / 公開API とも） |
+| 新規ユーザー | 0 件（ユーザー管理画面で admin が選ぶ） |
+| ProjectMember への追加 | **付与しない**（閲覧権とは独立。必要なら別途 admin が設定する） |
+
+**判定と enforcement:** ロジックは `ProjectAccessService` の 1 か所に集約する。
+
+- `ProjectAccessGuard` — `:projectId`（内部）と `:key`（公開API）の両方を解決して弾く。プロジェクト配下の全コントローラに `@UseGuards(JwtAuthGuard, ProjectAccessGuard)` / `@UseGuards(ApiKeyGuard, ProjectAccessGuard)` で付ける
+- 権限がないときは **403 ではなく 404**（見えないプロジェクトの存在自体を伏せる）
+- ルートに projectId を持たない横断エンドポイントは Guard で塞げないため、`accessibleProjectIds()`（`null` = 制限なし）を渡して個別に絞る: `GET /projects` / `me/tasks` / `search/tasks` / `tasks/by-code/:code` / `saved-views/by-code/:code` / `notifications`（`project_id` が NULL の通知は常に通す）
+- 公開APIキーは `users.api_key_hash` に紐づき `request.user` が JWT と同形になるため、同じ判定がそのまま効く
+
+**運用ルール:** `projects/:projectId/...`（または `v1/projects/:key/...`）の下にコントローラを新設したら `ProjectAccessGuard` を付ける。テナント横断のエンドポイントを新設したら `accessibleProjectIds()` で絞る。
 
 ## ビュー設計の方針
 

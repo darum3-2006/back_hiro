@@ -5,6 +5,8 @@ export interface CreateUserInput {
   name: string;
   password: string;
   role: UserRole;
+  /** 閲覧を許可するプロジェクト。省略で 0 件（明示付与運用） */
+  projectIds?: string[];
 }
 
 export interface UpdateUserInput {
@@ -12,6 +14,8 @@ export interface UpdateUserInput {
   role?: UserRole;
   /** 指定があればパスワードを上書き */
   password?: string;
+  /** 指定があれば閲覧できるプロジェクトを丸ごと置き換える */
+  projectIds?: string[];
 }
 
 /** GET /api/users */

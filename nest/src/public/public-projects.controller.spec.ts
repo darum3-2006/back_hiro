@@ -2,6 +2,7 @@ import { ForbiddenException } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { UsersService } from '../users/users.service';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
+import { ProjectAccessService } from '../projects/project-access.service';
 import type { Project } from '../projects/project.entity';
 import { ProjectsService } from '../projects/projects.service';
 import { PublicProjectsController } from './public-projects.controller';
@@ -11,6 +12,7 @@ describe('PublicProjectsController', () => {
   let projects: jest.Mocked<
     Pick<ProjectsService, 'listByTenant' | 'findByKeyInTenant' | 'create' | 'update'>
   >;
+  let access: jest.Mocked<Pick<ProjectAccessService, 'accessibleProjectIds' | 'grant'>>;
 
   const admin: AuthenticatedUser = { userId: 'u1', tenantId: 't1', role: 'admin' };
   const powerUser: AuthenticatedUser = { userId: 'u2', tenantId: 't1', role: 'power_user' };
@@ -31,10 +33,15 @@ describe('PublicProjectsController', () => {
       create: jest.fn(),
       update: jest.fn(),
     };
+    access = {
+      accessibleProjectIds: jest.fn().mockResolvedValue(null),
+      grant: jest.fn().mockResolvedValue(undefined),
+    };
     const module: TestingModule = await Test.createTestingModule({
       controllers: [PublicProjectsController],
       providers: [
         { provide: ProjectsService, useValue: projects },
+        { provide: ProjectAccessService, useValue: access },
         // ApiKeyGuard の依存（ガード自体はユニットテストでは発動しない）
         { provide: UsersService, useValue: {} },
       ],
@@ -51,6 +58,32 @@ describe('PublicProjectsController', () => {
 
       expect(projects.create).toHaveBeenCalledWith('t1', { key: 'demo', name: 'デモ' });
       expect(result).toEqual({ key: 'DEMO', name: 'デモ', description: null, archived: false });
+    });
+
+    it('作成者にだけ閲覧権を付与する（明示付与運用）', async () => {
+      projects.create.mockResolvedValue(activeProject);
+
+      await controller.create(powerUser, { key: 'demo', name: 'デモ' });
+
+      expect(access.grant).toHaveBeenCalledWith('t1', 'u2', 'p1');
+    });
+  });
+
+  describe('list', () => {
+    it('閲覧できるプロジェクト ID で絞り込む', async () => {
+      access.accessibleProjectIds.mockResolvedValue(['p1']);
+
+      await controller.list(powerUser);
+
+      expect(projects.listByTenant).toHaveBeenCalledWith('t1', ['p1']);
+    });
+
+    it('admin は制限なし（null）で引く', async () => {
+      access.accessibleProjectIds.mockResolvedValue(null);
+
+      await controller.list(admin);
+
+      expect(projects.listByTenant).toHaveBeenCalledWith('t1', null);
     });
   });
 
