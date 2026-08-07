@@ -17,8 +17,11 @@ const { data: projects } = await useProjects();
 
 const projectNameById = computed(() => new Map(projects.value.map((p) => [p.id, p.name] as const)));
 
+// この画面は admin 専用なので projectIds は必ず返ってくるが、型上は optional なので畳んでおく
+const projectIdsOf = (user: User): string[] => user.projectIds ?? [];
+
 const projectNamesOf = (user: User): string[] =>
-  user.projectIds.map((id) => projectNameById.value.get(id) ?? '(削除済み)');
+  projectIdsOf(user).map((id) => projectNameById.value.get(id) ?? '(削除済み)');
 
 // ===== Add / Edit =====
 const formModalOpen = ref(false);
@@ -140,7 +143,7 @@ const columns: TableColumn<User>[] = [
              全件はホバー（title）で見せる。 -->
         <template #projects-cell="{ row }">
           <span v-if="row.original.role === 'admin'" class="text-sm text-muted">すべて</span>
-          <span v-else-if="row.original.projectIds.length === 0" class="text-sm text-muted">
+          <span v-else-if="projectIdsOf(row.original).length === 0" class="text-sm text-muted">
             なし
           </span>
           <span

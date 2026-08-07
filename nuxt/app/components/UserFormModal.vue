@@ -61,7 +61,8 @@ watch(
         password: '',
         role: props.user.role,
         resetPassword: false,
-        projectIds: [...props.user.projectIds],
+        // この画面は admin 専用なので projectIds は必ず返ってくる
+        projectIds: [...(props.user.projectIds ?? [])],
       };
     } else {
       draft.value = {

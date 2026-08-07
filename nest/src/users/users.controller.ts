@@ -25,16 +25,21 @@ interface UserSummary {
   name: string;
   email: string;
   role: UserRole;
-  /** 閲覧を許可されたプロジェクト。admin はこの設定に関係なく全件見られる */
-  projectIds: string[];
+  /**
+   * 閲覧を許可されたプロジェクト。admin はこの設定に関係なく全件見られる。
+   * 設定できるのは admin だけなので、admin 以外には返さない（`undefined`）。
+   * この一覧はメンション候補の取得などで全ユーザーが叩くため、他人の閲覧範囲や
+   * 自分に見えないプロジェクトの ID を漏らさないようにする。
+   */
+  projectIds?: string[];
 }
 
-const toSummary = (u: User, projectIds: string[]): UserSummary => ({
+const toSummary = (u: User, projectIds: string[] | undefined): UserSummary => ({
   id: u.id,
   name: u.name,
   email: u.email,
   role: u.role,
-  projectIds,
+  ...(projectIds === undefined ? {} : { projectIds }),
 });
 
 @Controller('users')
@@ -47,12 +52,13 @@ export class UsersController {
 
   @Get()
   async list(@CurrentUser() user: AuthenticatedUser): Promise<UserSummary[]> {
+    const isAdmin = user.role === 'admin';
     const [list, accessByUser] = await Promise.all([
       this.users.listByTenant(user.tenantId),
-      this.access.listProjectIdsByUser(user.tenantId),
+      isAdmin ? this.access.listProjectIdsByUser(user.tenantId) : null,
     ]);
     // パスワードハッシュは絶対に外向きに出さない
-    return list.map((u) => toSummary(u, accessByUser.get(u.id) ?? []));
+    return list.map((u) => toSummary(u, accessByUser ? (accessByUser.get(u.id) ?? []) : undefined));
   }
 
   @Post()
