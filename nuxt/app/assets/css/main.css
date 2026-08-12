@@ -1,10 +1,11 @@
 @import 'tailwindcss';
 @import '@nuxt/ui';
 
-/* タスク詳細スライドオーバーの表示幅。既定は Nuxt UI の sm:max-w-xl 相当で、
-   ユーザーが D&D でリサイズすると useTaskDetailWidth が html 要素側で上書きする。 */
+/* タスクのスライドオーバー（詳細 / 新規登録で共通）の表示幅。既定は Nuxt UI の
+   sm:max-w-xl 相当で、ユーザーが D&D でリサイズすると useTaskSlideoverWidth が
+   html 要素側で上書きする。 */
 :root {
-  --task-detail-width: 36rem;
+  --task-slideover-width: 36rem;
 }
 
 /* マスタの色 (rose/sky/amber/fuchsia/emerald/violet/cyan/indigo/mauve/olive) は Nuxt UI 4 が

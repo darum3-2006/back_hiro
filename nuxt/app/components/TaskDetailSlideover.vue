@@ -431,15 +431,6 @@ const departmentSelectItems = computed(() =>
 
 const tagsList = computed(() => Object.values(props.tagMap));
 const flagsList = computed(() => Object.values(props.flagMap));
-
-// 表示幅は D&D で変更でき、localStorage に記憶される
-const {
-  width: detailWidth,
-  isResizing,
-  startResize,
-  nudgeWidth,
-  resetWidth,
-} = useTaskDetailWidth();
 </script>
 
 <template>
@@ -447,7 +438,7 @@ const {
     :open="open"
     :title="task ? `#${task.seq}` : ''"
     :description="task?.content ?? ''"
-    :ui="{ content: 'sm:max-w-(--task-detail-width)' }"
+    :ui="{ content: 'sm:max-w-(--task-slideover-width)' }"
     @update:open="(v: boolean) => $emit('update:open', v)"
   >
     <template #description>
@@ -475,27 +466,7 @@ const {
     </template>
 
     <template #body>
-      <!-- 幅リサイズハンドル。包含ブロックは position:fixed な content なので、
-           スクロールする body の中に置いてもパネル左端に貼り付いたままになる。
-           幅は sm 以上でしか効かない（sm 未満は全画面）ため、そこでだけ出す。 -->
-      <div
-        role="separator"
-        aria-orientation="vertical"
-        aria-label="タスク詳細の幅を変更"
-        :aria-valuenow="detailWidth"
-        :aria-valuemin="TASK_DETAIL_MIN_WIDTH"
-        tabindex="0"
-        class="group absolute inset-y-0 left-0 z-10 hidden w-2 cursor-col-resize touch-none select-none focus:outline-none sm:block"
-        @pointerdown="startResize"
-        @dblclick="resetWidth"
-        @keydown.left.prevent="nudgeWidth(1)"
-        @keydown.right.prevent="nudgeWidth(-1)"
-      >
-        <div
-          class="mx-auto h-full w-px transition-colors group-hover:bg-primary group-focus-visible:bg-primary"
-          :class="{ 'bg-primary': isResizing }"
-        />
-      </div>
+      <SlideoverResizeHandle />
 
       <div v-if="task" class="space-y-4 p-1">
         <!-- 内容 (editable) -->
