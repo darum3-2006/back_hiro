@@ -2,7 +2,7 @@
 const DEFAULT_WIDTH = 576;
 
 /** これ以下だと項目ラベルと値が破綻するため下限とする */
-export const TASK_DETAIL_MIN_WIDTH = 400;
+export const TASK_SLIDEOVER_MIN_WIDTH = 400;
 
 /** 右端いっぱいに広げず、オーバーレイ（クリックで閉じる領域）を必ず残す */
 const VIEWPORT_MARGIN = 64;
@@ -10,24 +10,26 @@ const VIEWPORT_MARGIN = 64;
 /** キーボード操作 1 回あたりの増減幅（px） */
 const NUDGE_STEP = 32;
 
+// タスク詳細だけの設定だった頃のキーをそのまま使う（既に保存済みの幅を捨てないため）
 const STORAGE_KEY = 'taskDetail:width';
 
 /** 実際の幅は main.css の `:root` で既定値を持つこの CSS 変数で決まる */
-const CSS_VAR = '--task-detail-width';
+const CSS_VAR = '--task-slideover-width';
 
 const clampWidth = (px: number): number => {
-  const max = Math.max(TASK_DETAIL_MIN_WIDTH, window.innerWidth - VIEWPORT_MARGIN);
-  return Math.min(Math.max(Math.round(px), TASK_DETAIL_MIN_WIDTH), max);
+  const max = Math.max(TASK_SLIDEOVER_MIN_WIDTH, window.innerWidth - VIEWPORT_MARGIN);
+  return Math.min(Math.max(Math.round(px), TASK_SLIDEOVER_MIN_WIDTH), max);
 };
 
 /**
- * タスク詳細スライドオーバーの表示幅を D&D で変更し、localStorage に記憶する。
+ * タスクのスライドオーバー（詳細 / 新規登録）の表示幅を D&D で変更し、localStorage に記憶する。
+ * 幅は 2 画面で共通の 1 つの値。
  *
  * 幅は Vue の再描画を挟まず `document.documentElement` の CSS 変数へ直接書き込む。
  * スライドオーバーは body へテレポートされるため、html に載せた変数が確実に届く。
  */
-export const useTaskDetailWidth = () => {
-  const width = useState<number>('taskDetailWidth', () => DEFAULT_WIDTH);
+export const useTaskSlideoverWidth = () => {
+  const width = useState<number>('taskSlideoverWidth', () => DEFAULT_WIDTH);
   const isResizing = ref(false);
 
   const applyCssVar = () => {

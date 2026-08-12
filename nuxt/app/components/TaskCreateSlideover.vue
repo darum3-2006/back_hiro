@@ -193,10 +193,12 @@ const departmentSelectItems = computed(() =>
   <USlideover
     :open="open"
     title="新規タスク"
-    :ui="{ content: 'sm:max-w-xl' }"
+    :ui="{ content: 'sm:max-w-(--task-slideover-width)' }"
     @update:open="(v: boolean) => emit('update:open', v)"
   >
     <template #body>
+      <SlideoverResizeHandle />
+
       <div class="space-y-4 p-1">
         <UFormField label="内容" required :error="errors.content">
           <UInput
