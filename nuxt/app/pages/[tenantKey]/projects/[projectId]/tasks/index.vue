@@ -721,7 +721,8 @@ const subtaskProgress = computed(() => {
   return m;
 });
 
-// 一覧に出すタスク行（表示対象の子を持つ親のみ除外）。選択・件数もこれを基準にする
+// 一覧に出すタスク行（表示対象の子を持つ親のみ除外）。選択・件数は
+// 表示上限クリップ後の selectableTasks / displayRows を基準にする
 const visibleTasks = computed(() =>
   filteredTasks.value.filter((t) => !parentTaskIds.value.has(t.id)),
 );
@@ -1336,6 +1337,43 @@ for (const c of columns) {
   const col = c as { maxSize?: number };
   col.maxSize = col.maxSize ?? COLUMN_MAX_WIDTH;
 }
+
+// ===== 表示件数の上限 =====
+// 行数が多いとテーブル描画が重くなるため、上限件数でクリップして渡す。
+// 単純に先頭から切るとソート上位の行が落ちるため、UTable（TanStack）と同じ
+// 規則で並べてから切る。クリップ後の実際の並び替えは従来どおり UTable が行う
+// ので、ここでの並びは「どの行を残すか」の決定にだけ効く。
+const MAX_DISPLAY_ROWS = 255;
+const rowLimitExceeded = computed(() => displayRows.value.length > MAX_DISPLAY_ROWS);
+
+/** ソート列の比較関数。列定義に custom sortingFn があればそれを再利用する */
+const rowComparator = (columnId: string): ((a: Task, b: Task) => number) => {
+  const col = columns.find((c) => 'accessorKey' in c && c.accessorKey === columnId);
+  const custom = col?.sortingFn;
+  if (typeof custom === 'function') {
+    return (a, b) => custom({ original: a } as Row<Task>, { original: b } as Row<Task>, columnId);
+  }
+  return (a, b) => {
+    const av = (a as unknown as Record<string, unknown>)[columnId];
+    const bv = (b as unknown as Record<string, unknown>)[columnId];
+    if (typeof av === 'number' && typeof bv === 'number') return av - bv;
+    return String(av ?? '').localeCompare(String(bv ?? ''));
+  };
+};
+
+const clippedRows = computed<Task[]>(() => {
+  const rows = displayRows.value;
+  if (rows.length <= MAX_DISPLAY_ROWS) return rows;
+  const sort = sorting.value[0];
+  if (!sort) return rows.slice(0, MAX_DISPLAY_ROWS);
+  const cmp = rowComparator(sort.id);
+  const dir = sort.desc ? -1 : 1;
+  return [...rows].sort((a, b) => dir * cmp(a, b)).slice(0, MAX_DISPLAY_ROWS);
+});
+
+// 全選択・一括編集の母集団。クリップで画面に出ていないタスクを巻き込まないよう、
+// visibleTasks ではなく表示中の行（のタスク行）に限る
+const selectableTasks = computed<Task[]>(() => clippedRows.value.filter((r) => !isSubRow(r)));
 
 // ソートもプロジェクトごとに localStorage 永続化（列幅と同じ流儀）。
 // プロジェクトを切り替えて素の遷移で開いたとき、前回のソートを復元する。
@@ -2078,17 +2116,17 @@ const toggleTaskSelected = (id: string, on: boolean) => {
 
 // 操作対象 = 選択済み ∩ 表示中のタスク行（子は一括編集対象外）
 const targetTaskIds = computed(() =>
-  visibleTasks.value.filter((t) => selectedTaskIds.value.has(t.id)).map((t) => t.id),
+  selectableTasks.value.filter((t) => selectedTaskIds.value.has(t.id)).map((t) => t.id),
 );
 const selectedCount = computed(() => targetTaskIds.value.length);
 
 const allVisibleSelected = computed(
-  () => visibleTasks.value.length > 0 && selectedCount.value === visibleTasks.value.length,
+  () => selectableTasks.value.length > 0 && selectedCount.value === selectableTasks.value.length,
 );
 const someVisibleSelected = computed(() => selectedCount.value > 0 && !allVisibleSelected.value);
 
 const toggleSelectAll = (on: boolean) => {
-  for (const t of visibleTasks.value) {
+  for (const t of selectableTasks.value) {
     if (on) selectedTaskIds.value.add(t.id);
     else selectedTaskIds.value.delete(t.id);
   }
@@ -2382,12 +2420,15 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
             v-if="!isReadonly"
             class="ml-auto"
             :model-value="someVisibleSelected ? 'indeterminate' : allVisibleSelected"
-            :disabled="visibleTasks.length === 0"
+            :disabled="selectableTasks.length === 0"
             label="全選択"
             @update:model-value="(v: boolean | 'indeterminate') => toggleSelectAll(v === true)"
           />
           <span class="text-sm text-muted" :class="isReadonly ? 'ml-auto' : ''">
-            {{ displayRows.length }} 件
+            <template v-if="rowLimitExceeded">
+              {{ MAX_DISPLAY_ROWS }} / {{ displayRows.length }} 件
+            </template>
+            <template v-else>{{ displayRows.length }} 件</template>
           </span>
         </div>
 
@@ -2415,6 +2456,17 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
           </div>
         </div>
 
+        <!-- 表示上限超過の警告。行が多いままだと描画が重く操作性も落ちるので、
+             件数を絞る導線（フィルタ追加）を促す。 -->
+        <UAlert
+          v-if="rowLimitExceeded"
+          class="mx-4 my-2 w-auto shrink-0"
+          color="warning"
+          variant="subtle"
+          icon="i-lucide-triangle-alert"
+          :title="`${MAX_DISPLAY_ROWS}件までしか表示されません。フィルタを追加してください。`"
+        />
+
         <UTable
           ref="tableRef"
           v-model:sorting="sorting"
@@ -2422,7 +2474,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
           v-model:column-sizing-info="columnSizingInfo"
           v-model:column-visibility="columnVisibility"
           v-model:column-order="columnOrder"
-          :data="displayRows"
+          :data="clippedRows"
           :columns="columns"
           :column-sizing-options="{ enableColumnResizing: true, columnResizeMode: 'onChange' }"
           :ui="{
