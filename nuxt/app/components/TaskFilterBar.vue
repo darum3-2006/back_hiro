@@ -15,7 +15,9 @@ const {
   priorityFilter,
   assigneeFilter,
   tagFilter,
+  tagNotFilter,
   flagFilter,
+  flagNotFilter,
   showCompleted,
   hasActiveFilter,
   hasActiveDateFilter,
@@ -118,47 +120,41 @@ const toggleDate = (key: string) => {
         />
       </div>
       <div class="flex items-center gap-1">
-        <USelectMenu
-          v-model="tagFilter"
+        <TriStateFilterMenu
+          v-model:include="tagFilter"
+          v-model:exclude="tagNotFilter"
           :items="tagFilterItems"
-          value-key="value"
-          multiple
           placeholder="すべてのタグ"
           icon="i-lucide-tag"
-          searchable
           search-placeholder="タグ名で検索…"
-          class="w-44"
         />
         <UButton
-          v-if="tagFilter.length > 0"
+          v-if="tagFilter.length > 0 || tagNotFilter.length > 0"
           icon="i-lucide-x"
           size="xs"
           color="neutral"
           variant="ghost"
           aria-label="タグフィルタをクリア"
-          @click="tagFilter = []"
+          @click="((tagFilter = []), (tagNotFilter = []))"
         />
       </div>
       <div class="flex items-center gap-1">
-        <USelectMenu
-          v-model="flagFilter"
+        <TriStateFilterMenu
+          v-model:include="flagFilter"
+          v-model:exclude="flagNotFilter"
           :items="flagFilterItems"
-          value-key="value"
-          multiple
           placeholder="すべてのフラグ"
           icon="i-lucide-bookmark"
-          searchable
           search-placeholder="フラグ名で検索…"
-          class="w-44"
         />
         <UButton
-          v-if="flagFilter.length > 0"
+          v-if="flagFilter.length > 0 || flagNotFilter.length > 0"
           icon="i-lucide-x"
           size="xs"
           color="neutral"
           variant="ghost"
           aria-label="フラグフィルタをクリア"
-          @click="flagFilter = []"
+          @click="((flagFilter = []), (flagNotFilter = []))"
         />
       </div>
       <UPopover :ui="{ content: 'p-2 w-auto max-h-[75vh] overflow-y-auto' }">
