@@ -28,7 +28,9 @@ export const FILTER_QUERY_KEYS = [
   'priority',
   'assignee',
   'tag',
+  'tagNot',
   'flag',
+  'flagNot',
   'showCompleted',
   'deadlineFrom',
   'deadlineTo',
@@ -70,9 +72,6 @@ export const useTaskFilters = (data: TaskFilterData) => {
     if (!v) return [];
     return v.split(',').filter(Boolean);
   };
-  const setQueryArray = (key: string, arr: string[]) => {
-    updateQuery({ [key]: arr.length > 0 ? arr.join(',') : undefined });
-  };
 
   const search = computed<string>({
     get: () => queryString('search'),
@@ -84,13 +83,17 @@ export const useTaskFilters = (data: TaskFilterData) => {
   const priorityFilter = ref<string[]>(queryArray('priority'));
   const assigneeFilter = ref<string[]>(queryArray('assignee'));
   const tagFilter = ref<string[]>(queryArray('tag'));
+  const tagNotFilter = ref<string[]>(queryArray('tagNot'));
   const flagFilter = ref<string[]>(queryArray('flag'));
+  const flagNotFilter = ref<string[]>(queryArray('flagNot'));
 
   const appliedStatusFilter = ref<string[]>([...statusFilter.value]);
   const appliedPriorityFilter = ref<string[]>([...priorityFilter.value]);
   const appliedAssigneeFilter = ref<string[]>([...assigneeFilter.value]);
   const appliedTagFilter = ref<string[]>([...tagFilter.value]);
+  const appliedTagNotFilter = ref<string[]>([...tagNotFilter.value]);
   const appliedFlagFilter = ref<string[]>([...flagFilter.value]);
+  const appliedFlagNotFilter = ref<string[]>([...flagNotFilter.value]);
 
   const arraysEqual = (a: string[], b: string[]) =>
     a.length === b.length && a.every((v, i) => v === b[i]);
@@ -114,34 +117,50 @@ export const useTaskFilters = (data: TaskFilterData) => {
         if (!arraysEqual(appliedTagFilter.value, tagFilter.value)) {
           appliedTagFilter.value = [...tagFilter.value];
         }
+        if (!arraysEqual(appliedTagNotFilter.value, tagNotFilter.value)) {
+          appliedTagNotFilter.value = [...tagNotFilter.value];
+        }
         if (!arraysEqual(appliedFlagFilter.value, flagFilter.value)) {
           appliedFlagFilter.value = [...flagFilter.value];
+        }
+        if (!arraysEqual(appliedFlagNotFilter.value, flagNotFilter.value)) {
+          appliedFlagNotFilter.value = [...flagNotFilter.value];
         }
         syncFiltersToUrl();
       });
     });
   };
 
+  // 1回の操作で複数キーが変わり得る（例: 含む→除外の切替は tag と tagNot の両方）。
+  // router.replace は非同期で route.query の反映が遅れるため、キーごとに replace すると
+  // 後の replace が古い query を土台にして前の変更を巻き戻す。必ず 1 回にまとめる。
   const syncFiltersToUrl = () => {
-    if (!arraysEqual(statusFilter.value, queryArray('status'))) {
-      setQueryArray('status', statusFilter.value);
-    }
-    if (!arraysEqual(priorityFilter.value, queryArray('priority'))) {
-      setQueryArray('priority', priorityFilter.value);
-    }
-    if (!arraysEqual(assigneeFilter.value, queryArray('assignee'))) {
-      setQueryArray('assignee', assigneeFilter.value);
-    }
-    if (!arraysEqual(tagFilter.value, queryArray('tag'))) {
-      setQueryArray('tag', tagFilter.value);
-    }
-    if (!arraysEqual(flagFilter.value, queryArray('flag'))) {
-      setQueryArray('flag', flagFilter.value);
-    }
+    const changes: Record<string, string | undefined> = {};
+    const put = (key: string, arr: string[]) => {
+      if (!arraysEqual(arr, queryArray(key))) {
+        changes[key] = arr.length > 0 ? arr.join(',') : undefined;
+      }
+    };
+    put('status', statusFilter.value);
+    put('priority', priorityFilter.value);
+    put('assignee', assigneeFilter.value);
+    put('tag', tagFilter.value);
+    put('tagNot', tagNotFilter.value);
+    put('flag', flagFilter.value);
+    put('flagNot', flagNotFilter.value);
+    if (Object.keys(changes).length > 0) updateQuery(changes);
   };
 
   watch(
-    [statusFilter, priorityFilter, assigneeFilter, tagFilter, flagFilter],
+    [
+      statusFilter,
+      priorityFilter,
+      assigneeFilter,
+      tagFilter,
+      tagNotFilter,
+      flagFilter,
+      flagNotFilter,
+    ],
     () => scheduleApply(),
     {
       deep: true,
@@ -149,23 +168,23 @@ export const useTaskFilters = (data: TaskFilterData) => {
   );
 
   // 戻る/進む・ディープリンク等で URL が外から変わったら ref を合わせる
+  const appliedByKey: Record<string, Ref<string[]>> = {
+    status: appliedStatusFilter,
+    priority: appliedPriorityFilter,
+    assignee: appliedAssigneeFilter,
+    tag: appliedTagFilter,
+    tagNot: appliedTagNotFilter,
+    flag: appliedFlagFilter,
+    flagNot: appliedFlagNotFilter,
+  };
   const bindFromUrl = (filter: Ref<string[]>, key: string) => {
     watch(
       () => queryArray(key),
       (v) => {
         if (!arraysEqual(v, filter.value)) {
           filter.value = v;
-          const target =
-            key === 'status'
-              ? appliedStatusFilter
-              : key === 'priority'
-                ? appliedPriorityFilter
-                : key === 'assignee'
-                  ? appliedAssigneeFilter
-                  : key === 'tag'
-                    ? appliedTagFilter
-                    : appliedFlagFilter;
-          target.value = [...v];
+          // URL 主導で来たので applied も即時同期
+          appliedByKey[key]!.value = [...v];
         }
       },
       { deep: true },
@@ -175,7 +194,9 @@ export const useTaskFilters = (data: TaskFilterData) => {
   bindFromUrl(priorityFilter, 'priority');
   bindFromUrl(assigneeFilter, 'assignee');
   bindFromUrl(tagFilter, 'tag');
+  bindFromUrl(tagNotFilter, 'tagNot');
   bindFromUrl(flagFilter, 'flag');
+  bindFromUrl(flagNotFilter, 'flagNot');
 
   // ===== 日付範囲フィルタ =====
   const useDateRangeFilter = (queryKeyFrom: string, queryKeyTo: string) => {
@@ -333,7 +354,9 @@ export const useTaskFilters = (data: TaskFilterData) => {
       priorityFilter.value.length > 0 ||
       assigneeFilter.value.length > 0 ||
       tagFilter.value.length > 0 ||
+      tagNotFilter.value.length > 0 ||
       flagFilter.value.length > 0 ||
+      flagNotFilter.value.length > 0 ||
       showCompleted.value ||
       hasActiveDateFilter.value,
     ),
@@ -346,7 +369,9 @@ export const useTaskFilters = (data: TaskFilterData) => {
       priority: undefined,
       assignee: undefined,
       tag: undefined,
+      tagNot: undefined,
       flag: undefined,
+      flagNot: undefined,
       showCompleted: undefined,
       deadlineFrom: undefined,
       deadlineTo: undefined,
@@ -369,7 +394,9 @@ export const useTaskFilters = (data: TaskFilterData) => {
     priorityFilter.value = [];
     assigneeFilter.value = [];
     tagFilter.value = [];
+    tagNotFilter.value = [];
     flagFilter.value = [];
+    flagNotFilter.value = [];
   };
 
   const filteredTasks = computed(() => {
@@ -377,7 +404,9 @@ export const useTaskFilters = (data: TaskFilterData) => {
     const prioritySet = new Set(appliedPriorityFilter.value);
     const assigneeSet = new Set(appliedAssigneeFilter.value);
     const tagSet = new Set(appliedTagFilter.value);
+    const tagNotSet = new Set(appliedTagNotFilter.value);
     const flagSet = new Set(appliedFlagFilter.value);
+    const flagNotSet = new Set(appliedFlagNotFilter.value);
 
     return tasks.value.filter((t) => {
       if (statusSet.size > 0) {
@@ -405,7 +434,10 @@ export const useTaskFilters = (data: TaskFilterData) => {
         if (!matchesNone && !matchesId) return false;
       }
       if (tagSet.size > 0 && !t.tagCodes.some((c) => tagSet.has(c))) return false;
+      // 除外は「1つでも該当タグ/フラグを持てば隠す」
+      if (tagNotSet.size > 0 && t.tagCodes.some((c) => tagNotSet.has(c))) return false;
       if (flagSet.size > 0 && !t.flagCodes.some((c) => flagSet.has(c))) return false;
+      if (flagNotSet.size > 0 && t.flagCodes.some((c) => flagNotSet.has(c))) return false;
       if (!matchesDateRange(t.deadline, deadlineFilter.range.value)) return false;
       if (!matchesDateRange(t.plannedStartDate, plannedStartFilter.range.value)) return false;
       if (!matchesDateRange(t.plannedCompletionDate, plannedCompletionFilter.range.value)) {
@@ -427,7 +459,9 @@ export const useTaskFilters = (data: TaskFilterData) => {
     priorityFilter,
     assigneeFilter,
     tagFilter,
+    tagNotFilter,
     flagFilter,
+    flagNotFilter,
     showCompleted,
     hasActiveFilter,
     hasActiveDateFilter,

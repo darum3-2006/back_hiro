@@ -126,10 +126,6 @@ const queryArray = (key: string): string[] => {
   if (!v) return [];
   return v.split(',').filter(Boolean);
 };
-const setQueryArray = (key: string, arr: string[]) => {
-  updateQuery({ [key]: arr.length > 0 ? arr.join(',') : undefined });
-};
-
 const search = computed<string>({
   get: () => queryString('search'),
   set: (v) => updateQuery({ search: v || undefined }),
@@ -145,13 +141,17 @@ const statusFilter = ref<string[]>(queryArray('status'));
 const priorityFilter = ref<string[]>(queryArray('priority'));
 const assigneeFilter = ref<string[]>(queryArray('assignee'));
 const tagFilter = ref<string[]>(queryArray('tag'));
+const tagNotFilter = ref<string[]>(queryArray('tagNot'));
 const flagFilter = ref<string[]>(queryArray('flag'));
+const flagNotFilter = ref<string[]>(queryArray('flagNot'));
 
 const appliedStatusFilter = ref<string[]>([...statusFilter.value]);
 const appliedPriorityFilter = ref<string[]>([...priorityFilter.value]);
 const appliedAssigneeFilter = ref<string[]>([...assigneeFilter.value]);
 const appliedTagFilter = ref<string[]>([...tagFilter.value]);
+const appliedTagNotFilter = ref<string[]>([...tagNotFilter.value]);
 const appliedFlagFilter = ref<string[]>([...flagFilter.value]);
+const appliedFlagNotFilter = ref<string[]>([...flagNotFilter.value]);
 
 const arraysEqual = (a: string[], b: string[]) =>
   a.length === b.length && a.every((v, i) => v === b[i]);
@@ -177,34 +177,50 @@ const scheduleApply = () => {
       if (!arraysEqual(appliedTagFilter.value, tagFilter.value)) {
         appliedTagFilter.value = [...tagFilter.value];
       }
+      if (!arraysEqual(appliedTagNotFilter.value, tagNotFilter.value)) {
+        appliedTagNotFilter.value = [...tagNotFilter.value];
+      }
       if (!arraysEqual(appliedFlagFilter.value, flagFilter.value)) {
         appliedFlagFilter.value = [...flagFilter.value];
+      }
+      if (!arraysEqual(appliedFlagNotFilter.value, flagNotFilter.value)) {
+        appliedFlagNotFilter.value = [...flagNotFilter.value];
       }
       syncFiltersToUrl();
     });
   });
 };
 
+// 1回の操作で複数キーが変わり得る（例: 含む→除外の切替は tag と tagNot の両方）。
+// router.replace は非同期で route.query の反映が遅れるため、キーごとに replace すると
+// 後の replace が古い query を土台にして前の変更を巻き戻す。必ず 1 回にまとめる。
 const syncFiltersToUrl = () => {
-  if (!arraysEqual(statusFilter.value, queryArray('status'))) {
-    setQueryArray('status', statusFilter.value);
-  }
-  if (!arraysEqual(priorityFilter.value, queryArray('priority'))) {
-    setQueryArray('priority', priorityFilter.value);
-  }
-  if (!arraysEqual(assigneeFilter.value, queryArray('assignee'))) {
-    setQueryArray('assignee', assigneeFilter.value);
-  }
-  if (!arraysEqual(tagFilter.value, queryArray('tag'))) {
-    setQueryArray('tag', tagFilter.value);
-  }
-  if (!arraysEqual(flagFilter.value, queryArray('flag'))) {
-    setQueryArray('flag', flagFilter.value);
-  }
+  const changes: Record<string, string | undefined> = {};
+  const put = (key: string, arr: string[]) => {
+    if (!arraysEqual(arr, queryArray(key))) {
+      changes[key] = arr.length > 0 ? arr.join(',') : undefined;
+    }
+  };
+  put('status', statusFilter.value);
+  put('priority', priorityFilter.value);
+  put('assignee', assigneeFilter.value);
+  put('tag', tagFilter.value);
+  put('tagNot', tagNotFilter.value);
+  put('flag', flagFilter.value);
+  put('flagNot', flagNotFilter.value);
+  if (Object.keys(changes).length > 0) updateQuery(changes);
 };
 
 watch(
-  [statusFilter, priorityFilter, assigneeFilter, tagFilter, flagFilter],
+  [
+    statusFilter,
+    priorityFilter,
+    assigneeFilter,
+    tagFilter,
+    tagNotFilter,
+    flagFilter,
+    flagNotFilter,
+  ],
   () => scheduleApply(),
   {
     deep: true,
@@ -212,6 +228,15 @@ watch(
 );
 
 // 戻る/進む・ディープリンク等で URL が外から変わったら ref を合わせる
+const appliedByKey: Record<string, Ref<string[]>> = {
+  status: appliedStatusFilter,
+  priority: appliedPriorityFilter,
+  assignee: appliedAssigneeFilter,
+  tag: appliedTagFilter,
+  tagNot: appliedTagNotFilter,
+  flag: appliedFlagFilter,
+  flagNot: appliedFlagNotFilter,
+};
 const bindFromUrl = (filter: Ref<string[]>, key: string) => {
   watch(
     () => queryArray(key),
@@ -219,17 +244,7 @@ const bindFromUrl = (filter: Ref<string[]>, key: string) => {
       if (!arraysEqual(v, filter.value)) {
         filter.value = v;
         // URL 主導で来たので applied も即時同期
-        const target =
-          key === 'status'
-            ? appliedStatusFilter
-            : key === 'priority'
-              ? appliedPriorityFilter
-              : key === 'assignee'
-                ? appliedAssigneeFilter
-                : key === 'tag'
-                  ? appliedTagFilter
-                  : appliedFlagFilter;
-        target.value = [...v];
+        appliedByKey[key]!.value = [...v];
       }
     },
     { deep: true },
@@ -239,7 +254,9 @@ bindFromUrl(statusFilter, 'status');
 bindFromUrl(priorityFilter, 'priority');
 bindFromUrl(assigneeFilter, 'assignee');
 bindFromUrl(tagFilter, 'tag');
+bindFromUrl(tagNotFilter, 'tagNot');
 bindFromUrl(flagFilter, 'flag');
+bindFromUrl(flagNotFilter, 'flagNot');
 
 // ===== 日付範囲フィルタ =====
 // 期限 / 完了予定日 / リリース予定日 / 完了日時 を URL クエリと双方向同期する。
@@ -406,7 +423,9 @@ const hasActiveFilter = computed(() =>
     priorityFilter.value.length > 0 ||
     assigneeFilter.value.length > 0 ||
     tagFilter.value.length > 0 ||
+    tagNotFilter.value.length > 0 ||
     flagFilter.value.length > 0 ||
+    flagNotFilter.value.length > 0 ||
     showCompleted.value ||
     hasActiveDateFilter.value,
   ),
@@ -419,7 +438,9 @@ const resetFilters = () => {
     priority: undefined,
     assignee: undefined,
     tag: undefined,
+    tagNot: undefined,
     flag: undefined,
+    flagNot: undefined,
     showCompleted: undefined,
     deadlineFrom: undefined,
     deadlineTo: undefined,
@@ -607,7 +628,9 @@ const filteredTasks = computed(() => {
   const prioritySet = new Set(appliedPriorityFilter.value);
   const assigneeSet = new Set(appliedAssigneeFilter.value);
   const tagSet = new Set(appliedTagFilter.value);
+  const tagNotSet = new Set(appliedTagNotFilter.value);
   const flagSet = new Set(appliedFlagFilter.value);
+  const flagNotSet = new Set(appliedFlagNotFilter.value);
 
   return tasks.value.filter((t) => {
     // ステータスフィルタが選択されていればそれを最優先（完了系も含めて表示）
@@ -637,7 +660,10 @@ const filteredTasks = computed(() => {
       if (!matchesNone && !matchesId) return false;
     }
     if (tagSet.size > 0 && !t.tagCodes.some((c) => tagSet.has(c))) return false;
+    // 除外は「1つでも該当タグ/フラグを持てば隠す」
+    if (tagNotSet.size > 0 && t.tagCodes.some((c) => tagNotSet.has(c))) return false;
     if (flagSet.size > 0 && !t.flagCodes.some((c) => flagSet.has(c))) return false;
+    if (flagNotSet.size > 0 && t.flagCodes.some((c) => flagNotSet.has(c))) return false;
     // 日付範囲フィルタ。null 値は範囲指定中は除外。
     if (!matchesDateRange(t.deadline, deadlineFilter.range.value)) return false;
     if (!matchesDateRange(t.plannedStartDate, plannedStartFilter.range.value)) return false;
@@ -682,7 +708,16 @@ const filteredSubtaskRows = computed<SubtaskRow[]>(() => {
   }
   const assigneeSet = new Set(appliedAssigneeFilter.value);
   const flagSet = new Set(appliedFlagFilter.value);
+  const flagNotSet = new Set(appliedFlagNotFilter.value);
+  // タグ除外は「その案件ごと隠す」意図なので、子はタグを持たないぶん親のタグで判定する
+  const tagNotSet = new Set(appliedTagNotFilter.value);
+  const parentTagMap =
+    tagNotSet.size > 0 ? new Map(tasks.value.map((t) => [t.id, t.tagCodes])) : null;
   return projectSubtasks.value.filter((s) => {
+    if (parentTagMap) {
+      const parentTags = parentTagMap.get(s.taskId);
+      if (parentTags?.some((c) => tagNotSet.has(c))) return false;
+    }
     if (!showCompleted.value && s.done) return false;
     if (search.value) {
       const q = search.value.toLowerCase();
@@ -700,6 +735,7 @@ const filteredSubtaskRows = computed<SubtaskRow[]>(() => {
     }
     // フラグは子も自分の値を持つのでフィルタを適用する
     if (flagSet.size > 0 && !s.flagCodes.some((c) => flagSet.has(c))) return false;
+    if (flagNotSet.size > 0 && s.flagCodes.some((c) => flagNotSet.has(c))) return false;
     if (!matchesDateRange(s.deadline, deadlineFilter.range.value)) return false;
     return true;
   });
@@ -1870,7 +1906,9 @@ const FILTER_QUERY_KEYS = [
   'priority',
   'assignee',
   'tag',
+  'tagNot',
   'flag',
+  'flagNot',
   'showCompleted',
   'deadlineFrom',
   'deadlineTo',
@@ -2360,47 +2398,41 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
             />
           </div>
           <div class="flex items-center gap-1">
-            <USelectMenu
-              v-model="tagFilter"
+            <TriStateFilterMenu
+              v-model:include="tagFilter"
+              v-model:exclude="tagNotFilter"
               :items="tagFilterItems"
-              value-key="value"
-              multiple
               placeholder="すべてのタグ"
               icon="i-lucide-tag"
-              searchable
               search-placeholder="タグ名で検索…"
-              class="w-44"
             />
             <UButton
-              v-if="tagFilter.length > 0"
+              v-if="tagFilter.length > 0 || tagNotFilter.length > 0"
               icon="i-lucide-x"
               size="xs"
               color="neutral"
               variant="ghost"
               aria-label="タグフィルタをクリア"
-              @click="tagFilter = []"
+              @click="((tagFilter = []), (tagNotFilter = []))"
             />
           </div>
           <div class="flex items-center gap-1">
-            <USelectMenu
-              v-model="flagFilter"
+            <TriStateFilterMenu
+              v-model:include="flagFilter"
+              v-model:exclude="flagNotFilter"
               :items="flagFilterItems"
-              value-key="value"
-              multiple
               placeholder="すべてのフラグ"
               icon="i-lucide-bookmark"
-              searchable
               search-placeholder="フラグ名で検索…"
-              class="w-44"
             />
             <UButton
-              v-if="flagFilter.length > 0"
+              v-if="flagFilter.length > 0 || flagNotFilter.length > 0"
               icon="i-lucide-x"
               size="xs"
               color="neutral"
               variant="ghost"
               aria-label="フラグフィルタをクリア"
-              @click="flagFilter = []"
+              @click="((flagFilter = []), (flagNotFilter = []))"
             />
           </div>
           <UCheckbox
