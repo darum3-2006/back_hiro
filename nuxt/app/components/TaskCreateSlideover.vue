@@ -94,15 +94,129 @@ const onLinkUrlPaste = (e: ClipboardEvent, link: TaskLink) => {
   if (label) link.label = label;
 };
 
+// ===== 下書きの保持 =====
+// 外側クリック / Esc / X で誤って閉じても入力を失わないよう、下書きは閉じても保持する。
+// さらに localStorage にも保存し（プロジェクトごと）、リロードや画面遷移もまたいで復元する。
+// クリアされるのは「作成」成功時と明示的な「破棄」のみ。
+const restoredDraft = ref(false);
+
+const draftStorageKey = computed(() => `task-create-draft:${props.projectId}`);
+
+const isDirtyDraft = (): boolean =>
+  JSON.stringify(draft.value) !== JSON.stringify(makeInitialDraft());
+
+/** 保存済み下書きを読む。壊れていれば null。欠けたフィールドは初期値で補う（将来の項目追加に耐える） */
+const readStoredDraft = (): Draft | null => {
+  if (!import.meta.client) return null;
+  try {
+    const raw = localStorage.getItem(draftStorageKey.value);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object') return null;
+    const merged: Draft = { ...makeInitialDraft(), ...(parsed as Partial<Draft>) };
+    if (
+      typeof merged.content !== 'string' ||
+      typeof merged.description !== 'string' ||
+      !Array.isArray(merged.links) ||
+      !Array.isArray(merged.tagCodes) ||
+      !Array.isArray(merged.flagCodes)
+    ) {
+      return null;
+    }
+    return merged;
+  } catch {
+    return null;
+  }
+};
+
+// 入力のたびに保存。初期値と同じ（= 実質空）ならゴミを残さないよう消す
+watch(
+  draft,
+  (d) => {
+    if (!import.meta.client) return;
+    try {
+      if (isDirtyDraft()) {
+        localStorage.setItem(draftStorageKey.value, JSON.stringify(d));
+      } else {
+        localStorage.removeItem(draftStorageKey.value);
+      }
+    } catch {
+      // ignore（プライベートモード等）
+    }
+  },
+  { deep: true },
+);
+
+onMounted(() => {
+  const stored = readStoredDraft();
+  if (stored) draft.value = stored;
+});
+
+/**
+ * 復元した下書きから、削除済みマスタ（ステータス・タグ等）への参照を掃除する。
+ * 永続化した下書きは日をまたいで生き残るため、開く時点の props と突き合わせる。
+ */
+const sanitizeDraft = () => {
+  const d = draft.value;
+  if (!props.statuses.some((s) => s.code === d.statusCode)) {
+    d.statusCode = props.statuses[0]?.code ?? '';
+  }
+  if (d.priorityCode && !props.priorities.some((p) => p.code === d.priorityCode)) {
+    d.priorityCode = null;
+  }
+  if (d.assigneeMemberId && !props.members.some((m) => m.id === d.assigneeMemberId)) {
+    d.assigneeMemberId = null;
+  }
+  if (d.requesterMemberId && !props.members.some((m) => m.id === d.requesterMemberId)) {
+    d.requesterMemberId = null;
+  }
+  if (d.requestingDeptCode && !props.departments.some((dep) => dep.code === d.requestingDeptCode)) {
+    d.requestingDeptCode = null;
+  }
+  d.tagCodes = d.tagCodes.filter((c) => props.tags.some((t) => t.code === c));
+  d.flagCodes = d.flagCodes.filter((c) => props.flags.some((f) => f.code === c));
+};
+
 watch(
   () => props.open,
   (isOpen) => {
     if (isOpen) {
-      draft.value = makeInitialDraft();
+      if (isDirtyDraft()) {
+        // 下書きが残っていればそのまま復元し、バナーで気付けるようにする。
+        // 掃除の結果まっさらに戻った（削除済みタグしか無かった等）ならバナーは出さない
+        sanitizeDraft();
+        restoredDraft.value = isDirtyDraft();
+      }
+      if (!restoredDraft.value) {
+        // まっさらなら最新の既定値（依頼者・先頭ステータス等）で初期化し直す
+        draft.value = makeInitialDraft();
+      }
       clearErrors();
+    } else {
+      restoredDraft.value = false;
     }
   },
 );
+
+// プロジェクトが変わったら、そのプロジェクトの保存済み下書き（無ければ初期値）に載せ替える
+watch(
+  () => props.projectId,
+  () => {
+    draft.value = readStoredDraft() ?? makeInitialDraft();
+    clearErrors();
+  },
+);
+
+const discardDraft = () => {
+  draft.value = makeInitialDraft();
+  clearErrors();
+  restoredDraft.value = false;
+};
+
+const discardAndClose = () => {
+  discardDraft();
+  emit('update:open', false);
+};
 
 /** links.0.url のような path のエラーを取り出す */
 const linkError = (index: number, field: 'label' | 'url'): string | undefined =>
@@ -134,11 +248,12 @@ const submit = async () => {
       flagCodes: draft.value.flagCodes,
     });
     emit('created', task);
-    if (keepOpen.value) {
-      // 続けて作成: フォームリセットして slideover 開いたまま
-      draft.value = makeInitialDraft();
-      clearErrors();
-    } else {
+    // 作成できたら下書きはクリア（閉じる場合も残すと次回開いたとき作成済み内容が復元されてしまう）
+    draft.value = makeInitialDraft();
+    clearErrors();
+    restoredDraft.value = false;
+    // 続けて作成: slideover を開いたまま次の入力へ
+    if (!keepOpen.value) {
       emit('update:open', false);
     }
   } catch (e: unknown) {
@@ -200,6 +315,24 @@ const departmentSelectItems = computed(() =>
       <SlideoverResizeHandle />
 
       <div class="space-y-4 p-1">
+        <!-- 黙って前回の内容が残っていると混乱するので、復元したことを明示する -->
+        <UAlert
+          v-if="restoredDraft"
+          color="info"
+          variant="subtle"
+          icon="i-lucide-history"
+          title="入力途中の下書きを復元しました"
+          :actions="[
+            {
+              label: '破棄して新規入力',
+              color: 'info',
+              variant: 'outline',
+              size: 'xs',
+              onClick: discardDraft,
+            },
+          ]"
+        />
+
         <UFormField label="内容" required :error="errors.content">
           <UInput
             v-model="draft.content"
@@ -472,12 +605,9 @@ const departmentSelectItems = computed(() =>
       <div class="flex items-center justify-between gap-2 w-full">
         <UCheckbox v-model="keepOpen" label="続けて作成" />
         <div class="flex gap-2">
-          <UButton
-            color="neutral"
-            variant="ghost"
-            label="キャンセル"
-            @click="emit('update:open', false)"
-          />
+          <!-- 閉じる操作（外側クリック / Esc / X）は下書きを保持するのに対し、
+               このボタンだけは破棄する。破壊的なことがラベルから分かるよう「破棄」とする -->
+          <UButton color="neutral" variant="ghost" label="破棄" @click="discardAndClose" />
           <UButton
             color="primary"
             icon="i-lucide-plus"
