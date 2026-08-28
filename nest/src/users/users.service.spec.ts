@@ -43,7 +43,7 @@ describe('UsersService', () => {
             count: jest.fn(),
             create: jest.fn((dto: Partial<User>) => dto as User),
             save: jest.fn((entity: User) => Promise.resolve(entity)),
-            remove: jest.fn(),
+            softRemove: jest.fn(),
           },
         },
       ],
@@ -80,6 +80,20 @@ describe('UsersService', () => {
           role: 'member',
         }),
       ).rejects.toThrow(ConflictException);
+    });
+
+    it('重複チェックは削除済みユーザーも対象（withDeleted）', async () => {
+      repo.findOne.mockResolvedValue({ ...adminUser, deletedAt: new Date() });
+
+      await expect(
+        service.create(tenantId, {
+          email: 'admin@acme.test',
+          name: 'x',
+          password: 'pass1234',
+          role: 'member',
+        }),
+      ).rejects.toThrow('このメールアドレスは削除済みユーザーが使用しています');
+      expect(repo.findOne).toHaveBeenCalledWith(expect.objectContaining({ withDeleted: true }));
     });
   });
 
@@ -147,12 +161,12 @@ describe('UsersService', () => {
       );
     });
 
-    it('member は普通に削除', async () => {
+    it('member は論理削除される（softRemove）', async () => {
       repo.findOne.mockResolvedValue({ ...memberUser });
 
       await service.remove(tenantId, 'someone', memberUser.id);
 
-      expect(repo.remove).toHaveBeenCalled();
+      expect(repo.softRemove).toHaveBeenCalled();
     });
   });
 });
