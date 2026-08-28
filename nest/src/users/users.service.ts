@@ -65,9 +65,14 @@ export class UsersService {
 
   async create(tenantId: string, dto: CreateUserDto): Promise<User> {
     const email = dto.email.trim().toLowerCase();
-    const existing = await this.users.findOne({ where: { tenantId, email } });
+    // UNIQUE 制約は論理削除済みの行にも効くため、削除済みも含めて衝突を先回りで検出する
+    const existing = await this.users.findOne({ where: { tenantId, email }, withDeleted: true });
     if (existing) {
-      throw new ConflictException('このメールアドレスはこのテナントで既に使われています');
+      throw new ConflictException(
+        existing.deletedAt
+          ? 'このメールアドレスは削除済みユーザーが使用しています'
+          : 'このメールアドレスはこのテナントで既に使われています',
+      );
     }
     const passwordHash = await bcrypt.hash(dto.password, 10);
     const user = this.users.create({
@@ -119,6 +124,12 @@ export class UsersService {
     await this.users.save(user);
   }
 
+  /**
+   * ユーザーを論理削除する（deleted_at をセット。設計は docs/USER_SOFT_DELETE.md）。
+   * 以降は一覧・認証系の検索すべてから自動除外される。復元は運用（DB で
+   * deleted_at を NULL に戻す）で行い、周辺データ（閲覧権限・メンバー紐づき等）は
+   * 復元でそのまま戻せるよう削除時には触らない。
+   */
   async remove(tenantId: string, actingUserId: string, targetId: string): Promise<void> {
     const user = await this.findInTenant(tenantId, targetId);
     // 自己削除禁止
@@ -132,7 +143,7 @@ export class UsersService {
         throw new BadRequestException('最後の管理者を削除することはできません');
       }
     }
-    await this.users.remove(user);
+    await this.users.softRemove(user);
   }
 
   private async findInTenant(tenantId: string, id: string): Promise<User> {
