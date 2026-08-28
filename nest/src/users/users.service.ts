@@ -92,16 +92,31 @@ export class UsersService {
     if (dto.role !== undefined && actingUserId === targetId && dto.role !== user.role) {
       throw new BadRequestException('自分自身のロールを変更することはできません');
     }
-    // 最後の admin を降格させない
-    if (dto.role === 'member' && user.role === 'admin') {
-      const adminCount = await this.users.count({ where: { tenantId, role: 'admin' } });
+    // 最後の有効な admin を降格させない（無効な admin はログインできず頭数に入れない）
+    if (dto.role === 'member' && user.role === 'admin' && user.isActive) {
+      const adminCount = await this.countActiveAdmins(tenantId);
       if (adminCount <= 1) {
         throw new BadRequestException('最後の管理者を降格することはできません');
       }
     }
 
+    if (dto.isActive === false && user.isActive) {
+      // 自分自身を無効化させない
+      if (actingUserId === targetId) {
+        throw new BadRequestException('自分自身を無効化することはできません');
+      }
+      // 最後の有効な admin を無効化させない
+      if (user.role === 'admin') {
+        const adminCount = await this.countActiveAdmins(tenantId);
+        if (adminCount <= 1) {
+          throw new BadRequestException('最後の管理者を無効化することはできません');
+        }
+      }
+    }
+
     if (dto.name !== undefined) user.name = dto.name.trim();
     if (dto.role !== undefined) user.role = dto.role;
+    if (dto.isActive !== undefined) user.isActive = dto.isActive;
     if (dto.password !== undefined) {
       user.passwordHash = await bcrypt.hash(dto.password, 10);
     }
@@ -125,14 +140,18 @@ export class UsersService {
     if (actingUserId === targetId) {
       throw new BadRequestException('自分自身を削除することはできません');
     }
-    // 最後の admin を消させない
-    if (user.role === 'admin') {
-      const adminCount = await this.users.count({ where: { tenantId, role: 'admin' } });
+    // 最後の有効な admin を消させない（無効な admin の削除は残りの有効 admin がいれば可）
+    if (user.role === 'admin' && user.isActive) {
+      const adminCount = await this.countActiveAdmins(tenantId);
       if (adminCount <= 1) {
         throw new BadRequestException('最後の管理者を削除することはできません');
       }
     }
     await this.users.remove(user);
+  }
+
+  private countActiveAdmins(tenantId: string): Promise<number> {
+    return this.users.count({ where: { tenantId, role: 'admin', isActive: true } });
   }
 
   private async findInTenant(tenantId: string, id: string): Promise<User> {

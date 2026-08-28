@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { TableColumn, DropdownMenuItem } from '@nuxt/ui';
-import { apiDeleteUser } from '~/api/users';
+import { apiDeleteUser, apiUpdateUser } from '~/api/users';
 import type { User } from '~/types/master';
 
 const { me } = useAuth();
@@ -47,6 +47,37 @@ const onSaved = async (saved: User) => {
   });
 };
 
+const errorMessage = (e: unknown, fallback: string): string => {
+  const data =
+    typeof e === 'object' && e !== null && 'data' in e
+      ? ((e as { data?: { message?: string | string[] } }).data ?? {})
+      : {};
+  return Array.isArray(data.message) ? data.message.join(', ') : (data.message ?? fallback);
+};
+
+// ===== Activate / Deactivate =====
+const toggleActive = async (user: User) => {
+  const disabling = user.isActive;
+  try {
+    await apiUpdateUser(api, user.id, { isActive: !user.isActive });
+    await refreshUsers();
+    toast.add({
+      title: disabling ? 'ユーザーを無効化しました' : 'ユーザーを有効化しました',
+      description: `${user.name} (${user.email})`,
+      color: 'success',
+      icon: 'i-lucide-check',
+    });
+  } catch (e: unknown) {
+    toast.add({
+      title: errorMessage(
+        e,
+        disabling ? 'ユーザーの無効化に失敗しました' : 'ユーザーの有効化に失敗しました',
+      ),
+      color: 'error',
+    });
+  }
+};
+
 // ===== Delete =====
 const deleteModalOpen = ref(false);
 const deleteTarget = ref<User | null>(null);
@@ -72,14 +103,7 @@ const performDelete = async () => {
       icon: 'i-lucide-check',
     });
   } catch (e: unknown) {
-    const data =
-      typeof e === 'object' && e !== null && 'data' in e
-        ? ((e as { data?: { message?: string | string[] } }).data ?? {})
-        : {};
-    const msg = Array.isArray(data.message)
-      ? data.message.join(', ')
-      : (data.message ?? 'ユーザーの削除に失敗しました');
-    toast.add({ title: msg, color: 'error' });
+    toast.add({ title: errorMessage(e, 'ユーザーの削除に失敗しました'), color: 'error' });
   } finally {
     deleting.value = false;
   }
@@ -91,6 +115,13 @@ const buildActions = (user: User): DropdownMenuItem[][] => [
       label: '編集',
       icon: 'i-lucide-pencil',
       onSelect: () => openEdit(user),
+    },
+    {
+      label: user.isActive ? '無効化' : '有効化',
+      icon: user.isActive ? 'i-lucide-ban' : 'i-lucide-circle-check',
+      // 自分自身の無効化はサーバでも拒否されるが、UI でも押せなくしておく
+      disabled: user.isActive && user.id === me.value?.id,
+      onSelect: () => toggleActive(user),
     },
   ],
   [
@@ -106,6 +137,7 @@ const columns: TableColumn<User>[] = [
   { accessorKey: 'name', header: '名前' },
   { accessorKey: 'email', header: 'メールアドレス' },
   { accessorKey: 'role', header: 'ロール' },
+  { accessorKey: 'isActive', header: '状態' },
   { id: 'projects', header: '閲覧できるプロジェクト' },
   { id: 'actions', header: '' },
 ];
@@ -131,6 +163,13 @@ const columns: TableColumn<User>[] = [
         </template>
         <template #email-cell="{ row }">
           <code class="text-xs font-mono text-muted">{{ row.original.email }}</code>
+        </template>
+        <template #isActive-cell="{ row }">
+          <UBadge
+            :color="row.original.isActive ? 'success' : 'neutral'"
+            variant="subtle"
+            :label="row.original.isActive ? '有効' : '無効'"
+          />
         </template>
         <template #role-cell="{ row }">
           <UBadge

@@ -38,7 +38,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   async validate(payload: JwtPayload): Promise<AuthenticatedUser> {
     const user = await this.users.findById(payload.sub);
-    if (!user || user.tenantId !== payload.tid) {
+    // 無効化されたユーザーは発行済みトークンが残っていても即座に拒否する
+    if (!user || user.tenantId !== payload.tid || !user.isActive) {
       throw new UnauthorizedException();
     }
     return { userId: payload.sub, tenantId: payload.tid, role: user.role };

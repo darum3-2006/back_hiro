@@ -18,6 +18,7 @@ describe('UsersService', () => {
     passwordHash: 'hash',
     name: 'Admin',
     role: 'admin',
+    isActive: true,
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,
@@ -127,6 +128,47 @@ describe('UsersService', () => {
         NotFoundException,
       );
     });
+
+    it('自己無効化は BadRequest', async () => {
+      repo.findOne.mockResolvedValue({ ...adminUser });
+
+      await expect(
+        service.update(tenantId, adminUser.id, adminUser.id, { isActive: false }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('最後の有効な admin の無効化は BadRequest', async () => {
+      repo.findOne.mockResolvedValue({ ...adminUser });
+      repo.count.mockResolvedValue(1);
+
+      await expect(
+        service.update(tenantId, 'someone', adminUser.id, { isActive: false }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('有効な admin が 2 人以上いれば無効化できる', async () => {
+      repo.findOne.mockResolvedValue({ ...adminUser });
+      repo.count.mockResolvedValue(2);
+
+      const result = await service.update(tenantId, 'someone', adminUser.id, { isActive: false });
+
+      expect(result.isActive).toBe(false);
+      expect(repo.count).toHaveBeenCalledWith({
+        where: { tenantId, role: 'admin', isActive: true },
+      });
+    });
+
+    it('member の無効化と再有効化ができる', async () => {
+      repo.findOne.mockResolvedValue({ ...memberUser });
+      const disabled = await service.update(tenantId, 'someone', memberUser.id, {
+        isActive: false,
+      });
+      expect(disabled.isActive).toBe(false);
+
+      repo.findOne.mockResolvedValue({ ...memberUser, isActive: false });
+      const enabled = await service.update(tenantId, 'someone', memberUser.id, { isActive: true });
+      expect(enabled.isActive).toBe(true);
+    });
   });
 
   describe('remove', () => {
@@ -151,6 +193,15 @@ describe('UsersService', () => {
       repo.findOne.mockResolvedValue({ ...memberUser });
 
       await service.remove(tenantId, 'someone', memberUser.id);
+
+      expect(repo.remove).toHaveBeenCalled();
+    });
+
+    it('無効化済み admin は有効な admin が 1 人でも削除できる', async () => {
+      repo.findOne.mockResolvedValue({ ...adminUser, isActive: false });
+      repo.count.mockResolvedValue(1);
+
+      await service.remove(tenantId, 'someone', adminUser.id);
 
       expect(repo.remove).toHaveBeenCalled();
     });

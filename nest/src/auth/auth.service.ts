@@ -114,6 +114,11 @@ export class AuthService {
   }
 
   private async buildLoginResponse(user: User, tenant: Tenant): Promise<LoginResponse> {
+    // パスワード / Google 共通の最終チェック。資格情報の検証は通過済みなので
+    // 無効化されている旨を明示して返してよい
+    if (!user.isActive) {
+      throw new UnauthorizedException('このアカウントは無効化されています');
+    }
     const payload: JwtPayload = { sub: user.id, tid: user.tenantId };
     const accessToken = await this.jwt.signAsync(payload);
 
@@ -183,7 +188,7 @@ export class AuthService {
     }
 
     const user = await this.users.findById(row.userId);
-    if (!user) throw new UnauthorizedException('認証に失敗しました');
+    if (!user || !user.isActive) throw new UnauthorizedException('認証に失敗しました');
 
     const payload: JwtPayload = { sub: user.id, tid: user.tenantId };
     const accessToken = await this.jwt.signAsync(payload);
