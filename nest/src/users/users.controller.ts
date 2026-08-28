@@ -16,8 +16,11 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
 import { ProjectAccessService } from '../projects/project-access.service';
 import { CreateUserDto } from './dto/create-user.dto';
+import { UserSyncExecuteDto, UserSyncPreviewDto } from './dto/sync-users.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import type { User, UserRole } from './user.entity';
+import type { UserSyncExecuteResult, UserSyncPreviewItem } from './user-sync.service';
+import { UserSyncService } from './user-sync.service';
 import { UsersService } from './users.service';
 
 interface UserSummary {
@@ -48,6 +51,7 @@ export class UsersController {
   constructor(
     private readonly users: UsersService,
     private readonly access: ProjectAccessService,
+    private readonly sync: UserSyncService,
   ) {}
 
   @Get()
@@ -92,5 +96,27 @@ export class UsersController {
   @HttpCode(204)
   remove(@CurrentUser() user: AuthenticatedUser, @Param('id', new ParseUUIDPipe()) id: string) {
     return this.users.remove(user.tenantId, user.userId, id);
+  }
+
+  /** Excel 同期のプレビュー（差分計算のみ。DB は変更しない）。設計は docs/USER_EXCEL_SYNC.md */
+  @Post('sync/preview')
+  @UseGuards(AdminGuard)
+  @HttpCode(200)
+  previewSync(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: UserSyncPreviewDto,
+  ): Promise<{ items: UserSyncPreviewItem[] }> {
+    return this.sync.preview(user.tenantId, user.userId, dto);
+  }
+
+  /** Excel 同期の実行（プレビューで確定したアクションを再検証のうえ適用） */
+  @Post('sync/execute')
+  @UseGuards(AdminGuard)
+  @HttpCode(200)
+  executeSync(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: UserSyncExecuteDto,
+  ): Promise<UserSyncExecuteResult> {
+    return this.sync.execute(user.tenantId, user.userId, dto);
   }
 }
