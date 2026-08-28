@@ -118,18 +118,25 @@ export class ProjectAccessService {
   }
 
   /**
+   * 指定 ID がすべてこのテナントのプロジェクトであることを確認する（違えば 400）。
+   * 他テナントのプロジェクト ID を混ぜられないようにするための検証。
+   */
+  async assertProjectsInTenant(tenantId: string, projectIds: string[]): Promise<void> {
+    const wanted = [...new Set(projectIds)];
+    if (wanted.length === 0) return;
+    const found = await this.projects.countBy({ tenantId, id: In(wanted) });
+    if (found !== wanted.length) {
+      throw new BadRequestException('存在しないプロジェクトが含まれています');
+    }
+  }
+
+  /**
    * ユーザーの設定を丸ごと置き換える（設定画面からの保存）。
    * 差分だけ反映して、変更のない行の created_at を保つ。
    */
   async replaceForUser(tenantId: string, userId: string, projectIds: string[]): Promise<void> {
     const wanted = [...new Set(projectIds)];
-    if (wanted.length > 0) {
-      // 他テナントのプロジェクト ID を混ぜられないよう存在を確認する
-      const found = await this.projects.countBy({ tenantId, id: In(wanted) });
-      if (found !== wanted.length) {
-        throw new BadRequestException('存在しないプロジェクトが含まれています');
-      }
-    }
+    await this.assertProjectsInTenant(tenantId, wanted);
 
     const current = await this.access.find({ where: { tenantId, userId } });
     const removed = current.filter((row) => !wanted.includes(row.projectId));

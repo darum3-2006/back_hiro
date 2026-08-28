@@ -119,6 +119,13 @@ const columns: TableColumn<User>[] = [
           <UDashboardSidebarCollapse />
         </template>
         <template #right>
+          <UButton
+            color="neutral"
+            variant="outline"
+            icon="i-lucide-file-spreadsheet"
+            label="Excel 同期"
+            :to="`/${me?.tenant.key}/settings/user-sync`"
+          />
           <UButton color="primary" icon="i-lucide-plus" label="新規ユーザー" @click="openCreate" />
         </template>
       </UDashboardNavbar>
