@@ -41,6 +41,14 @@ const emit = defineEmits<{
 
 const tab = ref<'edit' | 'preview'>('edit');
 const hasContent = computed(() => props.modelValue.trim().length > 0);
+
+// 投稿・保存で親が内容をクリアしたとき、プレビューのまま残らないよう編集タブに戻す
+watch(
+  () => props.modelValue,
+  (v) => {
+    if (v === '') tab.value = 'edit';
+  },
+);
 </script>
 
 <template>
