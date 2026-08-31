@@ -383,12 +383,16 @@ const copyContent = (content: string) => copyToClipboard(content, '内容をコ�
 
 const currentTenantKey = useCurrentTenantKey();
 
-/** /:tenantKey/:shortCode 形式の共有リンクをコピーする */
-const copyShareLink = () => {
+/** /:tenantKey/:shortCode 形式の共有リンクをコピーする（Shift+クリックで Markdown リンク形式） */
+const copyShareLink = (e: MouseEvent) => {
   const task = props.task;
   if (!task) return;
   const url = `${window.location.origin}/${currentTenantKey.value}/${task.shortCode}`;
-  copyToClipboard(url, 'タスクのリンクをコピーしました');
+  if (e.shiftKey) {
+    copyToClipboard(`[${task.content}](${url})`, 'Markdown リンクをコピーしました');
+  } else {
+    copyToClipboard(url, 'タスクのリンクをコピーしました');
+  }
 };
 
 watch(
