@@ -71,6 +71,7 @@ export class ProjectsService {
     if (dto.description !== undefined) {
       project.description = dto.description?.trim() || null;
     }
+    if (dto.color !== undefined) project.color = dto.color;
     if (dto.archived !== undefined) {
       project.archivedAt = dto.archived ? new Date() : null;
     }

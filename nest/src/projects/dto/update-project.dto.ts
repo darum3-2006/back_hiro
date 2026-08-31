@@ -1,5 +1,6 @@
 import {
   IsBoolean,
+  IsIn,
   IsOptional,
   IsString,
   Matches,
@@ -7,6 +8,7 @@ import {
   MinLength,
   ValidateIf,
 } from 'class-validator';
+import { MASTER_COLORS } from '../../masters/dto/master-color';
 
 export class UpdateProjectDto {
   @IsOptional()
@@ -19,6 +21,12 @@ export class UpdateProjectDto {
   @IsString()
   @MaxLength(2000)
   description?: string | null;
+
+  /** テーマ色（マスタ系と同じ色名）。null で解除 */
+  @IsOptional()
+  @ValidateIf((o: UpdateProjectDto) => o.color !== null)
+  @IsIn(MASTER_COLORS)
+  color?: (typeof MASTER_COLORS)[number] | null;
 
   /** true = アーカイブ、false = 復元 */
   @IsOptional()

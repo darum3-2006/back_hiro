@@ -25,6 +25,14 @@ export class Project extends BaseEntity {
   description!: string | null;
 
   @Column({
+    type: 'varchar',
+    length: 16,
+    nullable: true,
+    comment: 'テーマ色（マスタ系と同じ色名。ヘッダ等の背景に使う。NULL=未設定）',
+  })
+  color!: string | null;
+
+  @Column({
     type: 'datetime',
     precision: 6,
     nullable: true,

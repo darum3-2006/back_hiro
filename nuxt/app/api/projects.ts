@@ -1,3 +1,4 @@
+import type { MasterColor } from '~/types/master';
 import type { Project } from '~/types/project';
 
 export interface CreateProjectInput {
@@ -9,6 +10,8 @@ export interface CreateProjectInput {
 export interface UpdateProjectInput {
   name?: string;
   description?: string | null;
+  /** テーマ色。null で解除 */
+  color?: MasterColor | null;
   /** true でアーカイブ、false で復元 */
   archived?: boolean;
   highlightOverdueDeadline?: boolean;
