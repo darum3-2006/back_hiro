@@ -144,9 +144,18 @@ const updateTaskField = async (
 <template>
   <UDashboardPanel id="board">
     <template #header>
-      <UDashboardNavbar title="ボード" icon="i-lucide-columns-3">
+      <UDashboardNavbar
+        title="ボード"
+        icon="i-lucide-columns-3"
+        :class="projectTintClass(currentProject?.color)"
+      >
         <template #leading>
           <UDashboardSidebarCollapse />
+        </template>
+        <template #trailing>
+          <span v-if="currentProject" class="text-sm font-normal text-muted truncate">
+            {{ currentProject.name }}
+          </span>
         </template>
       </UDashboardNavbar>
     </template>

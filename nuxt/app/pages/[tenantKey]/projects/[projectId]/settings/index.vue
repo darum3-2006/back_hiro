@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { apiTestSlack, apiUpdateProject } from '~/api/projects';
+import type { MasterColor } from '~/types/master';
 
 const route = useRoute();
 const projectId = computed(() => route.params.projectId as string);
@@ -80,6 +81,13 @@ const highlightToggles: { field: HighlightField; label: string }[] = [
 const toggleHighlight = async (field: HighlightField, value: boolean) => {
   if (!project.value) return;
   await apiUpdateProject(api, projectId.value, { [field]: value });
+  await refreshProjects();
+};
+
+// ===== テーマ色 =====
+const changeColor = async (color: MasterColor | null) => {
+  if (!project.value || color === project.value.color) return;
+  await apiUpdateProject(api, projectId.value, { color });
   await refreshProjects();
 };
 
@@ -235,6 +243,27 @@ const performArchive = async () => {
           :model-value="project[t.field]"
           :label="t.label"
           @update:model-value="(v: boolean) => toggleHighlight(t.field, v)"
+        />
+      </div>
+    </div>
+
+    <USeparator />
+
+    <div>
+      <h3 class="text-sm font-medium mb-1">テーマ色</h3>
+      <p class="text-sm text-muted mb-3">
+        タスク一覧・ボード・ガントのヘッダとサイドバーのプロジェクト名の背景を薄く色付けします。
+      </p>
+      <div class="space-y-3">
+        <ColorPicker :model-value="project.color" @update:model-value="changeColor" />
+        <UButton
+          v-if="project.color"
+          color="neutral"
+          variant="ghost"
+          size="sm"
+          icon="i-lucide-x"
+          label="色を解除"
+          @click="changeColor(null)"
         />
       </div>
     </div>

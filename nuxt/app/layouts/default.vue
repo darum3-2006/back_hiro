@@ -174,7 +174,10 @@ const accountMenuItems = computed(() => {
             variant="outline"
             :block="!collapsed"
             :square="collapsed"
-            :class="collapsed ? undefined : 'justify-between'"
+            :class="[
+              collapsed ? undefined : 'justify-between',
+              projectTintClass(currentProject?.color),
+            ]"
             :trailing-icon="collapsed ? undefined : 'i-lucide-chevrons-up-down'"
             :aria-label="
               collapsed ? `プロジェクト: ${currentProject?.name ?? 'プロジェクト'}` : undefined

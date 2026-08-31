@@ -2216,9 +2216,18 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
 <template>
   <UDashboardPanel id="tasks">
     <template #header>
-      <UDashboardNavbar title="タスク一覧" icon="i-lucide-list-checks">
+      <UDashboardNavbar
+        title="タスク一覧"
+        icon="i-lucide-list-checks"
+        :class="projectTintClass(currentProject?.color)"
+      >
         <template #leading>
           <UDashboardSidebarCollapse />
+        </template>
+        <template #trailing>
+          <span v-if="currentProject" class="text-sm font-normal text-muted truncate">
+            {{ currentProject.name }}
+          </span>
         </template>
         <template #right>
           <TaskViewSwitcher

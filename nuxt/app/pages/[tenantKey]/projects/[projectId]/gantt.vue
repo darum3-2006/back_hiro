@@ -30,6 +30,8 @@ const { data: priorities, refresh: refreshPriorities } = await useTaskPriorities
 const { data: tags, refresh: refreshTags } = await useTags(currentProjectId);
 const { data: flags, refresh: refreshFlags } = await useFlags(currentProjectId);
 const { data: members, refresh: refreshMembers } = await useMembers(currentProjectId);
+const { data: projects } = await useProjects();
+const currentProject = computed(() => projects.value.find((p) => p.id === currentProjectId.value));
 const { data: departments } = await useDepartments();
 
 const filters = useTaskFilters({ tasks, statuses, priorities, members, tags, flags });
@@ -250,9 +252,18 @@ const updateTaskField = async (
 <template>
   <UDashboardPanel id="gantt">
     <template #header>
-      <UDashboardNavbar title="ガント" icon="i-lucide-chart-gantt">
+      <UDashboardNavbar
+        title="ガント"
+        icon="i-lucide-chart-gantt"
+        :class="projectTintClass(currentProject?.color)"
+      >
         <template #leading>
           <UDashboardSidebarCollapse />
+        </template>
+        <template #trailing>
+          <span v-if="currentProject" class="text-sm font-normal text-muted truncate">
+            {{ currentProject.name }}
+          </span>
         </template>
         <template #right>
           <div class="flex items-center gap-1">

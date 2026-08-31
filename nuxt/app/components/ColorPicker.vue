@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import type { MasterColor } from '~/types/master';
 
+// null = 未選択（プロジェクトのテーマ色など、色なしを許すケース用）
 defineProps<{
-  modelValue: MasterColor;
+  modelValue: MasterColor | null;
 }>();
 
 const emit = defineEmits<{
