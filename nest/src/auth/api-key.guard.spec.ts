@@ -40,7 +40,7 @@ describe('ApiKeyGuard', () => {
   });
 
   it('有効なキー(power_user)は request.user に {userId, tenantId, role} をセットして true', async () => {
-    const user = { id: 'u1', tenantId: 't1', role: 'power_user' } as User;
+    const user = { id: 'u1', tenantId: 't1', role: 'power_user', isActive: true } as User;
     const { guard } = makeGuard(user);
     const { ctx, req } = ctxWith('Bearer bh_live_valid');
     await expect(guard.canActivate(ctx)).resolves.toBe(true);
@@ -48,9 +48,16 @@ describe('ApiKeyGuard', () => {
   });
 
   it('member のキーは権限不足で Forbidden', async () => {
-    const user = { id: 'u1', tenantId: 't1', role: 'member' } as User;
+    const user = { id: 'u1', tenantId: 't1', role: 'member', isActive: true } as User;
     const { guard } = makeGuard(user);
     const { ctx } = ctxWith('Bearer bh_live_valid');
     await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
+  });
+
+  it('無効化されたユーザーのキーは Unauthorized', async () => {
+    const user = { id: 'u1', tenantId: 't1', role: 'power_user', isActive: false } as User;
+    const { guard } = makeGuard(user);
+    const { ctx } = ctxWith('Bearer bh_live_valid');
+    await expect(guard.canActivate(ctx)).rejects.toThrow(UnauthorizedException);
   });
 });

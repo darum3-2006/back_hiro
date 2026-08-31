@@ -1,5 +1,6 @@
 import {
   ArrayUnique,
+  IsBoolean,
   IsIn,
   IsOptional,
   IsString,
@@ -18,6 +19,11 @@ export class UpdateUserDto {
   @IsOptional()
   @IsIn(['admin', 'power_user', 'member', 'readonly'])
   role?: 'admin' | 'power_user' | 'member' | 'readonly';
+
+  /** 有効フラグ（false でログイン無効化。既存セッションも失効する） */
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
 
   /** 指定があればパスワードリセット */
   @IsOptional()

@@ -12,6 +12,8 @@ export interface CreateUserInput {
 export interface UpdateUserInput {
   name?: string;
   role?: UserRole;
+  /** 有効フラグ（false でログイン無効化。既存セッションも失効する） */
+  isActive?: boolean;
   /** 指定があればパスワードを上書き */
   password?: string;
   /** 指定があれば閲覧できるプロジェクトを丸ごと置き換える */

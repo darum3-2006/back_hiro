@@ -46,6 +46,14 @@ export class User extends BaseEntity {
   role!: UserRole;
 
   @Column({
+    type: 'boolean',
+    name: 'is_active',
+    default: true,
+    comment: '有効フラグ（true=ログイン可能、false=ログイン不可）',
+  })
+  isActive!: boolean;
+
+  @Column({
     type: 'varchar',
     length: 64,
     name: 'api_key_hash',

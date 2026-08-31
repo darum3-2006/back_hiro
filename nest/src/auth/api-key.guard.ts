@@ -28,7 +28,8 @@ export class ApiKeyGuard implements CanActivate {
     if (!key) throw new UnauthorizedException('APIキーが指定されていません');
 
     const user = await this.users.findByApiKeyHash(hashApiKey(key));
-    if (!user) throw new UnauthorizedException('APIキーが無効です');
+    // 無効化されたユーザーのキーも「無効なキー」として扱う（存在の推測をさせない）
+    if (!user || !user.isActive) throw new UnauthorizedException('APIキーが無効です');
     // キーは残っていても権限が下がっていれば拒否（admin / power_user のみ）
     if (!canUseApiKey(user.role)) {
       throw new ForbiddenException('このAPIキーには公開APIの利用権限がありません');

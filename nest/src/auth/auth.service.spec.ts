@@ -45,6 +45,7 @@ describe('AuthService', () => {
       email: dto.email,
       name: 'Admin',
       passwordHash,
+      isActive: true,
     } as User;
 
     const module: TestingModule = await Test.createTestingModule({
@@ -123,6 +124,13 @@ describe('AuthService', () => {
       );
     });
 
+    it('無効化されたユーザーはパスワードが正しくても UnauthorizedException', async () => {
+      tenants.findByKey.mockResolvedValue(tenant);
+      users.findByTenantAndEmail.mockResolvedValue({ ...user, isActive: false });
+
+      await expect(service.login(dto)).rejects.toThrow(UnauthorizedException);
+    });
+
     it('別テナントのユーザーは login できない（findByTenantAndEmail で限定）', async () => {
       tenants.findByKey.mockResolvedValue(tenant);
       users.findByTenantAndEmail.mockResolvedValue(null);
@@ -195,6 +203,18 @@ describe('AuthService', () => {
       } as RefreshToken);
 
       await expect(service.refresh('expired')).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('無効化されたユーザーのトークンは 401', async () => {
+      refreshRepo.findOne.mockResolvedValue({
+        id: 'rt1',
+        userId: 'u1',
+        expiresAt: new Date(Date.now() + 86_400_000),
+        revokedAt: null,
+      } as RefreshToken);
+      users.findById.mockResolvedValue({ ...user, isActive: false });
+
+      await expect(service.refresh('valid-raw-token')).rejects.toThrow(UnauthorizedException);
     });
 
     it('猶予を過ぎた失効済みトークンの再利用は、ユーザーの全トークンを失効させて 401', async () => {
