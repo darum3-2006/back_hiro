@@ -10,6 +10,7 @@ import { DocsController } from './docs.controller';
 import { PublicDepartmentsController } from './public-departments.controller';
 import { PublicMastersController } from './public-masters.controller';
 import { PublicProjectsController } from './public-projects.controller';
+import { PublicTaskLookupController } from './public-task-lookup.controller';
 import { PublicTasksController } from './public-tasks.controller';
 
 /**
@@ -29,6 +30,7 @@ import { PublicTasksController } from './public-tasks.controller';
     DocsController,
     PublicProjectsController,
     PublicTasksController,
+    PublicTaskLookupController,
     PublicMastersController,
     PublicDepartmentsController,
   ],
