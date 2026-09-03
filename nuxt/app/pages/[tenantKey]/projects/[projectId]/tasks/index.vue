@@ -22,7 +22,7 @@ import type { DateRangeValue } from '~/components/DateRangeFilter.vue';
 import type { SavedView, SavedViewConfig, SavedViewVisibility } from '~/types/saved-view';
 import type { SubtaskRow } from '~/types/subtask';
 import type { Task } from '~/types/task';
-import { fmtDate, fmtDateTime } from '~/utils/date';
+import { fmtDateTime } from '~/utils/date';
 import { isTaskDatePast } from '~/utils/task-overdue';
 
 const api = useApi();
@@ -101,7 +101,6 @@ const currentMemberId = computed<string | null>(() => {
   return members.value.find((m) => m.userId === userId)?.id ?? null;
 });
 
-const statusMap = computed(() => Object.fromEntries(statuses.value.map((s) => [s.code, s])));
 const priorityMap = computed(() => Object.fromEntries(priorities.value.map((p) => [p.code, p])));
 const tagMap = computed(() => Object.fromEntries(tags.value.map((t) => [t.code, t])));
 const flagMap = computed(() => Object.fromEntries(flags.value.map((f) => [f.code, f])));
@@ -119,347 +118,39 @@ const updateQuery = (changes: Record<string, string | undefined>) => {
 
 const queryString = (key: string): string => (route.query[key] as string | undefined) ?? '';
 
-// カンマ区切りで配列を URL に同期。旧形式 `?status=foo` (単値) も
-// [foo] として読めるので後方互換あり。
-const queryArray = (key: string): string[] => {
-  const v = queryString(key);
-  if (!v) return [];
-  return v.split(',').filter(Boolean);
-};
-const search = computed<string>({
-  get: () => queryString('search'),
-  set: (v) => updateQuery({ search: v || undefined }),
-});
+// フィルタは board / gantt と同じ useTaskFilters を正本にする（URL クエリキーも共有）。
+// 一覧固有の絞り込み（サブタスクの子行）だけは、下で applied 系プリミティブから自前に組む。
+const {
+  statusMap,
+  search,
+  statusFilter,
+  priorityFilter,
+  assigneeFilter,
+  tagFilter,
+  tagNotFilter,
+  flagFilter,
+  flagNotFilter,
+  showCompleted,
+  hasActiveFilter,
+  hasActiveDateFilter,
+  resetFilters,
+  statusSelectItems,
+  prioritySelectItems,
+  assigneeFilterItems,
+  tagFilterItems,
+  flagFilterItems,
+  dateFilterChips,
+  filteredTasks,
+  applied,
+  dateFilters,
+  matchesDateRange,
+} = useTaskFilters({ tasks, statuses, priorities, members, tags, flags });
 
-// マルチセレクトのチェック反映を「クリック直後」に出すため、UI バインド用の
-// ref と、テーブル描画に使う applied 用 ref を分ける。
-// - v-model は statusFilter 等にバインド: 即時更新でチェックボックスがすぐ反映
-// - applied 系は requestAnimationFrame で 1 フレーム遅らせて反映: 重いテーブル
-//   再描画が次フレームに回り、チェックが先に描画される
-// URL の同期も applied と同じタイミングに寄せる。
-const statusFilter = ref<string[]>(queryArray('status'));
-const priorityFilter = ref<string[]>(queryArray('priority'));
-const assigneeFilter = ref<string[]>(queryArray('assignee'));
-const tagFilter = ref<string[]>(queryArray('tag'));
-const tagNotFilter = ref<string[]>(queryArray('tagNot'));
-const flagFilter = ref<string[]>(queryArray('flag'));
-const flagNotFilter = ref<string[]>(queryArray('flagNot'));
-
-const appliedStatusFilter = ref<string[]>([...statusFilter.value]);
-const appliedPriorityFilter = ref<string[]>([...priorityFilter.value]);
-const appliedAssigneeFilter = ref<string[]>([...assigneeFilter.value]);
-const appliedTagFilter = ref<string[]>([...tagFilter.value]);
-const appliedTagNotFilter = ref<string[]>([...tagNotFilter.value]);
-const appliedFlagFilter = ref<string[]>([...flagFilter.value]);
-const appliedFlagNotFilter = ref<string[]>([...flagNotFilter.value]);
-
-const arraysEqual = (a: string[], b: string[]) =>
-  a.length === b.length && a.every((v, i) => v === b[i]);
-
-let pendingFrame: number | null = null;
-const scheduleApply = () => {
-  if (!import.meta.client) return;
-  if (pendingFrame !== null) cancelAnimationFrame(pendingFrame);
-  // rAF 1 回目は「今フレームの paint 直前」に走るため、チェックボックスの描画と
-  // 同フレームになる。次フレームまで遅らせるために rAF を 2 段ネストする。
-  pendingFrame = requestAnimationFrame(() => {
-    pendingFrame = requestAnimationFrame(() => {
-      pendingFrame = null;
-      if (!arraysEqual(appliedStatusFilter.value, statusFilter.value)) {
-        appliedStatusFilter.value = [...statusFilter.value];
-      }
-      if (!arraysEqual(appliedPriorityFilter.value, priorityFilter.value)) {
-        appliedPriorityFilter.value = [...priorityFilter.value];
-      }
-      if (!arraysEqual(appliedAssigneeFilter.value, assigneeFilter.value)) {
-        appliedAssigneeFilter.value = [...assigneeFilter.value];
-      }
-      if (!arraysEqual(appliedTagFilter.value, tagFilter.value)) {
-        appliedTagFilter.value = [...tagFilter.value];
-      }
-      if (!arraysEqual(appliedTagNotFilter.value, tagNotFilter.value)) {
-        appliedTagNotFilter.value = [...tagNotFilter.value];
-      }
-      if (!arraysEqual(appliedFlagFilter.value, flagFilter.value)) {
-        appliedFlagFilter.value = [...flagFilter.value];
-      }
-      if (!arraysEqual(appliedFlagNotFilter.value, flagNotFilter.value)) {
-        appliedFlagNotFilter.value = [...flagNotFilter.value];
-      }
-      syncFiltersToUrl();
-    });
-  });
-};
-
-// 1回の操作で複数キーが変わり得る（例: 含む→除外の切替は tag と tagNot の両方）。
-// router.replace は非同期で route.query の反映が遅れるため、キーごとに replace すると
-// 後の replace が古い query を土台にして前の変更を巻き戻す。必ず 1 回にまとめる。
-const syncFiltersToUrl = () => {
-  const changes: Record<string, string | undefined> = {};
-  const put = (key: string, arr: string[]) => {
-    if (!arraysEqual(arr, queryArray(key))) {
-      changes[key] = arr.length > 0 ? arr.join(',') : undefined;
-    }
-  };
-  put('status', statusFilter.value);
-  put('priority', priorityFilter.value);
-  put('assignee', assigneeFilter.value);
-  put('tag', tagFilter.value);
-  put('tagNot', tagNotFilter.value);
-  put('flag', flagFilter.value);
-  put('flagNot', flagNotFilter.value);
-  if (Object.keys(changes).length > 0) updateQuery(changes);
-};
-
-watch(
-  [
-    statusFilter,
-    priorityFilter,
-    assigneeFilter,
-    tagFilter,
-    tagNotFilter,
-    flagFilter,
-    flagNotFilter,
-  ],
-  () => scheduleApply(),
-  {
-    deep: true,
-  },
-);
-
-// 戻る/進む・ディープリンク等で URL が外から変わったら ref を合わせる
-const appliedByKey: Record<string, Ref<string[]>> = {
-  status: appliedStatusFilter,
-  priority: appliedPriorityFilter,
-  assignee: appliedAssigneeFilter,
-  tag: appliedTagFilter,
-  tagNot: appliedTagNotFilter,
-  flag: appliedFlagFilter,
-  flagNot: appliedFlagNotFilter,
-};
-const bindFromUrl = (filter: Ref<string[]>, key: string) => {
-  watch(
-    () => queryArray(key),
-    (v) => {
-      if (!arraysEqual(v, filter.value)) {
-        filter.value = v;
-        // URL 主導で来たので applied も即時同期
-        appliedByKey[key]!.value = [...v];
-      }
-    },
-    { deep: true },
-  );
-};
-bindFromUrl(statusFilter, 'status');
-bindFromUrl(priorityFilter, 'priority');
-bindFromUrl(assigneeFilter, 'assignee');
-bindFromUrl(tagFilter, 'tag');
-bindFromUrl(tagNotFilter, 'tagNot');
-bindFromUrl(flagFilter, 'flag');
-bindFromUrl(flagNotFilter, 'flagNot');
-
-// ===== 日付範囲フィルタ =====
-// 期限 / 完了予定日 / リリース予定日 / 完了日時 を URL クエリと双方向同期する。
-// completedAt のみ datetime 値だが、フィルタは「日付」単位で比較する（matchesDateRange 参照）。
-const useDateRangeFilter = (queryKeyFrom: string, queryKeyTo: string) => {
-  const range = ref<DateRangeValue>({
-    from: queryString(queryKeyFrom) || null,
-    to: queryString(queryKeyTo) || null,
-  });
-
-  const isActive = computed(() => Boolean(range.value.from || range.value.to));
-
-  watch(
-    range,
-    (v) => {
-      const currentFrom = queryString(queryKeyFrom) || null;
-      const currentTo = queryString(queryKeyTo) || null;
-      if (v.from === currentFrom && v.to === currentTo) return;
-      updateQuery({
-        [queryKeyFrom]: v.from ?? undefined,
-        [queryKeyTo]: v.to ?? undefined,
-      });
-    },
-    { deep: true },
-  );
-
-  watch(
-    () => [queryString(queryKeyFrom), queryString(queryKeyTo)] as const,
-    ([from, to]) => {
-      const fromN = from || null;
-      const toN = to || null;
-      if (range.value.from === fromN && range.value.to === toN) return;
-      range.value = { from: fromN, to: toN };
-    },
-  );
-
-  const clear = () => {
-    range.value = { from: null, to: null };
-  };
-
-  return { range, isActive, clear };
-};
-
-const deadlineFilter = useDateRangeFilter('deadlineFrom', 'deadlineTo');
-const plannedStartFilter = useDateRangeFilter('plannedStartFrom', 'plannedStartTo');
-const plannedCompletionFilter = useDateRangeFilter('plannedCompletionFrom', 'plannedCompletionTo');
-const plannedReleaseFilter = useDateRangeFilter('plannedReleaseFrom', 'plannedReleaseTo');
-const completedAtFilter = useDateRangeFilter('completedAtFrom', 'completedAtTo');
-const statusChangedAtFilter = useDateRangeFilter('statusChangedFrom', 'statusChangedTo');
-const createdAtFilter = useDateRangeFilter('createdFrom', 'createdTo');
-const updatedAtFilter = useDateRangeFilter('updatedFrom', 'updatedTo');
-
-/**
- * タスクの日付列値 (date or datetime) が範囲に含まれるか。
- * - value が null かつ範囲指定中: 除外
- * - completedAt のような datetime も先頭 10 文字 (YYYY-MM-DD) で日付比較
- */
-const matchesDateRange = (value: string | null, range: DateRangeValue): boolean => {
-  if (!range.from && !range.to) return true;
-  if (!value) return false;
-  const datePart = value.slice(0, 10);
-  if (range.from && datePart < range.from) return false;
-  if (range.to && datePart > range.to) return false;
-  return true;
-};
-
-/** チップ表示用: from/to の片方だけ指定なら「以降」「以前」と表現する */
-const formatDateRangeChip = (range: DateRangeValue): string => {
-  const from = range.from ? fmtDate(range.from) : null;
-  const to = range.to ? fmtDate(range.to) : null;
-  if (from && to) return `${from} 〜 ${to}`;
-  if (from) return `${from} 以降`;
-  if (to) return `${to} 以前`;
-  return '';
-};
-
-/** チップ列で繰り返し描画するためのメタ情報。computed 内で .value を展開して再評価を効かせる */
-const dateFilterChips = computed(() =>
-  [
-    { label: '期限', filter: deadlineFilter },
-    { label: '着手予定日', filter: plannedStartFilter },
-    { label: '完了予定日', filter: plannedCompletionFilter },
-    { label: 'リリース予定日', filter: plannedReleaseFilter },
-    { label: '完了日時', filter: completedAtFilter },
-    { label: 'ステータス更新日時', filter: statusChangedAtFilter },
-    { label: '作成日時', filter: createdAtFilter },
-    { label: '更新日時', filter: updatedAtFilter },
-  ]
-    .filter((c) => c.filter.isActive.value)
-    .map((c) => ({
-      label: c.label,
-      text: formatDateRangeChip(c.filter.range.value),
-      clear: c.filter.clear,
-    })),
-);
-
-const hasActiveDateFilter = computed(() => dateFilterChips.value.length > 0);
-
-const statusSelectItems = computed(() =>
-  statuses.value.map((s) => ({ label: s.label, value: s.code })),
-);
-const prioritySelectItems = computed(() =>
-  priorities.value.map((p) => ({ label: p.label, value: p.code })),
-);
 // このページでの用途は行内の担当者ピッカー（タスク/サブタスク）のみなので、
 // readonly（閲覧のみ）ユーザー紐づきメンバーを除外する（依頼者の行内編集は無い）
 const memberSelectItems = computed(() =>
   assignableMembers(members.value).map((m) => ({ label: m.displayName, value: m.id })),
 );
-
-/** 担当者フィルタ用: 実際に誰かに割り当たっているメンバーのみ */
-/** 「担当者なし」を表す sentinel（実 ID と衝突しない値） */
-const NO_ASSIGNEE = '__none__';
-
-const assigneeFilterItems = computed(() => {
-  const ids = new Set(
-    tasks.value.map((t) => t.assigneeMemberId).filter((id): id is string => Boolean(id)),
-  );
-  const items: { label: string; value: string }[] = members.value
-    .filter((m) => ids.has(m.id))
-    .map((m) => ({ label: m.displayName, value: m.id }));
-  // タスクに担当者なしが含まれていれば先頭に追加
-  if (tasks.value.some((t) => !t.assigneeMemberId)) {
-    items.unshift({ label: '(担当者なし)', value: NO_ASSIGNEE });
-  }
-  // 選択中の担当者が items に無い場合（全タスクが完了して非表示になった等）でも
-  // ラベルが ID に化けないように補う
-  for (const current of assigneeFilter.value) {
-    if (items.some((i) => i.value === current)) continue;
-    if (current === NO_ASSIGNEE) {
-      items.unshift({ label: '(担当者なし)', value: NO_ASSIGNEE });
-    } else {
-      const member = members.value.find((m) => m.id === current);
-      if (member) items.push({ label: member.displayName, value: current });
-    }
-  }
-  return items;
-});
-
-/** タグフィルタ用: 実際にタスクに付いているタグのみ */
-const tagFilterItems = computed(() => {
-  const codes = new Set(tasks.value.flatMap((t) => t.tagCodes));
-  return tags.value.filter((t) => codes.has(t.code)).map((t) => ({ label: t.name, value: t.code }));
-});
-
-/** フラグフィルタ用: 実際にタスクに付いているフラグのみ */
-const flagFilterItems = computed(() => {
-  const codes = new Set(tasks.value.flatMap((t) => t.flagCodes));
-  return flags.value
-    .filter((f) => codes.has(f.code))
-    .map((f) => ({ label: f.name, value: f.code }));
-});
-
-/** 完了系ステータスを表示するか（既定 false）。URL クエリで保持 */
-const showCompleted = computed<boolean>({
-  get: () => queryString('showCompleted') === '1',
-  set: (v) => updateQuery({ showCompleted: v ? '1' : undefined }),
-});
-
-const hasActiveFilter = computed(() =>
-  Boolean(
-    search.value ||
-    statusFilter.value.length > 0 ||
-    priorityFilter.value.length > 0 ||
-    assigneeFilter.value.length > 0 ||
-    tagFilter.value.length > 0 ||
-    tagNotFilter.value.length > 0 ||
-    flagFilter.value.length > 0 ||
-    flagNotFilter.value.length > 0 ||
-    showCompleted.value ||
-    hasActiveDateFilter.value,
-  ),
-);
-
-const resetFilters = () => {
-  updateQuery({
-    search: undefined,
-    status: undefined,
-    priority: undefined,
-    assignee: undefined,
-    tag: undefined,
-    tagNot: undefined,
-    flag: undefined,
-    flagNot: undefined,
-    showCompleted: undefined,
-    deadlineFrom: undefined,
-    deadlineTo: undefined,
-    plannedStartFrom: undefined,
-    plannedStartTo: undefined,
-    plannedCompletionFrom: undefined,
-    plannedCompletionTo: undefined,
-    plannedReleaseFrom: undefined,
-    plannedReleaseTo: undefined,
-    completedAtFrom: undefined,
-    completedAtTo: undefined,
-    statusChangedFrom: undefined,
-    statusChangedTo: undefined,
-    createdFrom: undefined,
-    createdTo: undefined,
-    updatedFrom: undefined,
-    updatedTo: undefined,
-  });
-};
 
 // ===== タスク詳細スライドオーバー: URL クエリで連動 =====
 // URL にはタスクの連番(seq, 表示用 #N)を載せる。詳細ページは projectId スコープなので
@@ -622,95 +313,31 @@ const onTaskCreated = async (task: Task) => {
   });
 };
 
-const filteredTasks = computed(() => {
-  // チェック直後のチラつき防止のため、applied 系 (rAF で 1 フレーム遅延) を使う
-  const statusSet = new Set(appliedStatusFilter.value);
-  const prioritySet = new Set(appliedPriorityFilter.value);
-  const assigneeSet = new Set(appliedAssigneeFilter.value);
-  const tagSet = new Set(appliedTagFilter.value);
-  const tagNotSet = new Set(appliedTagNotFilter.value);
-  const flagSet = new Set(appliedFlagFilter.value);
-  const flagNotSet = new Set(appliedFlagNotFilter.value);
-
-  return tasks.value.filter((t) => {
-    // ステータスフィルタが選択されていればそれを最優先（完了系も含めて表示）
-    if (statusSet.size > 0) {
-      if (!statusSet.has(t.statusCode)) return false;
-    } else if (!showCompleted.value && statusMap.value[t.statusCode]?.isTerminal) {
-      // ステータスフィルタなし & 「完了も表示」OFF のときは完了系を除外
-      return false;
-    }
-    if (search.value) {
-      const q = search.value.toLowerCase();
-      // #番号 / 番号 は seq の前方一致でも引っかける（#は任意）
-      const seqQuery = q.replace(/^#/, '');
-      const matched =
-        (/^\d+$/.test(seqQuery) && String(t.seq).startsWith(seqQuery)) ||
-        t.content.toLowerCase().includes(q) ||
-        t.description.toLowerCase().includes(q) ||
-        t.links.some((l) => l.url.toLowerCase().includes(q));
-      if (!matched) return false;
-    }
-    if (prioritySet.size > 0 && (!t.priorityCode || !prioritySet.has(t.priorityCode))) {
-      return false;
-    }
-    if (assigneeSet.size > 0) {
-      const matchesNone = !t.assigneeMemberId && assigneeSet.has(NO_ASSIGNEE);
-      const matchesId = t.assigneeMemberId && assigneeSet.has(t.assigneeMemberId);
-      if (!matchesNone && !matchesId) return false;
-    }
-    if (tagSet.size > 0 && !t.tagCodes.some((c) => tagSet.has(c))) return false;
-    // 除外は「1つでも該当タグ/フラグを持てば隠す」
-    if (tagNotSet.size > 0 && t.tagCodes.some((c) => tagNotSet.has(c))) return false;
-    if (flagSet.size > 0 && !t.flagCodes.some((c) => flagSet.has(c))) return false;
-    if (flagNotSet.size > 0 && t.flagCodes.some((c) => flagNotSet.has(c))) return false;
-    // 日付範囲フィルタ。null 値は範囲指定中は除外。
-    if (!matchesDateRange(t.deadline, deadlineFilter.range.value)) return false;
-    if (!matchesDateRange(t.plannedStartDate, plannedStartFilter.range.value)) return false;
-    if (!matchesDateRange(t.plannedCompletionDate, plannedCompletionFilter.range.value)) {
-      return false;
-    }
-    if (!matchesDateRange(t.plannedReleaseDate, plannedReleaseFilter.range.value)) return false;
-    if (!matchesDateRange(t.completedAt, completedAtFilter.range.value)) return false;
-    if (!matchesDateRange(t.statusChangedAt, statusChangedAtFilter.range.value)) return false;
-    if (!matchesDateRange(t.createdAt, createdAtFilter.range.value)) return false;
-    if (!matchesDateRange(t.updatedAt, updatedAtFilter.range.value)) return false;
-    return true;
-  });
-});
-
 // ===== サブタスク（案X: 一覧に子行として出す） =====
 type DisplayRow = Task & { __kind: 'task' | 'sub'; __sub?: SubtaskRow };
 const isSubRow = (r: Task): boolean => (r as DisplayRow).__kind === 'sub';
 const subOf = (r: Task): SubtaskRow | undefined => (r as DisplayRow).__sub;
 
 // deadline 以外の日付範囲フィルタが有効か（子は deadline しか持たないので、その時は子を除外）
-const hasNonDeadlineDateFilter = computed(
-  () =>
-    plannedStartFilter.isActive.value ||
-    plannedCompletionFilter.isActive.value ||
-    plannedReleaseFilter.isActive.value ||
-    completedAtFilter.isActive.value ||
-    statusChangedAtFilter.isActive.value ||
-    createdAtFilter.isActive.value ||
-    updatedAtFilter.isActive.value,
+const hasNonDeadlineDateFilter = computed(() =>
+  Object.entries(dateFilters).some(([key, f]) => key !== 'deadline' && f.isActive.value),
 );
 
 // 一覧に出すサブタスク行（担当/期限/検索/フラグ/完了表示を適用。ステータス等の絞り込み時は除外）
 const filteredSubtaskRows = computed<SubtaskRow[]>(() => {
   if (
-    appliedStatusFilter.value.length > 0 ||
-    appliedPriorityFilter.value.length > 0 ||
-    appliedTagFilter.value.length > 0 ||
+    applied.status.value.length > 0 ||
+    applied.priority.value.length > 0 ||
+    applied.tag.value.length > 0 ||
     hasNonDeadlineDateFilter.value
   ) {
     return [];
   }
-  const assigneeSet = new Set(appliedAssigneeFilter.value);
-  const flagSet = new Set(appliedFlagFilter.value);
-  const flagNotSet = new Set(appliedFlagNotFilter.value);
+  const assigneeSet = new Set(applied.assignee.value);
+  const flagSet = new Set(applied.flag.value);
+  const flagNotSet = new Set(applied.flagNot.value);
   // タグ除外は「その案件ごと隠す」意図なので、子はタグを持たないぶん親のタグで判定する
-  const tagNotSet = new Set(appliedTagNotFilter.value);
+  const tagNotSet = new Set(applied.tagNot.value);
   const parentTagMap =
     tagNotSet.size > 0 ? new Map(tasks.value.map((t) => [t.id, t.tagCodes])) : null;
   return projectSubtasks.value.filter((s) => {
@@ -736,7 +363,7 @@ const filteredSubtaskRows = computed<SubtaskRow[]>(() => {
     // フラグは子も自分の値を持つのでフィルタを適用する
     if (flagSet.size > 0 && !s.flagCodes.some((c) => flagSet.has(c))) return false;
     if (flagNotSet.size > 0 && s.flagCodes.some((c) => flagNotSet.has(c))) return false;
-    if (!matchesDateRange(s.deadline, deadlineFilter.range.value)) return false;
+    if (!matchesDateRange(s.deadline, dateFilters.deadline.range.value)) return false;
     return true;
   });
 });
@@ -1225,7 +852,11 @@ const columns: TableColumn<Task>[] = [
   },
   {
     accessorKey: 'deadline',
-    header: sortAndDateFilterHeader('期限', deadlineFilter.isActive, deadlineFilter.range),
+    header: sortAndDateFilterHeader(
+      '期限',
+      dateFilters.deadline.isActive,
+      dateFilters.deadline.range,
+    ),
     size: 120,
     minSize: 80,
     meta: RESIZABLE_META,
@@ -1239,8 +870,8 @@ const columns: TableColumn<Task>[] = [
     accessorKey: 'plannedStartDate',
     header: sortAndDateFilterHeader(
       '着手予定日',
-      plannedStartFilter.isActive,
-      plannedStartFilter.range,
+      dateFilters.plannedStart.isActive,
+      dateFilters.plannedStart.range,
     ),
     size: 120,
     minSize: 80,
@@ -1255,8 +886,8 @@ const columns: TableColumn<Task>[] = [
     accessorKey: 'plannedCompletionDate',
     header: sortAndDateFilterHeader(
       '完了予定日',
-      plannedCompletionFilter.isActive,
-      plannedCompletionFilter.range,
+      dateFilters.plannedCompletion.isActive,
+      dateFilters.plannedCompletion.range,
     ),
     size: 120,
     minSize: 80,
@@ -1271,8 +902,8 @@ const columns: TableColumn<Task>[] = [
     accessorKey: 'plannedReleaseDate',
     header: sortAndDateFilterHeader(
       'リリース予定日',
-      plannedReleaseFilter.isActive,
-      plannedReleaseFilter.range,
+      dateFilters.plannedRelease.isActive,
+      dateFilters.plannedRelease.range,
     ),
     size: 120,
     minSize: 80,
@@ -1327,8 +958,8 @@ const columns: TableColumn<Task>[] = [
     accessorKey: 'completedAt',
     header: sortAndDateFilterHeader(
       '完了日時',
-      completedAtFilter.isActive,
-      completedAtFilter.range,
+      dateFilters.completedAt.isActive,
+      dateFilters.completedAt.range,
     ),
     size: 140,
     minSize: 100,
@@ -1344,8 +975,8 @@ const columns: TableColumn<Task>[] = [
     accessorKey: 'statusChangedAt',
     header: sortAndDateFilterHeader(
       'ステータス更新日時',
-      statusChangedAtFilter.isActive,
-      statusChangedAtFilter.range,
+      dateFilters.statusChangedAt.isActive,
+      dateFilters.statusChangedAt.range,
     ),
     size: 160,
     minSize: 100,
@@ -1353,14 +984,22 @@ const columns: TableColumn<Task>[] = [
   },
   {
     accessorKey: 'createdAt',
-    header: sortAndDateFilterHeader('作成日時', createdAtFilter.isActive, createdAtFilter.range),
+    header: sortAndDateFilterHeader(
+      '作成日時',
+      dateFilters.createdAt.isActive,
+      dateFilters.createdAt.range,
+    ),
     size: 140,
     minSize: 100,
     meta: RESIZABLE_META,
   },
   {
     accessorKey: 'updatedAt',
-    header: sortAndDateFilterHeader('更新日時', updatedAtFilter.isActive, updatedAtFilter.range),
+    header: sortAndDateFilterHeader(
+      '更新日時',
+      dateFilters.updatedAt.isActive,
+      dateFilters.updatedAt.range,
+    ),
     size: 140,
     minSize: 100,
     meta: RESIZABLE_META,
@@ -1899,35 +1538,7 @@ const canManageShared = computed(() => {
   return members.value.some((m) => m.userId === uid && m.role === 'admin');
 });
 
-// capture/apply 対象のフィルタ系クエリキー
-const FILTER_QUERY_KEYS = [
-  'search',
-  'status',
-  'priority',
-  'assignee',
-  'tag',
-  'tagNot',
-  'flag',
-  'flagNot',
-  'showCompleted',
-  'deadlineFrom',
-  'deadlineTo',
-  'plannedStartFrom',
-  'plannedStartTo',
-  'plannedCompletionFrom',
-  'plannedCompletionTo',
-  'plannedReleaseFrom',
-  'plannedReleaseTo',
-  'completedAtFrom',
-  'completedAtTo',
-  'statusChangedFrom',
-  'statusChangedTo',
-  'createdFrom',
-  'createdTo',
-  'updatedFrom',
-  'updatedTo',
-] as const;
-
+// capture/apply 対象の表示状態クエリキー（フィルタ系は useTaskFilters の export が正本）
 const VIEW_STATE_KEYS = ['cols', 'colw', 'sort', 'sortDir', ...FILTER_QUERY_KEYS];
 
 /** URL に表示状態（列/フィルタ/ソート）が載っているか。共有リンクで開いたケースの判定に使う */
