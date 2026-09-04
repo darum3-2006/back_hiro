@@ -118,33 +118,22 @@ const updateQuery = (changes: Record<string, string | undefined>) => {
 
 const queryString = (key: string): string => (route.query[key] as string | undefined) ?? '';
 
+const taskFilters = useTaskFilters({ tasks, statuses, priorities, members, tags, flags });
 // フィルタは board / gantt と同じ useTaskFilters を正本にする（URL クエリキーも共有）。
 // 一覧固有の絞り込み（サブタスクの子行）だけは、下で applied 系プリミティブから自前に組む。
+// フィルタ UI そのものは TaskFilterChipBar が taskFilters を丸ごと受け取って描くので、
+// ここで取り出すのは一覧固有の処理（行の描画・サブタスク子行・列ヘッダ）が使う分だけ。
 const {
   statusMap,
   search,
-  statusFilter,
-  priorityFilter,
-  assigneeFilter,
-  tagFilter,
-  tagNotFilter,
-  flagFilter,
-  flagNotFilter,
   showCompleted,
-  hasActiveFilter,
-  hasActiveDateFilter,
-  resetFilters,
   statusSelectItems,
   prioritySelectItems,
-  assigneeFilterItems,
-  tagFilterItems,
-  flagFilterItems,
-  dateFilterChips,
   filteredTasks,
   applied,
   dateFilters,
   matchesDateRange,
-} = useTaskFilters({ tasks, statuses, priorities, members, tags, flags });
+} = taskFilters;
 
 // このページでの用途は行内の担当者ピッカー（タスク/サブタスク）のみなので、
 // readonly（閲覧のみ）ユーザー紐づきメンバーを除外する（依頼者の行内編集は無い）
@@ -1938,175 +1927,25 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
       </EmptyState>
 
       <template v-else>
-        <div class="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-default">
-          <UInput
-            v-model="search"
-            placeholder="内容を検索"
-            icon="i-lucide-search"
-            class="min-w-64"
-            :ui="{ trailing: 'pe-1' }"
-          >
-            <template v-if="search" #trailing>
-              <UButton
-                icon="i-lucide-x"
-                size="sm"
-                color="neutral"
-                variant="ghost"
-                aria-label="検索内容をクリア"
-                @click="search = ''"
-              />
-            </template>
-          </UInput>
-          <div class="flex items-center gap-1">
-            <USelectMenu
-              v-model="statusFilter"
-              :items="statusSelectItems"
-              value-key="value"
-              multiple
-              placeholder="すべてのステータス"
-              class="w-44"
+        <TaskFilterChipBar :filters="taskFilters">
+          <template #actions>
+            <UCheckbox
+              v-if="!isReadonly"
+              :model-value="someVisibleSelected ? 'indeterminate' : allVisibleSelected"
+              :disabled="selectableTasks.length === 0"
+              label="全選択"
+              @update:model-value="(v: boolean | 'indeterminate') => toggleSelectAll(v === true)"
             />
-            <UButton
-              v-if="statusFilter.length > 0"
-              icon="i-lucide-x"
-              size="xs"
-              color="neutral"
-              variant="ghost"
-              aria-label="ステータスフィルタをクリア"
-              @click="statusFilter = []"
-            />
-          </div>
-          <div class="flex items-center gap-1">
-            <USelectMenu
-              v-model="priorityFilter"
-              :items="prioritySelectItems"
-              value-key="value"
-              multiple
-              placeholder="すべての優先度"
-              class="w-40"
-            />
-            <UButton
-              v-if="priorityFilter.length > 0"
-              icon="i-lucide-x"
-              size="xs"
-              color="neutral"
-              variant="ghost"
-              aria-label="優先度フィルタをクリア"
-              @click="priorityFilter = []"
-            />
-          </div>
-          <div class="flex items-center gap-1">
-            <USelectMenu
-              v-model="assigneeFilter"
-              :items="assigneeFilterItems"
-              value-key="value"
-              multiple
-              placeholder="すべての担当者"
-              icon="i-lucide-user"
-              searchable
-              search-placeholder="名前で検索…"
-              class="w-44"
-            />
-            <UButton
-              v-if="assigneeFilter.length > 0"
-              icon="i-lucide-x"
-              size="xs"
-              color="neutral"
-              variant="ghost"
-              aria-label="担当者フィルタをクリア"
-              @click="assigneeFilter = []"
-            />
-          </div>
-          <div class="flex items-center gap-1">
-            <TriStateFilterMenu
-              v-model:include="tagFilter"
-              v-model:exclude="tagNotFilter"
-              :items="tagFilterItems"
-              placeholder="すべてのタグ"
-              icon="i-lucide-tag"
-              search-placeholder="タグ名で検索…"
-            />
-            <UButton
-              v-if="tagFilter.length > 0 || tagNotFilter.length > 0"
-              icon="i-lucide-x"
-              size="xs"
-              color="neutral"
-              variant="ghost"
-              aria-label="タグフィルタをクリア"
-              @click="((tagFilter = []), (tagNotFilter = []))"
-            />
-          </div>
-          <div class="flex items-center gap-1">
-            <TriStateFilterMenu
-              v-model:include="flagFilter"
-              v-model:exclude="flagNotFilter"
-              :items="flagFilterItems"
-              placeholder="すべてのフラグ"
-              icon="i-lucide-bookmark"
-              search-placeholder="フラグ名で検索…"
-            />
-            <UButton
-              v-if="flagFilter.length > 0 || flagNotFilter.length > 0"
-              icon="i-lucide-x"
-              size="xs"
-              color="neutral"
-              variant="ghost"
-              aria-label="フラグフィルタをクリア"
-              @click="((flagFilter = []), (flagNotFilter = []))"
-            />
-          </div>
-          <UCheckbox
-            v-model="showCompleted"
-            label="完了も表示"
-            :disabled="statusFilter.length > 0"
-          />
-          <UButton
-            v-if="hasActiveFilter"
-            color="neutral"
-            variant="ghost"
-            icon="i-lucide-x"
-            label="すべてクリア"
-            @click="resetFilters"
-          />
-          <UCheckbox
-            v-if="!isReadonly"
-            class="ml-auto"
-            :model-value="someVisibleSelected ? 'indeterminate' : allVisibleSelected"
-            :disabled="selectableTasks.length === 0"
-            label="全選択"
-            @update:model-value="(v: boolean | 'indeterminate') => toggleSelectAll(v === true)"
-          />
-          <span class="text-sm text-muted" :class="isReadonly ? 'ml-auto' : ''">
-            <template v-if="rowLimitExceeded">
-              {{ MAX_DISPLAY_ROWS }} / {{ displayRows.length }} 件
-            </template>
-            <template v-else>{{ displayRows.length }} 件</template>
-          </span>
-        </div>
-
-        <!-- 列ヘッダで設定されたフィルタは上部バーから見えないので、ここでチップ表示。
-             デフォルト非表示の列にフィルタが残っていても気付けるようにする。 -->
-        <div
-          v-if="hasActiveDateFilter"
-          class="flex flex-wrap items-center gap-2 px-4 pb-2 border-b border-default"
-        >
-          <span class="text-xs text-muted">フィルタ:</span>
-          <div
-            v-for="chip in dateFilterChips"
-            :key="chip.label"
-            class="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-md bg-primary/10 text-primary text-xs"
-          >
-            <span>{{ chip.label }}: {{ chip.text }}</span>
-            <UButton
-              icon="i-lucide-x"
-              size="xs"
-              color="primary"
-              variant="ghost"
-              :aria-label="`${chip.label}フィルタをクリア`"
-              @click="chip.clear"
-            />
-          </div>
-        </div>
+          </template>
+          <template #count>
+            <span class="text-sm text-muted">
+              <template v-if="rowLimitExceeded">
+                {{ MAX_DISPLAY_ROWS }} / {{ displayRows.length }} 件
+              </template>
+              <template v-else>{{ displayRows.length }} 件</template>
+            </span>
+          </template>
+        </TaskFilterChipBar>
 
         <!-- 表示上限超過の警告。行が多いままだと描画が重く操作性も落ちるので、
              件数を絞る導線（フィルタ追加）を促す。 -->
@@ -2569,12 +2408,12 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
               <UIcon name="i-lucide-search-x" class="size-8" />
               <p class="text-sm">条件に合うタスクがありません</p>
               <UButton
-                v-if="hasActiveFilter"
+                v-if="taskFilters.hasActiveFilter.value"
                 color="neutral"
                 variant="ghost"
                 icon="i-lucide-x"
                 label="フィルタをクリア"
-                @click="resetFilters"
+                @click="taskFilters.resetFilters"
               />
             </div>
           </template>
