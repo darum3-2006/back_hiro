@@ -288,7 +288,11 @@ const updateTaskField = async (
     </template>
 
     <template #body>
-      <TaskFilterBar :filters="filters" :total="tasks.length" :filtered="filteredTasks.length" />
+      <TaskFilterChipBar
+        :filters="filters"
+        :total="tasks.length"
+        :filtered="filteredTasks.length"
+      />
 
       <EmptyState
         v-if="filteredTasks.length === 0"
