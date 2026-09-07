@@ -398,6 +398,43 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /v1/tasks/short/{shortCode}:
+    get:
+      tags: [Tasks]
+      summary: 短縮コードでタスク取得
+      description: |
+        共有リンク（/{tenantKey}/{shortCode}）の短縮コードでタスク 1 件を取得する。
+        shortCode はグローバル一意のため、プロジェクト key の指定は不要。
+        応答の projectKey を使うと、seq ベースの各エンドポイント（更新・ステータス変更など）へ繋げられる。
+      operationId: getTaskByShortCode
+      parameters:
+        - name: shortCode
+          in: path
+          required: true
+          description: 共有リンク用の短縮コード。
+          schema: { type: string }
+      responses:
+        '200':
+          description: タスク（所属プロジェクトの key 付き）
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Task'
+                  - type: object
+                    required: [projectKey]
+                    properties:
+                      projectKey:
+                        type: string
+                        description: 所属プロジェクトの key
+                        example: DEMO
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /v1/projects/{key}/statuses:
     get:
       tags: [Masters]
