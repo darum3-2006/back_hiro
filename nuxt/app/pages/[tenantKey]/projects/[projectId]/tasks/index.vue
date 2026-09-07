@@ -766,33 +766,40 @@ const visibleTasks = computed(() =>
 // 表示行 = タスク行 ＋ サブタスク（子）。ソートは UTable がこの配列に対して行う
 const displayRows = computed<Task[]>(() => {
   const taskRows: DisplayRow[] = visibleTasks.value.map((t) => ({ ...t, __kind: 'task' }));
-  const subRows: DisplayRow[] = filteredSubtaskRows.value.map((s) => ({
-    id: s.id,
-    projectId: s.projectId,
-    shortCode: '',
-    seq: s.parentSeq, // No ソートは親タスクの位置に子がまとまる（親行は畳まれて出ないため）
-    content: s.title,
-    description: '',
-    links: [],
-    statusCode: '',
-    priorityCode: null,
-    assigneeMemberId: s.assigneeMemberId,
-    requesterMemberId: null,
-    requestingDeptCode: null,
-    deadline: s.deadline,
-    plannedStartDate: null,
-    plannedCompletionDate: null,
-    plannedReleaseDate: null,
-    completedAt: null,
-    statusChangedAt: s.updatedAt,
-    tagCodes: [],
-    flagCodes: s.flagCodes,
-    commentCount: 0,
-    createdAt: s.createdAt,
-    updatedAt: s.updatedAt,
-    __kind: 'sub',
-    __sub: s,
-  }));
+  // 子が自分の値を持たない列（ステータス・優先度・予定日など）は親の値を入れて、
+  // それらの列でソートしたとき子が親の位置にまとまるようにする。
+  // 各セルは isSubRow 分岐で空表示になるため、親の値が画面に出ることはない。
+  const taskMap = new Map(tasks.value.map((t) => [t.id, t]));
+  const subRows: DisplayRow[] = filteredSubtaskRows.value.map((s) => {
+    const parent = taskMap.get(s.taskId);
+    return {
+      id: s.id,
+      projectId: s.projectId,
+      shortCode: '',
+      seq: s.parentSeq, // No ソートは親タスクの位置に子がまとまる（親行は畳まれて出ないため）
+      content: s.title,
+      description: '',
+      links: [],
+      statusCode: parent?.statusCode ?? '',
+      priorityCode: parent?.priorityCode ?? null,
+      assigneeMemberId: s.assigneeMemberId,
+      requesterMemberId: parent?.requesterMemberId ?? null,
+      requestingDeptCode: parent?.requestingDeptCode ?? null,
+      deadline: s.deadline,
+      plannedStartDate: parent?.plannedStartDate ?? null,
+      plannedCompletionDate: parent?.plannedCompletionDate ?? null,
+      plannedReleaseDate: parent?.plannedReleaseDate ?? null,
+      completedAt: parent?.completedAt ?? null,
+      statusChangedAt: parent?.statusChangedAt ?? s.updatedAt,
+      tagCodes: [],
+      flagCodes: s.flagCodes,
+      commentCount: 0,
+      createdAt: s.createdAt,
+      updatedAt: s.updatedAt,
+      __kind: 'sub',
+      __sub: s,
+    };
+  });
   return [...taskRows, ...subRows];
 });
 
@@ -1188,7 +1195,8 @@ const columns: TableColumn<Task>[] = [
     sortingFn: (a: Row<Task>, b: Row<Task>) => {
       const oa = statusMap.value[a.original.statusCode]?.order ?? 999;
       const ob = statusMap.value[b.original.statusCode]?.order ?? 999;
-      return oa - ob;
+      // 同値内は No 順（子行は親の No を持つので、親の位置にまとまる）
+      return oa - ob || a.original.seq - b.original.seq;
     },
   },
   {
@@ -1204,7 +1212,7 @@ const columns: TableColumn<Task>[] = [
       const ob = b.original.priorityCode
         ? (priorityMap.value[b.original.priorityCode]?.order ?? 999)
         : 999;
-      return oa - ob;
+      return oa - ob || a.original.seq - b.original.seq;
     },
   },
   {
@@ -1248,7 +1256,7 @@ const columns: TableColumn<Task>[] = [
     sortingFn: (a: Row<Task>, b: Row<Task>) => {
       const da = a.original.plannedStartDate ?? '9999-12-31';
       const db = b.original.plannedStartDate ?? '9999-12-31';
-      return da.localeCompare(db);
+      return da.localeCompare(db) || a.original.seq - b.original.seq;
     },
   },
   {
@@ -1264,7 +1272,7 @@ const columns: TableColumn<Task>[] = [
     sortingFn: (a: Row<Task>, b: Row<Task>) => {
       const da = a.original.plannedCompletionDate ?? '9999-12-31';
       const db = b.original.plannedCompletionDate ?? '9999-12-31';
-      return da.localeCompare(db);
+      return da.localeCompare(db) || a.original.seq - b.original.seq;
     },
   },
   {
@@ -1280,7 +1288,7 @@ const columns: TableColumn<Task>[] = [
     sortingFn: (a: Row<Task>, b: Row<Task>) => {
       const da = a.original.plannedReleaseDate ?? '9999-12-31';
       const db = b.original.plannedReleaseDate ?? '9999-12-31';
-      return da.localeCompare(db);
+      return da.localeCompare(db) || a.original.seq - b.original.seq;
     },
   },
   {
@@ -1292,7 +1300,7 @@ const columns: TableColumn<Task>[] = [
     sortingFn: (a: Row<Task>, b: Row<Task>) => {
       const na = memberMap.value[a.original.requesterMemberId ?? '']?.displayName ?? '';
       const nb = memberMap.value[b.original.requesterMemberId ?? '']?.displayName ?? '';
-      return na.localeCompare(nb, 'ja');
+      return na.localeCompare(nb, 'ja') || a.original.seq - b.original.seq;
     },
   },
   {
@@ -1304,7 +1312,7 @@ const columns: TableColumn<Task>[] = [
     sortingFn: (a: Row<Task>, b: Row<Task>) => {
       const na = departmentMap.value[a.original.requestingDeptCode ?? '']?.name ?? '';
       const nb = departmentMap.value[b.original.requestingDeptCode ?? '']?.name ?? '';
-      return na.localeCompare(nb, 'ja');
+      return na.localeCompare(nb, 'ja') || a.original.seq - b.original.seq;
     },
   },
   {
@@ -1337,7 +1345,7 @@ const columns: TableColumn<Task>[] = [
       // null は末尾に来るよう ZZZ で代用
       const da = a.original.completedAt ?? 'ZZZZ';
       const db = b.original.completedAt ?? 'ZZZZ';
-      return da.localeCompare(db);
+      return da.localeCompare(db) || a.original.seq - b.original.seq;
     },
   },
   {
