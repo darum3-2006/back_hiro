@@ -44,7 +44,7 @@ useProjectEvents(currentProjectId, {
   'members.changed': () => void refreshMembers(),
 });
 
-const filters = useTaskFilters({ tasks, statuses, priorities, members, tags, flags });
+const filters = useTaskFilters({ tasks, statuses, priorities, members, tags, flags, departments });
 const { filteredTasks, statusMap } = filters;
 
 const priorityMap = computed(() => Object.fromEntries(priorities.value.map((p) => [p.code, p])));

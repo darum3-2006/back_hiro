@@ -44,6 +44,7 @@ const UButton = resolveComponent('UButton');
 const UIcon = resolveComponent('UIcon');
 const UPopover = resolveComponent('UPopover');
 const DateRangeFilter = resolveComponent('DateRangeFilter');
+const FilterValueList = resolveComponent('FilterValueList');
 
 const route = useRoute();
 const router = useRouter();
@@ -118,7 +119,15 @@ const updateQuery = (changes: Record<string, string | undefined>) => {
 
 const queryString = (key: string): string => (route.query[key] as string | undefined) ?? '';
 
-const taskFilters = useTaskFilters({ tasks, statuses, priorities, members, tags, flags });
+const taskFilters = useTaskFilters({
+  tasks,
+  statuses,
+  priorities,
+  members,
+  tags,
+  flags,
+  departments,
+});
 // フィルタは board / gantt と同じ useTaskFilters を正本にする（URL クエリキーも共有）。
 // 一覧固有の絞り込み（サブタスクの子行）だけは、下で applied 系プリミティブから自前に組む。
 // フィルタ UI そのものは TaskFilterChipBar が taskFilters を丸ごと受け取って描くので、
@@ -129,6 +138,7 @@ const {
   showCompleted,
   statusSelectItems,
   prioritySelectItems,
+  valueFilterByKey,
   filteredTasks,
   applied,
   dateFilters,
@@ -313,11 +323,18 @@ const hasNonDeadlineDateFilter = computed(() =>
 );
 
 // 一覧に出すサブタスク行（担当/期限/検索/フラグ/完了表示を適用。ステータス等の絞り込み時は除外）
+/**
+ * 子行が自分の値を持たないフィルタ。これらが有効なときは子行を一切出さない。
+ * 親の値で代用すると「その条件の子」ではないものが混ざるため。
+ *
+ * ⚠️ フィルタを追加したら、ここに載せるか下の個別判定に足すかを必ず決めること。
+ * どちらもしないと、条件に合わない親の子行が漏れて表示される。
+ */
+const PARENT_ONLY_FILTER_KEYS = ['status', 'priority', 'tag', 'requestingDept'] as const;
+
 const filteredSubtaskRows = computed<SubtaskRow[]>(() => {
   if (
-    applied.status.value.length > 0 ||
-    applied.priority.value.length > 0 ||
-    applied.tag.value.length > 0 ||
+    PARENT_ONLY_FILTER_KEYS.some((k) => applied[k].value.length > 0) ||
     hasNonDeadlineDateFilter.value
   ) {
     return [];
@@ -697,51 +714,112 @@ const plainHeader = (label: string) => {
     wrapHeader([h('span', { class: 'text-sm truncate min-w-0' }, label)], header);
 };
 
-/** ソートボタンに加えて、漏斗アイコン + 日付範囲フィルタの Popover を持つヘッダ */
+/**
+ * 漏斗アイコン + フィルタ UI の Popover。ヘッダに差す共通部品。
+ * 中身（日付範囲 / 選択肢リスト）は呼び出し側が渡す。
+ */
+const filterPopoverButton = (active: boolean, ariaLabel: string, content: () => VNode | VNode[]) =>
+  h(
+    UPopover,
+    { ui: { content: 'p-0 w-auto' } },
+    {
+      default: () =>
+        h(UButton, {
+          color: active ? 'primary' : 'neutral',
+          variant: active ? 'soft' : 'ghost',
+          size: 'xs',
+          icon: 'i-lucide-filter',
+          'aria-label': ariaLabel,
+          class: 'ml-0.5 shrink-0',
+        }),
+      content,
+    },
+  );
+
+/** ソートボタン。ラベルクリックで昇順/降順を切り替える */
+const sortButton = (label: string, column: SortColumn) => {
+  const sorted = column.getIsSorted();
+  return h(UButton, {
+    color: 'neutral',
+    variant: 'ghost',
+    label,
+    class: '-mx-2.5 min-w-0 data-[state=open]:bg-elevated',
+    ui: { label: 'truncate min-w-0' },
+    icon:
+      sorted === 'asc'
+        ? 'i-lucide-arrow-up'
+        : sorted === 'desc'
+          ? 'i-lucide-arrow-down'
+          : 'i-lucide-arrow-up-down',
+    onClick: () => column.toggleSorting(),
+  });
+};
+
+/** ソートボタン + 日付範囲フィルタの Popover を持つヘッダ */
 const sortAndDateFilterHeader = (
   label: string,
   active: ComputedRef<boolean>,
   range: Ref<DateRangeValue>,
 ) => {
+  return ({ column, header }: { column: SortColumn; header: ResizeHeader }) =>
+    wrapHeader(
+      [
+        sortButton(label, column),
+        filterPopoverButton(active.value, `${label}の範囲でフィルタ`, () =>
+          h(DateRangeFilter, {
+            modelValue: range.value,
+            'onUpdate:modelValue': (v: DateRangeValue) => {
+              range.value = v;
+            },
+          }),
+        ),
+      ],
+      header,
+    );
+};
+
+/**
+ * 列 ID からフィルタを引くための対応。ここに載せた列はヘッダの漏斗からも絞り込める。
+ * チップバーと同じ ref を読み書きするので、どちらから操作しても同期する。
+ */
+const COLUMN_FILTER_KEY: Record<string, FilterArrayKey> = {
+  statusCode: 'status',
+  priorityCode: 'priority',
+  assigneeMemberId: 'assignee',
+  requestingDeptCode: 'requestingDept',
+  tagCodes: 'tag',
+  flagCodes: 'flag',
+};
+
+/** 選択肢リストの Popover を持つヘッダ。`sortable` false の列はソートボタンを出さない */
+const valueFilterHeader = (label: string, columnId: string, opts: { sortable: boolean }) => {
+  const filterKey = COLUMN_FILTER_KEY[columnId]!;
   return ({ column, header }: { column: SortColumn; header: ResizeHeader }) => {
-    const sorted = column.getIsSorted();
+    const f = valueFilterByKey.get(filterKey);
+    if (!f) return wrapHeader([h('span', { class: 'text-sm truncate min-w-0' }, label)], header);
     return wrapHeader(
       [
-        h(UButton, {
-          color: 'neutral',
-          variant: 'ghost',
-          label,
-          class: '-mx-2.5 min-w-0 data-[state=open]:bg-elevated',
-          ui: { label: 'truncate min-w-0' },
-          icon:
-            sorted === 'asc'
-              ? 'i-lucide-arrow-up'
-              : sorted === 'desc'
-                ? 'i-lucide-arrow-down'
-                : 'i-lucide-arrow-up-down',
-          onClick: () => column.toggleSorting(),
-        }),
-        h(
-          UPopover,
-          { ui: { content: 'p-0 w-auto' } },
-          {
-            default: () =>
-              h(UButton, {
-                color: active.value ? 'primary' : 'neutral',
-                variant: active.value ? 'soft' : 'ghost',
-                size: 'xs',
-                icon: 'i-lucide-filter',
-                'aria-label': `${label}の範囲でフィルタ`,
-                class: 'ml-0.5 shrink-0',
-              }),
-            content: () =>
-              h(DateRangeFilter, {
-                modelValue: range.value,
-                'onUpdate:modelValue': (v: DateRangeValue) => {
-                  range.value = v;
-                },
-              }),
-          },
+        opts.sortable
+          ? sortButton(label, column)
+          : h('span', { class: 'text-sm truncate min-w-0' }, label),
+        filterPopoverButton(f.isActive.value, `${label}でフィルタ`, () =>
+          h(FilterValueList, {
+            items: f.items.value,
+            triState: f.def.kind === 'multi',
+            searchPlaceholder: `${label}を検索…`,
+            include: f.include.value,
+            'onUpdate:include': (v: string[]) => {
+              f.include.value = v;
+            },
+            ...(f.exclude
+              ? {
+                  exclude: f.exclude.value,
+                  'onUpdate:exclude': (v: string[]) => {
+                    if (f.exclude) f.exclude.value = v;
+                  },
+                }
+              : {}),
+          }),
         ),
       ],
       header,
@@ -792,7 +870,7 @@ const columns: TableColumn<Task>[] = [
   },
   {
     accessorKey: 'assigneeMemberId',
-    header: sortHeader('担当者'),
+    header: valueFilterHeader('担当者', 'assigneeMemberId', { sortable: true }),
     size: 140,
     minSize: 80,
     meta: RESIZABLE_META,
@@ -804,7 +882,7 @@ const columns: TableColumn<Task>[] = [
   },
   {
     accessorKey: 'statusCode',
-    header: sortHeader('ステータス'),
+    header: valueFilterHeader('ステータス', 'statusCode', { sortable: true }),
     size: 140,
     minSize: 80,
     meta: RESIZABLE_META,
@@ -817,7 +895,7 @@ const columns: TableColumn<Task>[] = [
   },
   {
     accessorKey: 'priorityCode',
-    header: sortHeader('優先度'),
+    header: valueFilterHeader('優先度', 'priorityCode', { sortable: true }),
     size: 100,
     minSize: 60,
     meta: RESIZABLE_META,
@@ -833,7 +911,7 @@ const columns: TableColumn<Task>[] = [
   },
   {
     accessorKey: 'tagCodes',
-    header: plainHeader('タグ'),
+    header: valueFilterHeader('タグ', 'tagCodes', { sortable: false }),
     enableSorting: false,
     size: 200,
     minSize: 80,
@@ -841,7 +919,7 @@ const columns: TableColumn<Task>[] = [
   },
   {
     accessorKey: 'flagCodes',
-    header: plainHeader('フラグ'),
+    header: valueFilterHeader('フラグ', 'flagCodes', { sortable: false }),
     enableSorting: false,
     size: 200,
     minSize: 80,
@@ -925,7 +1003,7 @@ const columns: TableColumn<Task>[] = [
   },
   {
     accessorKey: 'requestingDeptCode',
-    header: sortHeader('依頼部署'),
+    header: valueFilterHeader('依頼部署', 'requestingDeptCode', { sortable: true }),
     size: 120,
     minSize: 80,
     meta: RESIZABLE_META,
