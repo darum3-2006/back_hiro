@@ -213,11 +213,13 @@ describe('UsersService', () => {
 
     it('無効化済み admin は有効な admin が 1 人でも削除できる', async () => {
       repo.findOne.mockResolvedValue({ ...adminUser, isActive: false });
+      // 有効な admin が 1 人しかいない状況。無効な admin ならこの制限に掛からない
       repo.count.mockResolvedValue(1);
 
       await service.remove(tenantId, 'someone', adminUser.id);
 
-      expect(repo.remove).toHaveBeenCalled();
+      // User は BaseEntity の deleted_at を持つので削除は論理削除
+      expect(repo.softRemove).toHaveBeenCalled();
     });
   });
 });
