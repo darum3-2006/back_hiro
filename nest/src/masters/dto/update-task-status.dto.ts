@@ -16,4 +16,9 @@ export class UpdateTaskStatusDto {
   @IsOptional()
   @IsBoolean()
   isTerminal?: boolean;
+
+  /** 初期状態（未着手扱い）。停滞集計の対象外にするために使う */
+  @IsOptional()
+  @IsBoolean()
+  isInitial?: boolean;
 }

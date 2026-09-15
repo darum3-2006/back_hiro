@@ -24,6 +24,8 @@ export interface TaskStatus {
   color: MasterColor;
   order: number;
   isTerminal: boolean;
+  /** 初期状態（未着手扱い）。isTerminal との同時 true は不可 */
+  isInitial: boolean;
 }
 
 export interface TaskPriority {

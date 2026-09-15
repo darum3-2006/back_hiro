@@ -39,6 +39,7 @@ const modalInitial = computed<MasterFormPayload | null>(() =>
         name: editingItem.value.label,
         color: editingItem.value.color,
         isTerminal: editingItem.value.isTerminal,
+        isInitial: editingItem.value.isInitial,
       }
     : null,
 );
@@ -59,12 +60,14 @@ const onSubmit = async (data: MasterFormPayload) => {
       label: data.name,
       color: data.color,
       isTerminal: data.isTerminal,
+      isInitial: data.isInitial,
     });
   } else {
     await apiCreateTaskStatus(api, projectId.value, {
       label: data.name,
       color: data.color,
       isTerminal: data.isTerminal,
+      isInitial: data.isInitial,
     });
     toast.add({
       title: 'ステータスを追加しました',
@@ -174,6 +177,10 @@ const buildActions = (item: TaskStatus): DropdownMenuItem[][] => [
       >
         <UIcon name="i-lucide-grip-vertical" class="drag-handle cursor-move size-4 text-muted" />
         <UBadge :color="item.color" variant="subtle" :label="item.label" />
+        <span v-if="item.isInitial" class="text-xs text-muted flex items-center gap-1">
+          <UIcon name="i-lucide-circle-dashed" class="size-3" />
+          未着手系
+        </span>
         <span v-if="item.isTerminal" class="text-xs text-success flex items-center gap-1">
           <UIcon name="i-lucide-check-circle" class="size-3" />
           完了系

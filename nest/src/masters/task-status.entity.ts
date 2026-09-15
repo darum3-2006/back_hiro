@@ -57,4 +57,16 @@ export class TaskStatus extends BaseEntity {
     },
   })
   isTerminal!: boolean;
+
+  @Column({
+    type: 'boolean',
+    name: 'is_initial',
+    default: false,
+    comment: '初期状態（true=未着手扱い）。is_terminal との同時 true は不可',
+    transformer: {
+      to: (v: boolean) => v,
+      from: (v: number | boolean | null) => Boolean(v),
+    },
+  })
+  isInitial!: boolean;
 }

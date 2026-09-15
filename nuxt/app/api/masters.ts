@@ -37,7 +37,7 @@ export const apiListTaskStatuses = (api: typeof $fetch, projectId: string): Prom
 export const apiCreateTaskStatus = (
   api: typeof $fetch,
   projectId: string,
-  input: { label: string; color: MasterColor; isTerminal: boolean },
+  input: { label: string; color: MasterColor; isTerminal: boolean; isInitial?: boolean },
 ): Promise<TaskStatus> =>
   api<TaskStatus>(`/projects/${projectId}/task-statuses`, { method: 'POST', body: input });
 
@@ -46,7 +46,7 @@ export const apiUpdateTaskStatus = (
   api: typeof $fetch,
   projectId: string,
   code: string,
-  patch: { label?: string; color?: MasterColor; isTerminal?: boolean },
+  patch: { label?: string; color?: MasterColor; isTerminal?: boolean; isInitial?: boolean },
 ): Promise<TaskStatus> =>
   api<TaskStatus>(`/projects/${projectId}/task-statuses/${code}`, {
     method: 'PATCH',
