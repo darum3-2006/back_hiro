@@ -84,7 +84,7 @@ export interface TaskActivityResponse {
   createdAt: Date;
 }
 
-/** グローバル検索の結果 1 件（テナント横断）。 */
+/** グローバル検索の結果 1 件（プロジェクト横断）。 */
 export interface TaskSearchResult {
   shortCode: string;
   seq: number;
@@ -175,7 +175,7 @@ export class TasksService {
   }
 
   /**
-   * ホームダッシュボード用：自分（userId）が担当の「未完了」タスクをテナント横断で返す。
+   * ホームダッシュボード用：自分（userId）が担当の「未完了」タスクをプロジェクト横断で返す。
    * - 担当 = assignee メンバーの user_id が一致（メンバーはプロジェクトごとに別行）
    * - 未完了 = ステータスが非終端（is_terminal = false）
    * - アーカイブ済みプロジェクトは除外
@@ -247,7 +247,7 @@ export class TasksService {
   }
 
   /**
-   * グローバル検索（テナント横断）。タイトル/説明/関連リンク(URL・ラベル)の部分一致、
+   * グローバル検索（プロジェクト横断）。タイトル/説明/関連リンク(URL・ラベル)の部分一致、
    * short_code 完全一致、seq（#15 / 15）一致でタスクを引く。アーカイブ済みプロジェクトは除外。
    */
   async search(

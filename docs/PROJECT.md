@@ -69,7 +69,14 @@ Tenant
 - ルートに projectId を持たない横断エンドポイントは Guard で塞げないため、`accessibleProjectIds()`（`null` = 制限なし）を渡して個別に絞る: `GET /projects` / `me/tasks` / `search/tasks` / `tasks/by-code/:code` / `saved-views/by-code/:code` / `notifications`（`project_id` が NULL の通知は常に通す）
 - 公開APIキーは `users.api_key_hash` に紐づき `request.user` が JWT と同形になるため、同じ判定がそのまま効く
 
-**運用ルール:** `projects/:projectId/...`（または `v1/projects/:key/...`）の下にコントローラを新設したら `ProjectAccessGuard` を付ける。テナント横断のエンドポイントを新設したら `accessibleProjectIds()` で絞る。
+**運用ルール:** `projects/:projectId/...`（または `v1/projects/:key/...`）の下にコントローラを新設したら `ProjectAccessGuard` を付ける。プロジェクト横断のエンドポイントを新設したら `accessibleProjectIds()` で絞る。
+
+**用語の注意:** 「横断」は常に**プロジェクト横断**（1 テナント内で複数プロジェクトをまたぐ）を指す。**テナントをまたぐ API は存在しない**し、作ってもいけない。スコープは 2 段構えで、どちらも省略しない:
+
+| 段 | 条件 | 意味 |
+| --- | --- | --- |
+| 1 | `p.tenant_id = :tenantId` | テナントの壁。他社データには決して到達しない（絶対） |
+| 2 | `t.project_id IN (:...accessibleProjectIds)` | 閲覧権。同一テナント内でも見えるプロジェクトだけ（`null` = 制限なし） |
 
 ## ビュー設計の方針
 
@@ -127,7 +134,7 @@ GET    /projects/:projectId/saved-views
 POST   /projects/:projectId/saved-views
 PATCH  /projects/:projectId/saved-views/:id
 DELETE /projects/:projectId/saved-views/:id
-GET    /saved-views/by-code/:code   # 共有リンクの解決（projectId 不要・テナント横断、Task の by-code と同作法）
+GET    /saved-views/by-code/:code   # 共有リンクの解決（projectId 不要・プロジェクト横断、Task の by-code と同作法）
 ```
 
 **共有リンク（短縮URL）:** `shared` ビューのみ「リンクを共有」可能。`/:tenantKey/v/:shortCode`（`pages/[tenantKey]/v/[code].vue`）で受け、`by-code` で解決して `…/tasks?view=:viewId` へリダイレクト→該当ビューを選択適用する。`by-code` は `shared` または自分の `private` のみ解決（他人の `private` は 404）。

@@ -6,7 +6,7 @@ import { ProjectAccessService } from '../projects/project-access.service';
 import { TasksService } from './tasks.service';
 
 /**
- * グローバル検索（テナント横断）。プロジェクト非依存なので
+ * グローバル検索（プロジェクト横断）。プロジェクト非依存なので
  * projects/:projectId 配下の TasksController とは分ける。
  * ルートに projectId が無く Guard で塞げないため、閲覧できるプロジェクトへ明示的に絞る。
  */

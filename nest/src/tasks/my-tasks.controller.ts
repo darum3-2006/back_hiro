@@ -6,7 +6,7 @@ import { ProjectAccessService } from '../projects/project-access.service';
 import { TasksService } from './tasks.service';
 
 /**
- * ホームダッシュボード用のテナント横断エンドポイント。
+ * ホームダッシュボード用のプロジェクト横断エンドポイント。
  * プロジェクト単位ではなくログインユーザー基準なので projects/:projectId 配下に置かない。
  * ルートに projectId が無く Guard で塞げないため、閲覧できるプロジェクトへ明示的に絞る。
  */
@@ -18,7 +18,7 @@ export class MyTasksController {
     private readonly access: ProjectAccessService,
   ) {}
 
-  /** GET /me/tasks — 自分が担当の未完了タスク（テナント横断） */
+  /** GET /me/tasks — 自分が担当の未完了タスク（プロジェクト横断） */
   @Get()
   async list(@CurrentUser() user: AuthenticatedUser) {
     return this.tasks.listMyOpenTasks(
