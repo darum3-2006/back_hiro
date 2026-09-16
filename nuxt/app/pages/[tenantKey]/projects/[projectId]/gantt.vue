@@ -34,7 +34,7 @@ const { data: projects } = await useProjects();
 const currentProject = computed(() => projects.value.find((p) => p.id === currentProjectId.value));
 const { data: departments } = await useDepartments();
 
-const filters = useTaskFilters({ tasks, statuses, priorities, members, tags, flags });
+const filters = useTaskFilters({ tasks, statuses, priorities, members, tags, flags, departments });
 const { filteredTasks, statusMap } = filters;
 
 // 詳細スライドオーバー用のマップ（一覧と同じ）

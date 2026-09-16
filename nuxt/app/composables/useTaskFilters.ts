@@ -1,10 +1,13 @@
 import type { DateRangeValue } from '~/components/DateRangeFilter.vue';
-import type { Flag, Tag, TaskPriority, TaskStatus } from '~/types/master';
+import type { Department, Flag, Tag, TaskPriority, TaskStatus } from '~/types/master';
 import type { Member } from '~/types/member';
 import type { Task } from '~/types/task';
 
 /** 「担当者なし」を表す sentinel（実 ID と衝突しない値） */
 export const NO_ASSIGNEE = '__none__';
+
+/** 「依頼部署なし」を表す sentinel（実コードと衝突しない値） */
+export const NO_DEPT = '__none_dept__';
 
 interface TaskFilterData {
   tasks: Ref<Task[]>;
@@ -13,6 +16,8 @@ interface TaskFilterData {
   members: Ref<Member[]>;
   tags: Ref<Tag[]>;
   flags: Ref<Flag[]>;
+  /** 依頼部署マスタ。プロジェクト単位ではなくテナント単位なので注意 */
+  departments: Ref<Department[]>;
 }
 
 /**
@@ -103,7 +108,8 @@ export type FilterArrayKey =
   | 'tag'
   | 'tagNot'
   | 'flag'
-  | 'flagNot';
+  | 'flagNot'
+  | 'requestingDept';
 
 /**
  * フィルタの正本。ここに 1 エントリ足すと、選択肢メニュー・チップ・URL 同期・
@@ -131,6 +137,15 @@ export const FILTER_DEFS: FilterDef[] = [
     valueOf: (t) => t.assigneeMemberId,
     noneValue: NO_ASSIGNEE,
     noneLabel: '(担当者なし)',
+  },
+  {
+    kind: 'single',
+    key: 'requestingDept',
+    label: '依頼部署',
+    icon: 'i-lucide-building-2',
+    valueOf: (t) => t.requestingDeptCode,
+    noneValue: NO_DEPT,
+    noneLabel: '(依頼部署なし)',
   },
   {
     kind: 'multi',
@@ -248,7 +263,7 @@ export const FILTER_QUERY_KEYS: string[] = [
 export const useTaskFilters = (data: TaskFilterData) => {
   const route = useRoute();
   const router = useRouter();
-  const { tasks, statuses, priorities, members, tags, flags } = data;
+  const { tasks, statuses, priorities, members, tags, flags, departments } = data;
 
   const statusMap = computed(() => Object.fromEntries(statuses.value.map((s) => [s.code, s])));
 
@@ -332,8 +347,8 @@ export const useTaskFilters = (data: TaskFilterData) => {
   }
 
   // 名前で参照したい分だけのエイリアス（実体は uiFilters の ref と同一）。
-  // statusFilter は「完了も表示」の活性判定、assigneeFilter は選択肢の補完に使う。
-  const { status: statusFilter, assignee: assigneeFilter } = uiFilters;
+  // statusFilter は「完了も表示」の活性判定に使う。
+  const { status: statusFilter } = uiFilters;
 
   // ===== 日付範囲フィルタ =====
   const useDateRangeFilter = (queryKeyFrom: string, queryKeyTo: string) => {
@@ -402,29 +417,66 @@ export const useTaskFilters = (data: TaskFilterData) => {
   );
 
   /** 担当者フィルタ用: 実際に誰かに割り当たっているメンバーのみ */
-  const assigneeFilterItems = computed(() => {
-    const ids = new Set(
-      tasks.value.map((t) => t.assigneeMemberId).filter((id): id is string => Boolean(id)),
-    );
-    const items: { label: string; value: string }[] = members.value
-      .filter((m) => ids.has(m.id))
-      .map((m) => ({ label: m.displayName, value: m.id }));
-    // タスクに担当者なしが含まれていれば先頭に追加
-    if (tasks.value.some((t) => !t.assigneeMemberId)) {
-      items.unshift({ label: '(担当者なし)', value: NO_ASSIGNEE });
-    }
-    // 選択中の担当者が items に無い場合（全タスクが完了して非表示になった等）でも
-    // ラベルが ID に化けないように補う
-    for (const current of assigneeFilter.value) {
-      if (items.some((i) => i.value === current)) continue;
-      if (current === NO_ASSIGNEE) {
-        items.unshift({ label: '(担当者なし)', value: NO_ASSIGNEE });
-      } else {
-        const member = members.value.find((m) => m.id === current);
-        if (member) items.push({ label: member.displayName, value: current });
+  /**
+   * 単値フィールドの選択肢。マスタ全件ではなく「タスクに実在する値」だけを出す。
+   * 使われていない値が延々と並ぶのを避けるためで、タグ / フラグと同じ方針。
+   *
+   * - `noneValue` があれば、値なしのタスクが 1 件でもあれば先頭に「値なし」を出す
+   * - 選択中の値が候補から消えた場合（例: 全タスクが完了して一覧から外れた）も、
+   *   ラベルがコード/ID に化けないように補う
+   */
+  const presentValueItems = <T>(opts: {
+    master: Ref<T[]>;
+    codeOf: (x: T) => string;
+    labelOf: (x: T) => string;
+    valueOf: (t: Task) => string | null;
+    selected: Ref<string[]>;
+    noneValue?: string;
+    noneLabel?: string;
+  }) =>
+    computed<FilterItem[]>(() => {
+      const present = new Set(tasks.value.map(opts.valueOf).filter((v): v is string => Boolean(v)));
+      const items: FilterItem[] = opts.master.value
+        .filter((x) => present.has(opts.codeOf(x)))
+        .map((x) => ({ label: opts.labelOf(x), value: opts.codeOf(x) }));
+
+      const noneItem: FilterItem | null = opts.noneValue
+        ? { label: opts.noneLabel ?? '(なし)', value: opts.noneValue }
+        : null;
+      if (noneItem && tasks.value.some((t) => !opts.valueOf(t))) items.unshift(noneItem);
+
+      for (const current of opts.selected.value) {
+        if (items.some((i) => i.value === current)) continue;
+        if (noneItem && current === noneItem.value) {
+          items.unshift(noneItem);
+        } else {
+          const found = opts.master.value.find((x) => opts.codeOf(x) === current);
+          if (found) items.push({ label: opts.labelOf(found), value: current });
+        }
       }
-    }
-    return items;
+      return items;
+    });
+
+  /** 担当者フィルタ用 */
+  const assigneeFilterItems = presentValueItems({
+    master: members,
+    codeOf: (m) => m.id,
+    labelOf: (m) => m.displayName,
+    valueOf: (t) => t.assigneeMemberId,
+    selected: uiFilters.assignee,
+    noneValue: NO_ASSIGNEE,
+    noneLabel: '(担当者なし)',
+  });
+
+  /** 依頼部署フィルタ用 */
+  const departmentFilterItems = presentValueItems({
+    master: departments,
+    codeOf: (d) => d.code,
+    labelOf: (d) => d.name,
+    valueOf: (t) => t.requestingDeptCode,
+    selected: uiFilters.requestingDept,
+    noneValue: NO_DEPT,
+    noneLabel: '(依頼部署なし)',
   });
 
   /** タグフィルタ用: 実際にタスクに付いているタグのみ */
@@ -528,6 +580,7 @@ export const useTaskFilters = (data: TaskFilterData) => {
     status: statusSelectItems,
     priority: prioritySelectItems,
     assignee: assigneeFilterItems,
+    requestingDept: departmentFilterItems,
     tag: tagFilterItems,
     tagNot: tagFilterItems,
     flag: flagFilterItems,
@@ -555,6 +608,12 @@ export const useTaskFilters = (data: TaskFilterData) => {
       if (d.kind === 'multi') uiFilters[d.notKey].value = [];
     },
   }));
+
+  /**
+   * キー引きの値フィルタ索引。一覧の列ヘッダが「列 ID → フィルタ」で引くのに使う。
+   * 列ヘッダとチップは同じ ref を読み書きするので、どちらから操作しても同期する。
+   */
+  const valueFilterByKey = new Map(valueFilters.map((f) => [f.def.key, f]));
 
   /**
    * チップバー用: 値フィルタと日付フィルタを `FILTER_DEFS` の順で 1 本にしたもの。
@@ -601,6 +660,8 @@ export const useTaskFilters = (data: TaskFilterData) => {
     filteredTasks,
     /** チップバーが回す、値 + 日付を通した 1 本のフィルタ一覧 */
     chipFilters,
+    /** 列ヘッダ等がキーから値フィルタを引くための索引 */
+    valueFilterByKey,
     // 以下は `filteredTasks` とは別の絞り込みを自前で組む画面向けの内部プリミティブ。
     // （タスク一覧のサブタスク子行は、親と違うフィルタ適用ルールを持つため必要）
     applied,
