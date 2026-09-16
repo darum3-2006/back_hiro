@@ -145,6 +145,11 @@ const {
   matchesDateRange,
 } = taskFilters;
 
+/** 行内の依頼部署ピッカー用。部署はテナント単位なのでプロジェクトによらず全件出す */
+const departmentSelectItems = computed(() =>
+  departments.value.map((d) => ({ value: d.code, label: d.name })),
+);
+
 // このページでの用途は行内の担当者ピッカー（タスク/サブタスク）のみなので、
 // readonly（閲覧のみ）ユーザー紐づきメンバーを除外する（依頼者の行内編集は無い）
 const memberSelectItems = computed(() =>
@@ -2425,13 +2430,24 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
           </template>
 
           <template #requestingDeptCode-cell="{ row }">
-            <span class="text-sm">
-              {{
-                isSubRow(row.original)
-                  ? ''
-                  : (departmentMap[row.original.requestingDeptCode ?? '']?.name ?? '—')
-              }}
-            </span>
+            <!-- 子行は依頼部署を持たない（親の属性）ので編集させない -->
+            <span v-if="isSubRow(row.original)" />
+            <SelectMenu
+              v-else
+              :disabled="isReadonly"
+              :items="departmentSelectItems"
+              :current="row.original.requestingDeptCode"
+              allow-none
+              none-label="依頼部署なし"
+              default-icon="i-lucide-building-2"
+              @select="
+                (c: string | null) => updateTaskField(row.original.id, { requestingDeptCode: c })
+              "
+            >
+              <button class="text-sm hover:underline cursor-pointer">
+                {{ departmentMap[row.original.requestingDeptCode ?? '']?.name ?? '—' }}
+              </button>
+            </SelectMenu>
           </template>
 
           <template #description-cell="{ row }">
