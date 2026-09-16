@@ -161,7 +161,11 @@ const updateTaskField = async (
     </template>
 
     <template #body>
-      <TaskFilterBar :filters="filters" :total="tasks.length" :filtered="filteredTasks.length" />
+      <TaskFilterChipBar
+        :filters="filters"
+        :total="tasks.length"
+        :filtered="filteredTasks.length"
+      />
       <div class="min-h-0 flex-1">
         <KanbanBoard
           class="h-full"

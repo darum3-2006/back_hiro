@@ -30,3 +30,13 @@ export const fmtDate = (s: string | null | undefined): string =>
 /** 相対時間（例: 「5分前」）。null/空は '—' */
 export const fmtRelative = (s: string | null | undefined): string =>
   s ? dayjs(s).fromNow() : PLACEHOLDER;
+
+/** 日付範囲を `YYYY/MM/DD 〜 YYYY/MM/DD` で表示。片側だけなら「以降 / 以前」 */
+export const fmtDateRange = (from: string | null, to: string | null): string => {
+  const f = from ? fmtDate(from) : null;
+  const t = to ? fmtDate(to) : null;
+  if (f && t) return `${f} 〜 ${t}`;
+  if (f) return `${f} 以降`;
+  if (t) return `${t} 以前`;
+  return '';
+};
