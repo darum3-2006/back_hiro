@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
@@ -136,6 +136,61 @@ describe('TaskStatusesService', () => {
       await expect(service.remove(tenantId, projectId, 'unknown')).rejects.toThrow(
         NotFoundException,
       );
+    });
+  });
+
+  describe('初期状態と終了状態の排他', () => {
+    it('create: 両方 true は BadRequest', async () => {
+      await expect(
+        service.create(tenantId, projectId, {
+          label: '未着手',
+          color: 'neutral',
+          isTerminal: true,
+          isInitial: true,
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(repo.save).not.toHaveBeenCalled();
+    });
+
+    it('create: isInitial 省略時は false', async () => {
+      const created = await service.create(tenantId, projectId, {
+        label: '対応中',
+        color: 'neutral',
+        isTerminal: false,
+      });
+
+      expect(created.isInitial).toBe(false);
+    });
+
+    it('update: 終了状態に初期フラグを立てようとすると BadRequest', async () => {
+      repo.findOne.mockResolvedValue({
+        projectId,
+        code: 'done',
+        isTerminal: true,
+        isInitial: false,
+      } as TaskStatus);
+
+      await expect(
+        service.update(tenantId, projectId, 'done', { isInitial: true }),
+      ).rejects.toThrow(BadRequestException);
+      expect(repo.save).not.toHaveBeenCalled();
+    });
+
+    it('update: 終了状態を外しつつ初期フラグを立てるのは可', async () => {
+      repo.findOne.mockResolvedValue({
+        projectId,
+        code: 'todo',
+        isTerminal: true,
+        isInitial: false,
+      } as TaskStatus);
+
+      const updated = await service.update(tenantId, projectId, 'todo', {
+        isTerminal: false,
+        isInitial: true,
+      });
+
+      expect(updated.isInitial).toBe(true);
+      expect(updated.isTerminal).toBe(false);
     });
   });
 });

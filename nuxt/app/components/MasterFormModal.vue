@@ -5,6 +5,8 @@ export interface MasterFormPayload {
   name: string;
   color: MasterColor;
   isTerminal: boolean;
+  /** 初期状態（未着手扱い）。ステータス以外では使わないので任意 */
+  isInitial?: boolean;
 }
 
 const props = defineProps<{
@@ -18,15 +20,20 @@ const emit = defineEmits<{
   submit: [MasterFormPayload];
 }>();
 
-const draft = ref<MasterFormPayload>({ name: '', color: 'neutral', isTerminal: false });
+const EMPTY: MasterFormPayload = {
+  name: '',
+  color: 'neutral',
+  isTerminal: false,
+  isInitial: false,
+};
+
+const draft = ref<MasterFormPayload>({ ...EMPTY });
 
 watch(
   () => props.open,
   (isOpen) => {
     if (!isOpen) return;
-    draft.value = props.initial
-      ? { ...props.initial }
-      : { name: '', color: 'neutral', isTerminal: false };
+    draft.value = props.initial ? { ...props.initial } : { ...EMPTY };
   },
 );
 
@@ -36,7 +43,18 @@ const titleNoun = computed(
 const labelText = computed(
   () => ({ status: 'ラベル', priority: 'ラベル', tag: '名前', flag: '名前' })[props.type],
 );
-const showIsTerminal = computed(() => props.type === 'status');
+const showStatusFlags = computed(() => props.type === 'status');
+
+// 初期と終了は排他（サーバ側でも弾くが、そもそも不正な状態を作れないようにする）
+const setInitial = (v: boolean) => {
+  draft.value.isInitial = v;
+  if (v) draft.value.isTerminal = false;
+};
+
+const setTerminal = (v: boolean) => {
+  draft.value.isTerminal = v;
+  if (v) draft.value.isInitial = false;
+};
 const isEdit = computed(() => Boolean(props.initial));
 const canSubmit = computed(() => Boolean(draft.value.name.trim()));
 
@@ -46,6 +64,7 @@ const submit = () => {
     name: draft.value.name.trim(),
     color: draft.value.color,
     isTerminal: draft.value.isTerminal,
+    isInitial: draft.value.isInitial,
   });
   emit('update:open', false);
 };
@@ -65,13 +84,25 @@ const submit = () => {
         <UFormField label="色">
           <ColorPicker v-model="draft.color" />
         </UFormField>
-        <UFormField
-          v-if="showIsTerminal"
-          label="完了系ステータス"
-          hint="完了など、対応終了を表すステータスにチェック"
-        >
-          <UCheckbox v-model="draft.isTerminal" label="完了として扱う" />
-        </UFormField>
+        <!-- UFormField は配下のコントロールに同じ id を配るため、チェックボックスを
+             複数入れると label の for が全部先頭の input を指してしまう。
+             独立させて素の見出しを置く。 -->
+        <div v-if="showStatusFlags" class="space-y-2">
+          <p class="text-sm font-medium">タスクの進行状態</p>
+          <UCheckbox
+            :model-value="draft.isInitial ?? false"
+            label="未着手として扱う"
+            help="このステータスのままのタスクは「停滞」に数えません"
+            @update:model-value="(v: boolean | 'indeterminate') => setInitial(v === true)"
+          />
+          <UCheckbox
+            :model-value="draft.isTerminal"
+            label="完了として扱う"
+            help="対応終了を表すステータス。一覧から既定で隠れます"
+            @update:model-value="(v: boolean | 'indeterminate') => setTerminal(v === true)"
+          />
+          <p class="text-xs text-muted">どちらか一方のみ設定できます。</p>
+        </div>
       </div>
     </template>
     <template #footer>
