@@ -36,7 +36,7 @@ export interface Task {
   updatedAt: string;
 }
 
-/** グローバル検索（テナント横断）の結果 1 件。 */
+/** グローバル検索（プロジェクト横断）の結果 1 件。 */
 export interface TaskSearchResult {
   shortCode: string;
   seq: number;

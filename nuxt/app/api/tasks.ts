@@ -41,7 +41,7 @@ const buildQuery = (filter: TaskFilter): string => {
   return qs ? `?${qs}` : '';
 };
 
-/** GET /api/search/tasks?q= — タイトル/説明/コード横断でタスクを検索（テナント横断） */
+/** GET /api/search/tasks?q= — タイトル/説明/コード横断でタスクを検索（プロジェクト横断） */
 export const apiSearchTasks = (
   api: typeof $fetch,
   q: string,
@@ -64,7 +64,7 @@ export const apiListTaskActivities = (
 ): Promise<TaskActivity[]> =>
   api<TaskActivity[]>(`/projects/${projectId}/tasks/${taskId}/activities`);
 
-/** GET /api/me/tasks — 自分が担当の未完了タスク（テナント横断） */
+/** GET /api/me/tasks — 自分が担当の未完了タスク（プロジェクト横断） */
 export const apiListMyTasks = (api: typeof $fetch): Promise<MyTask[]> => api<MyTask[]>(`/me/tasks`);
 
 /** GET /api/projects/:projectId/tasks */

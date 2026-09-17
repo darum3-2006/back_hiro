@@ -5,7 +5,7 @@ import type { AuthenticatedUser } from '../auth/jwt.strategy';
 import { ProjectAccessService } from '../projects/project-access.service';
 import { SavedViewsService } from './saved-views.service';
 
-/** 共有リンク（/:tenantKey/v/:code）の解決用。projectId を持たないテナント横断の入口。 */
+/** 共有リンク（/:tenantKey/v/:code）の解決用。projectId を持たないプロジェクト横断の入口。 */
 @Controller('saved-views')
 @UseGuards(JwtAuthGuard)
 export class SavedViewLinksController {

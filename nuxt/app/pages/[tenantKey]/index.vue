@@ -2,7 +2,7 @@
 import dayjs from 'dayjs';
 import type { MyTask } from '~/types/task';
 
-// ホーム = 自分の担当タスク（テナント横断）のダッシュボード。
+// ホーム = 自分の担当タスク（プロジェクト横断）のダッシュボード。
 const { data: myTasks } = await useMyTasks();
 const { data: projects } = await useProjects();
 const { me } = useAuth();

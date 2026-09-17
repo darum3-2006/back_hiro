@@ -53,7 +53,7 @@ git config core.hooksPath .githooks
 - 日時列は Entity では `Date` 型のまま。操作時だけ `dayjs` に変換
 - 秘匿 env は `config.getOrThrow<string>('X')`。ハードコードフォールバック禁止
 - 全テナント所有テーブルに `tenant_id`。Service / Controller では JWT 由来の `user.tenantId` で必ずスコープ
-- `projects/:projectId/...`（内部）/ `v1/projects/:key/...`（公開API）のコントローラには `ProjectAccessGuard` を付ける。テナント横断のエンドポイントは `ProjectAccessService.accessibleProjectIds()` で絞る
+- `projects/:projectId/...`（内部）/ `v1/projects/:key/...`（公開API）のコントローラには `ProjectAccessGuard` を付ける。プロジェクト横断のエンドポイントは `ProjectAccessService.accessibleProjectIds()` で絞る
 - パスワード DTO は `@MinLength(8)` + `@MaxLength(72)`（bcrypt 切り詰め & hash DoS 対策）
 - 認証系エンドポイントには `@Throttle({ default: { ttl: 60_000, limit: 5 } })` を個別付与
 - 実装/テストが完了しても自動でコミットしない。明示指示を待つ
