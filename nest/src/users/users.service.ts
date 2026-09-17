@@ -9,7 +9,9 @@ import * as bcrypt from 'bcrypt';
 import { Repository } from 'typeorm';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateUserSettingsDto } from './dto/update-user-settings.dto';
 import { User } from './user.entity';
+import { DEFAULT_DASHBOARD_SETTINGS, type ResolvedUserSettings } from './user-settings';
 
 @Injectable()
 export class UsersService {
@@ -169,5 +171,37 @@ export class UsersService {
     const user = await this.users.findOne({ where: { tenantId, id } });
     if (!user) throw new NotFoundException('ユーザーが見つかりません');
     return user;
+  }
+
+  /**
+   * 画面設定を読む。未設定の画面には既定値を当てて返すので、
+   * 呼び出し側はフォールバックを持たなくてよい。
+   */
+  async getSettings(tenantId: string, userId: string): Promise<ResolvedUserSettings> {
+    const user = await this.findInTenant(tenantId, userId);
+    return {
+      dashboard: { ...DEFAULT_DASHBOARD_SETTINGS, ...(user.settings?.dashboard ?? {}) },
+    };
+  }
+
+  /**
+   * 画面設定を部分更新する。画面ごとの名前空間単位でマージするので、
+   * ダッシュボードだけ更新しても他画面の設定は残る。
+   */
+  async updateSettings(
+    tenantId: string,
+    userId: string,
+    dto: UpdateUserSettingsDto,
+  ): Promise<ResolvedUserSettings> {
+    const user = await this.findInTenant(tenantId, userId);
+    const current = user.settings ?? {};
+    user.settings = {
+      ...current,
+      ...(dto.dashboard
+        ? { dashboard: { ...DEFAULT_DASHBOARD_SETTINGS, ...current.dashboard, ...dto.dashboard } }
+        : {}),
+    };
+    await this.users.save(user);
+    return this.getSettings(tenantId, userId);
   }
 }
