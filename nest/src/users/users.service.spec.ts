@@ -229,7 +229,7 @@ describe('UsersService', () => {
 
       const got = await service.getSettings(tenantId, memberUser.id);
 
-      expect(got.dashboard).toEqual({ dateField: 'deadline', dueSoonDays: 7 });
+      expect(got.dashboard).toEqual({ dateField: 'deadline', dueSoonDays: 7, inactiveDays: 7 });
     });
 
     it('一部だけ保存済みなら、欠けた項目に既定値が当たる', async () => {
@@ -240,7 +240,7 @@ describe('UsersService', () => {
 
       const got = await service.getSettings(tenantId, memberUser.id);
 
-      expect(got.dashboard).toEqual({ dateField: 'deadline', dueSoonDays: 3 });
+      expect(got.dashboard).toEqual({ dateField: 'deadline', dueSoonDays: 3, inactiveDays: 7 });
     });
 
     it('更新は指定した項目だけ差し替え、同じ画面の他項目は残す', async () => {
@@ -255,6 +255,7 @@ describe('UsersService', () => {
       expect(user.settings?.dashboard).toEqual({
         dateField: 'plannedRelease',
         dueSoonDays: 14,
+        inactiveDays: 7,
       });
     });
 

@@ -33,4 +33,18 @@ export class DashboardController {
       dueSoonDays: query.dueSoonDays ?? settings.dashboard.dueSoonDays,
     });
   }
+
+  /**
+   * GET /me/dashboard/inactive — ステータスが一定日数変わっていないタスク。
+   * 日数はユーザー設定を既定にし、クエリで上書きできる。
+   */
+  @Get('inactive')
+  async inactive(@CurrentUser() user: AuthenticatedUser, @Query() query: DashboardQueryDto) {
+    const settings = await this.users.getSettings(user.tenantId, user.userId);
+    return this.tasks.listInactiveTasks(
+      user.tenantId,
+      await this.access.accessibleProjectIds(user),
+      { inactiveDays: query.inactiveDays ?? settings.dashboard.inactiveDays },
+    );
+  }
 }

@@ -3,7 +3,7 @@ import type { UpdateUserSettingsInput, UserSettings } from '~/types/user-setting
 
 /** サーバ既定と同じ値。取得前でも画面が既定で描けるようにフロント側にも置く */
 const DEFAULT_SETTINGS: UserSettings = {
-  dashboard: { dateField: 'deadline', dueSoonDays: 7 },
+  dashboard: { dateField: 'deadline', dueSoonDays: 7, inactiveDays: 7 },
 };
 
 /**

@@ -15,4 +15,12 @@ export class DashboardQueryDto {
   @Min(1)
   @Max(30)
   dueSoonDays?: number;
+
+  /** 省略時はユーザー設定の値を使う */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(90)
+  inactiveDays?: number;
 }

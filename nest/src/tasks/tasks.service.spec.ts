@@ -828,4 +828,56 @@ describe('TasksService', () => {
       );
     });
   });
+
+  describe('listInactiveTasks', () => {
+    const mkQb = (rows: unknown[]) => ({
+      innerJoin: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValue(rows),
+    });
+
+    it('閲覧できるプロジェクトが 0 件なら DB を引かない', async () => {
+      const result = await service.listInactiveTasks(tenantId, [], { inactiveDays: 7 });
+
+      expect(result).toEqual([]);
+      expect(tasksRepo.createQueryBuilder).not.toHaveBeenCalled();
+    });
+
+    it('初期・終端ステータスとアーカイブ済みプロジェクトを除外する', async () => {
+      const qb = mkQb([]);
+      tasksRepo.createQueryBuilder.mockReturnValue(qb as never);
+
+      await service.listInactiveTasks(tenantId, null, { inactiveDays: 7 });
+
+      expect(qb.andWhere).toHaveBeenCalledWith('s.is_initial = false');
+      expect(qb.andWhere).toHaveBeenCalledWith('s.is_terminal = false');
+      expect(qb.andWhere).toHaveBeenCalledWith('p.archived_at IS NULL');
+    });
+
+    it('日数は 1〜90 に丸め、長く動いていない順に並べる', async () => {
+      const qb = mkQb([]);
+      tasksRepo.createQueryBuilder.mockReturnValue(qb as never);
+
+      await service.listInactiveTasks(tenantId, null, { inactiveDays: 999 });
+
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        't.status_changed_at < DATE_SUB(CURDATE(), INTERVAL :days DAY)',
+        { days: 90 },
+      );
+      expect(qb.orderBy).toHaveBeenCalledWith('t.status_changed_at', 'ASC');
+    });
+
+    it('seq を数値化する', async () => {
+      const qb = mkQb([{ shortCode: 'a', seq: '3', targetDate: '2026-01-01' }]);
+      tasksRepo.createQueryBuilder.mockReturnValue(qb as never);
+
+      const result = await service.listInactiveTasks(tenantId, null, { inactiveDays: 7 });
+
+      expect(result).toEqual([{ shortCode: 'a', seq: 3, targetDate: '2026-01-01' }]);
+    });
+  });
 });

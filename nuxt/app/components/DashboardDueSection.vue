@@ -9,10 +9,13 @@ interface ProjectGroup {
 
 const props = defineProps<{
   title: string;
-  /** 判定に使っている日付フィールドの表示名。行に出る日付が何かを示す */
-  basisLabel: string;
+  /**
+   * 判定に使っている日付フィールドの表示名。行に出る日付が何かを示す。
+   * 基準が固定で見出しから読み取れるもの（動きなし）では渡さない。
+   */
+  basisLabel?: string;
   icon: string;
-  tone: 'error' | 'warning';
+  tone: 'error' | 'warning' | 'neutral';
   groups: ProjectGroup[];
   total: number;
   loading: boolean;
@@ -44,7 +47,8 @@ const visibleTasks = (g: ProjectGroup): DashboardTask[] =>
 /** 表示しきれない残り。0 ならリンクを出さない */
 const hiddenCount = (g: ProjectGroup): number => g.tasks.length - visibleTasks(g).length;
 
-const toneClass = computed(() => (props.tone === 'error' ? 'text-error' : 'text-warning'));
+const TONE_CLASS = { error: 'text-error', warning: 'text-warning', neutral: 'text-muted' } as const;
+const toneClass = computed(() => TONE_CLASS[props.tone]);
 </script>
 
 <template>
@@ -55,7 +59,7 @@ const toneClass = computed(() => (props.tone === 'error' ? 'text-error' : 'text-
           <UIcon :name="icon" class="size-4 shrink-0" :class="toneClass" />
           <span class="font-medium">{{ title }}</span>
           <!-- 行の日付が何の値かは、スクロールしても見えるカード見出しに置く -->
-          <span class="truncate text-xs text-muted">基準: {{ basisLabel }}</span>
+          <span v-if="basisLabel" class="truncate text-xs text-muted">基準: {{ basisLabel }}</span>
         </div>
         <span class="shrink-0 text-sm tabular-nums text-muted">{{ total }} 件</span>
       </div>

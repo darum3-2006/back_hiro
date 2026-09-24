@@ -30,6 +30,17 @@ const dateFieldItems = DASHBOARD_DATE_FIELDS.map((f) => ({
   label: DASHBOARD_DATE_FIELD_LABELS[f],
 }));
 
+/**
+ * 動きなしの日数は 1〜90 と幅が広いので、全部並べず区切りの良い値だけ出す。
+ * API から半端な値が保存されていても選択肢から消えないよう、現在値は必ず含める。
+ */
+const INACTIVE_DAY_PRESETS = [3, 5, 7, 10, 14, 21, 30, 60, 90];
+const inactiveDayItems = computed(() =>
+  [...new Set([...INACTIVE_DAY_PRESETS, draft.value.inactiveDays])]
+    .sort((a, b) => a - b)
+    .map((d) => ({ label: `${d}日`, value: d })),
+);
+
 const dueSoonDayItems = Array.from({ length: 30 }, (_, i) => ({
   label: `${i + 1}日`,
   value: i + 1,
@@ -71,6 +82,20 @@ const save = () => {
             value-key="value"
             class="w-full"
             @update:model-value="(v: number) => (draft.dueSoonDays = v)"
+          />
+        </UFormField>
+
+        <UFormField
+          label="動きなしとみなす日数"
+          hint="ステータスがこの日数以上変わっていないタスク"
+          help="未着手・完了のステータスは対象外です"
+        >
+          <USelect
+            :model-value="draft.inactiveDays"
+            :items="inactiveDayItems"
+            value-key="value"
+            class="w-full"
+            @update:model-value="(v: number) => (draft.inactiveDays = v)"
           />
         </UFormField>
       </div>

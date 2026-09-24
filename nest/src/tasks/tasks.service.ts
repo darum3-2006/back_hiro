@@ -409,6 +409,60 @@ export class TasksService {
     return { overdue, dueSoon };
   }
 
+  /**
+   * ダッシュボード用：ステータスが一定日数変わっていない（動きなし）タスクをプロジェクト横断で返す。
+   *
+   * 「作業が進んでいない」ではなく「ステータスが変わっていない」だけを測る。
+   * 対応中のまま作業が続いているタスクも該当しうるので、責める語は付けない。
+   *
+   * - 初期ステータス（未着手扱い）は除外。まだ手を付けていないだけのものまで数えると一覧が埋まる
+   * - 終端ステータスは除外（完了済みは動かなくて当然）
+   * - 期限系と同じ DTO 形。targetDate には最後にステータスが変わった日を入れる
+   */
+  async listInactiveTasks(
+    tenantId: string,
+    accessibleProjectIds: string[] | null,
+    options: { inactiveDays: number },
+  ): Promise<DashboardTaskResponse[]> {
+    if (accessibleProjectIds !== null && accessibleProjectIds.length === 0) return [];
+    const days = Math.min(Math.max(Math.trunc(options.inactiveDays), 1), 90);
+
+    const rows = await this.tasks
+      .createQueryBuilder('t')
+      .innerJoin('t.project', 'p')
+      .innerJoin(TaskStatus, 's', 's.project_id = t.project_id AND s.code = t.status_code')
+      .where('p.tenant_id = :tenantId', { tenantId })
+      .andWhere('p.archived_at IS NULL')
+      .andWhere('s.is_terminal = false')
+      .andWhere('s.is_initial = false')
+      // 「今日」は DB の CURDATE() に任せる（期限系と同じ理由。TZ ずれで境界の 1 日が食い違うため）
+      .andWhere('t.status_changed_at < DATE_SUB(CURDATE(), INTERVAL :days DAY)', { days })
+      .andWhere(
+        accessibleProjectIds === null ? '1 = 1' : 't.project_id IN (:...accessibleProjectIds)',
+        accessibleProjectIds === null ? {} : { accessibleProjectIds },
+      )
+      // 長く動いていない順。同時刻は連番で安定させる
+      .orderBy('t.status_changed_at', 'ASC')
+      .addOrderBy('t.seq', 'ASC')
+      .select([
+        't.short_code AS shortCode',
+        't.seq AS seq',
+        't.content AS content',
+        't.status_code AS statusCode',
+        's.label AS statusLabel',
+        's.color AS statusColor',
+        't.priority_code AS priorityCode',
+        't.deadline AS deadline',
+        // 日付だけ見せるので SQL で 'YYYY-MM-DD' に固定（Date のまま返すと時分秒付きの JSON になる）
+        "DATE_FORMAT(t.status_changed_at, '%Y-%m-%d') AS targetDate",
+        't.project_id AS projectId',
+        'p.name AS projectName',
+      ])
+      .getRawMany<DashboardTaskResponse>();
+
+    return rows.map((r) => ({ ...r, seq: Number(r.seq) }));
+  }
+
   async create(
     tenantId: string,
     projectId: string,

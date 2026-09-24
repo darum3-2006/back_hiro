@@ -14,6 +14,13 @@ export class DashboardSettingsDto {
   @Min(1)
   @Max(30)
   dueSoonDays?: number;
+
+  /** 動きなしとみなす日数。四半期（90 日）を超える放置はそれ以上区別しても意味が薄い */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(90)
+  inactiveDays?: number;
 }
 
 export class UpdateUserSettingsDto {
