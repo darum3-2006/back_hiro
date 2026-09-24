@@ -70,7 +70,10 @@ const navItems = computed(() => {
       : `/${tk}/projects`;
   const groups = [
     // ホームは exact 一致のみ active（配下ルートで点灯させない）
-    [{ label: 'ホーム', icon: 'i-lucide-house', to: `/${tk}`, exact: true }],
+    [
+      { label: 'ホーム', icon: 'i-lucide-house', to: `/${tk}`, exact: true },
+      { label: 'ダッシュボード', icon: 'i-lucide-gauge', to: `/${tk}/dashboard` },
+    ],
     [
       {
         label: '検索',

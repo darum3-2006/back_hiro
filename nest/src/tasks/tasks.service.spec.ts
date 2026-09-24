@@ -751,4 +751,81 @@ describe('TasksService', () => {
       expect(result).toEqual({ updated: 1 });
     });
   });
+
+  describe('listDueTasks', () => {
+    const mkQb = (rows: unknown[]) => ({
+      innerJoin: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValue(rows),
+    });
+
+    it('閲覧できるプロジェクトが 0 件なら DB を引かない', async () => {
+      const result = await service.listDueTasks(tenantId, [], {
+        dateField: 'deadline',
+        dueSoonDays: 7,
+      });
+
+      expect(result).toEqual({ overdue: [], dueSoon: [] });
+      expect(tasksRepo.createQueryBuilder).not.toHaveBeenCalled();
+    });
+
+    it('isOverdue で期限切れと期限間近に振り分け、seq を数値化する', async () => {
+      const qb = mkQb([
+        { shortCode: 'a', seq: '1', targetDate: '2026-01-01', isOverdue: 1, projectId: 'p1' },
+        { shortCode: 'b', seq: '2', targetDate: '2026-12-31', isOverdue: 0, projectId: 'p1' },
+      ]);
+      tasksRepo.createQueryBuilder.mockReturnValue(qb as never);
+
+      const result = await service.listDueTasks(tenantId, null, {
+        dateField: 'deadline',
+        dueSoonDays: 7,
+      });
+
+      expect(result.overdue).toEqual([
+        { shortCode: 'a', seq: 1, targetDate: '2026-01-01', projectId: 'p1' },
+      ]);
+      expect(result.dueSoon).toEqual([
+        { shortCode: 'b', seq: 2, targetDate: '2026-12-31', projectId: 'p1' },
+      ]);
+    });
+
+    it('基準日付の選択に応じて実カラムを使う（SQL へ値を直接埋めない）', async () => {
+      const qb = mkQb([]);
+      tasksRepo.createQueryBuilder.mockReturnValue(qb as never);
+
+      await service.listDueTasks(tenantId, null, {
+        dateField: 'plannedRelease',
+        dueSoonDays: 7,
+      });
+
+      expect(qb.andWhere).toHaveBeenCalledWith('t.planned_release_date IS NOT NULL');
+      expect(qb.orderBy).toHaveBeenCalledWith('t.planned_release_date', 'ASC');
+    });
+
+    it('完了済み・アーカイブ済みプロジェクトを除外する', async () => {
+      const qb = mkQb([]);
+      tasksRepo.createQueryBuilder.mockReturnValue(qb as never);
+
+      await service.listDueTasks(tenantId, null, { dateField: 'deadline', dueSoonDays: 7 });
+
+      expect(qb.andWhere).toHaveBeenCalledWith('p.archived_at IS NULL');
+      expect(qb.andWhere).toHaveBeenCalledWith('s.is_terminal = false');
+    });
+
+    it('期限間近日数は 1〜30 に丸める', async () => {
+      const qb = mkQb([]);
+      tasksRepo.createQueryBuilder.mockReturnValue(qb as never);
+
+      await service.listDueTasks(tenantId, null, { dateField: 'deadline', dueSoonDays: 999 });
+
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        't.deadline <= DATE_ADD(CURDATE(), INTERVAL :days DAY)',
+        { days: 30 },
+      );
+    });
+  });
 });

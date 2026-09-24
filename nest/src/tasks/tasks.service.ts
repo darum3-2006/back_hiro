@@ -75,6 +75,29 @@ export interface MyTaskResponse {
   projectName: string;
 }
 
+/**
+ * ダッシュボードの期限系一覧の DTO 形。
+ * 基準日付は設定で切り替わるので、どの列を見たかによらず targetDate に正規化して返す。
+ */
+export interface DashboardTaskResponse extends MyTaskResponse {
+  /** 判定に使った基準日付の値（YYYY-MM-DD） */
+  targetDate: string;
+}
+
+/**
+ * 基準日付の選択肢 → 実カラム名。
+ * SQL へ値を直接埋めないよう、必ずこの対応表を通す。
+ * 過去の記録（完了日時・作成日時など）は必ず「切れて」いるので候補に含めない。
+ */
+const DASHBOARD_DATE_COLUMNS = {
+  deadline: 't.deadline',
+  plannedStart: 't.planned_start_date',
+  plannedCompletion: 't.planned_completion_date',
+  plannedRelease: 't.planned_release_date',
+} as const;
+
+export type DashboardDateField = keyof typeof DASHBOARD_DATE_COLUMNS;
+
 /** タスク履歴（監査ログ）のフロント返却用 DTO 形。 */
 export interface TaskActivityResponse {
   id: string;
@@ -306,6 +329,84 @@ export class TasksService {
       projectName: string;
     }>();
     return rows.map((r) => ({ ...r, seq: Number(r.seq) }));
+  }
+
+  /**
+   * ダッシュボード用：期限切れ / 期限間近のタスクをプロジェクト横断で返す。
+   *
+   * - 「自分の担当」ではなく**閲覧できる全タスク**が対象（チーム全体の遅延を見るため）
+   * - 終端ステータスは除外（完了済みは遅れていない）
+   * - 基準日付が未設定のタスクは対象外（約束が無いものは遅れようがない）
+   *
+   * 「今日」の判定は DB の CURDATE() に任せる。アプリ側で組むと
+   * サーバとDBのタイムゾーンがずれたとき境界の1日が食い違うため。
+   */
+  async listDueTasks(
+    tenantId: string,
+    accessibleProjectIds: string[] | null,
+    options: { dateField: DashboardDateField; dueSoonDays: number },
+  ): Promise<{ overdue: DashboardTaskResponse[]; dueSoon: DashboardTaskResponse[] }> {
+    if (accessibleProjectIds !== null && accessibleProjectIds.length === 0) {
+      return { overdue: [], dueSoon: [] };
+    }
+    // 選択肢は対応表のキーに限られるので、ここで組み立てる列名は固定文字列。
+    const column = DASHBOARD_DATE_COLUMNS[options.dateField];
+    const days = Math.min(Math.max(Math.trunc(options.dueSoonDays), 1), 30);
+
+    const rows = await this.tasks
+      .createQueryBuilder('t')
+      .innerJoin('t.project', 'p')
+      .innerJoin(TaskStatus, 's', 's.project_id = t.project_id AND s.code = t.status_code')
+      .where('p.tenant_id = :tenantId', { tenantId })
+      .andWhere('p.archived_at IS NULL')
+      .andWhere('s.is_terminal = false')
+      .andWhere(`${column} IS NOT NULL`)
+      .andWhere(`${column} <= DATE_ADD(CURDATE(), INTERVAL :days DAY)`, { days })
+      .andWhere(
+        accessibleProjectIds === null ? '1 = 1' : 't.project_id IN (:...accessibleProjectIds)',
+        accessibleProjectIds === null ? {} : { accessibleProjectIds },
+      )
+      // 遅れの大きい順。同日内は連番で安定させる
+      .orderBy(column, 'ASC')
+      .addOrderBy('t.seq', 'ASC')
+      .select([
+        't.short_code AS shortCode',
+        't.seq AS seq',
+        't.content AS content',
+        't.status_code AS statusCode',
+        's.label AS statusLabel',
+        's.color AS statusColor',
+        't.priority_code AS priorityCode',
+        't.deadline AS deadline',
+        // date 列をそのまま取るとドライバが Date を返し、JSON で時分秒付きになる。
+        // 表示は日付だけなので SQL 側で 'YYYY-MM-DD' に固定する（TZ による日付ずれも防げる）
+        `DATE_FORMAT(${column}, '%Y-%m-%d') AS targetDate`,
+        `(${column} < CURDATE()) AS isOverdue`,
+        't.project_id AS projectId',
+        'p.name AS projectName',
+      ])
+      .getRawMany<{
+        shortCode: string;
+        seq: number;
+        content: string;
+        statusCode: string;
+        statusLabel: string;
+        statusColor: string;
+        priorityCode: string | null;
+        deadline: string | null;
+        targetDate: string;
+        isOverdue: number;
+        projectId: string;
+        projectName: string;
+      }>();
+
+    const overdue: DashboardTaskResponse[] = [];
+    const dueSoon: DashboardTaskResponse[] = [];
+    for (const { isOverdue, ...r } of rows) {
+      const task: DashboardTaskResponse = { ...r, seq: Number(r.seq) };
+      (Number(isOverdue) === 1 ? overdue : dueSoon).push(task);
+    }
+    return { overdue, dueSoon };
   }
 
   async create(

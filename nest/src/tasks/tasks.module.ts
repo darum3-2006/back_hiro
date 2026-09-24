@@ -12,6 +12,8 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { ProjectsModule } from '../projects/projects.module';
 import { SlackModule } from '../slack/slack.module';
 import { Subtask } from '../subtasks/subtask.entity';
+import { UsersModule } from '../users/users.module';
+import { DashboardController } from './dashboard.controller';
 import { MyTasksController } from './my-tasks.controller';
 import { SearchController } from './search.controller';
 import { TaskFlag } from './task-flag.entity';
@@ -40,8 +42,15 @@ import { TasksService } from './tasks.service';
     AuditModule,
     NotificationsModule,
     SlackModule,
+    UsersModule,
   ],
-  controllers: [TasksController, TaskLinksController, MyTasksController, SearchController],
+  controllers: [
+    TasksController,
+    TaskLinksController,
+    MyTasksController,
+    SearchController,
+    DashboardController,
+  ],
   providers: [TasksService],
   exports: [TasksService, TypeOrmModule],
 })
