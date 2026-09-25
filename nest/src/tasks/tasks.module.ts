@@ -19,6 +19,9 @@ import { TaskLinksController } from './task-links.controller';
 import { TaskTag } from './task-tag.entity';
 import { Task } from './task.entity';
 import { TasksController } from './tasks.controller';
+import { MyTaskViewsController, TaskViewRecordController } from './task-views.controller';
+import { TaskViewsService } from './task-views.service';
+import { TaskView } from './task-view.entity';
 import { TasksService } from './tasks.service';
 
 @Module({
@@ -35,14 +38,22 @@ import { TasksService } from './tasks.service';
       Department,
       Comment,
       Subtask,
+      TaskView,
     ]),
     ProjectsModule,
     AuditModule,
     NotificationsModule,
     SlackModule,
   ],
-  controllers: [TasksController, TaskLinksController, MyTasksController, SearchController],
-  providers: [TasksService],
+  controllers: [
+    TasksController,
+    TaskLinksController,
+    MyTasksController,
+    SearchController,
+    TaskViewRecordController,
+    MyTaskViewsController,
+  ],
+  providers: [TasksService, TaskViewsService],
   exports: [TasksService, TypeOrmModule],
 })
 export class TasksModule {}
