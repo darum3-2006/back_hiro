@@ -20,6 +20,7 @@ import { MoveDto } from './dto/move.dto';
 import { ReorderDto } from './dto/reorder.dto';
 import { UpdateTaskPriorityDto } from './dto/update-task-priority.dto';
 import { TaskPrioritiesService } from './task-priorities.service';
+import { ProjectManagement } from '../auth/project-management.decorator';
 
 @Controller('projects/:projectId/task-priorities')
 @UseGuards(JwtAuthGuard, ProjectAccessGuard)
@@ -35,6 +36,7 @@ export class TaskPrioritiesController {
   }
 
   @Post()
+  @ProjectManagement()
   create(
     @CurrentUser() user: AuthenticatedUser,
     @Param('projectId', new ParseUUIDPipe()) projectId: string,
@@ -44,6 +46,7 @@ export class TaskPrioritiesController {
   }
 
   @Patch(':code')
+  @ProjectManagement()
   update(
     @CurrentUser() user: AuthenticatedUser,
     @Param('projectId', new ParseUUIDPipe()) projectId: string,
@@ -54,6 +57,7 @@ export class TaskPrioritiesController {
   }
 
   @Delete(':code')
+  @ProjectManagement()
   @HttpCode(204)
   remove(
     @CurrentUser() user: AuthenticatedUser,
@@ -64,6 +68,7 @@ export class TaskPrioritiesController {
   }
 
   @Patch(':code/move')
+  @ProjectManagement()
   @HttpCode(204)
   move(
     @CurrentUser() user: AuthenticatedUser,
@@ -75,6 +80,7 @@ export class TaskPrioritiesController {
   }
 
   @Put('order')
+  @ProjectManagement()
   @HttpCode(204)
   reorder(
     @CurrentUser() user: AuthenticatedUser,

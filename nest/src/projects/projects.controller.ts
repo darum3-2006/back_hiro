@@ -18,17 +18,24 @@ import { UpdateProjectDto } from './dto/update-project.dto';
 import { ProjectAccessService } from './project-access.service';
 import { Project } from './project.entity';
 import { ProjectsService } from './projects.service';
+import { ProjectManagement } from '../auth/project-management.decorator';
 
 /** フロント返却用のプロジェクト形。Webhook URL の生値は出さず、設定有無のみ返す。 */
 type ProjectResponse = Omit<Project, 'slackWebhookUrl' | 'tenant'> & {
   slackWebhookConfigured: boolean;
+  /**
+   * ログインユーザーがこのプロジェクトを編集できるか（画面の出し分け用）。
+   * テナント admin か ProjectMember なら true。閲覧権だけの人と readonly ロールは false。
+   * 実際の書き込みの可否は ProjectAccessGuard が判定する。
+   */
+  canEdit: boolean;
 };
 
-const toResponse = (p: Project): ProjectResponse => {
+const toResponse = (p: Project, canEdit: boolean): ProjectResponse => {
   // slackWebhookUrl は生値を出さない。tenant はリレーションなのでレスポンスから除く。
   const { slackWebhookUrl, tenant, ...rest } = p;
   void tenant;
-  return { ...rest, slackWebhookConfigured: Boolean(slackWebhookUrl) };
+  return { ...rest, slackWebhookConfigured: Boolean(slackWebhookUrl), canEdit };
 };
 
 const touchesSlack = (dto: UpdateProjectDto): boolean =>
@@ -52,7 +59,11 @@ export class ProjectsController {
       user.tenantId,
       await this.access.accessibleProjectIds(user),
     );
-    return rows.map(toResponse);
+    const editable = await this.access.editableProjectIds(
+      user,
+      rows.map((r) => r.id),
+    );
+    return rows.map((r) => toResponse(r, editable.has(r.id)));
   }
 
   @Post()
@@ -61,12 +72,14 @@ export class ProjectsController {
     @Body() dto: CreateProjectDto,
   ): Promise<ProjectResponse> {
     const created = await this.projects.create(user.tenantId, dto);
-    // 明示付与運用のため、作られたばかりのプロジェクトは作成者だけに見えるようにする
-    await this.access.grant(user.tenantId, user.userId, created.id);
-    return toResponse(created);
+    // 明示付与運用のため、作られたばかりのプロジェクトは作成者だけに見えるようにする。
+    // 編集はメンバーに限られるので、作成者はプロジェクト管理者としてメンバーにも入れる
+    await this.access.grantCreator(user.tenantId, user.userId, created.id);
+    return toResponse(created, user.role !== 'readonly');
   }
 
   @Patch(':projectId')
+  @ProjectManagement()
   async update(
     @CurrentUser() user: AuthenticatedUser,
     @Param('projectId') id: string,
@@ -80,11 +93,13 @@ export class ProjectsController {
     if (touchesSlack(dto)) {
       await this.assertSlackAdmin(user, id);
     }
-    return toResponse(await this.projects.update(user.tenantId, id, dto));
+    // ここまで来ている＝ProjectAccessGuard で編集の担い手と確認済み
+    return toResponse(await this.projects.update(user.tenantId, id, dto), user.role !== 'readonly');
   }
 
   /** 設定画面の「テスト送信」。プロジェクト管理者 or テナント管理者のみ。 */
   @Post(':projectId/slack/test')
+  @ProjectManagement()
   async testSlack(
     @CurrentUser() user: AuthenticatedUser,
     @Param('projectId') id: string,

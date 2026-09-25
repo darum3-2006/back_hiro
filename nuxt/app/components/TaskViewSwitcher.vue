@@ -26,7 +26,8 @@ const emit = defineEmits<{
 const selectedView = computed(() => props.views.find((v) => v.id === props.selectedViewId) ?? null);
 
 // readonly（閲覧のみ）ユーザーは自分の private ビューのみ操作可（共有ビューは一切操作不可）
-const { isReadonly } = useAuth();
+// このプロジェクトで閲覧のみか（readonly ロール、または ProjectMember でない）
+const isReadonly = useProjectReadonly();
 
 /** ビューが自分のものか（孤児 owner=null は除外） */
 const isOwner = (view: SavedView): boolean =>

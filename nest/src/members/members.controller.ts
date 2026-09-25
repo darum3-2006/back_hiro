@@ -18,6 +18,7 @@ import { BulkCreateMembersDto } from './dto/bulk-create-members.dto';
 import { CreateMemberDto } from './dto/create-member.dto';
 import { UpdateMemberDto } from './dto/update-member.dto';
 import { MembersService } from './members.service';
+import { ProjectManagement } from '../auth/project-management.decorator';
 
 @Controller('projects/:projectId/members')
 @UseGuards(JwtAuthGuard, ProjectAccessGuard)
@@ -33,6 +34,7 @@ export class MembersController {
   }
 
   @Post()
+  @ProjectManagement()
   async create(
     @CurrentUser() user: AuthenticatedUser,
     @Param('projectId', new ParseUUIDPipe()) projectId: string,
@@ -44,6 +46,7 @@ export class MembersController {
 
   /** 表示名を複数まとめて追加（User 紐付け無し・権限一括）。 */
   @Post('bulk')
+  @ProjectManagement()
   async bulkCreate(
     @CurrentUser() user: AuthenticatedUser,
     @Param('projectId', new ParseUUIDPipe()) projectId: string,
@@ -54,6 +57,7 @@ export class MembersController {
   }
 
   @Patch(':id')
+  @ProjectManagement()
   async update(
     @CurrentUser() user: AuthenticatedUser,
     @Param('projectId', new ParseUUIDPipe()) projectId: string,
@@ -65,6 +69,7 @@ export class MembersController {
   }
 
   @Delete(':id')
+  @ProjectManagement()
   @HttpCode(204)
   async remove(
     @CurrentUser() user: AuthenticatedUser,

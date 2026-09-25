@@ -1,8 +1,10 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
+import { ProjectMember } from '../members/member.entity';
+import { User } from '../users/user.entity';
 import { ProjectAccessService } from './project-access.service';
 import { Project } from './project.entity';
 import { UserProjectAccess } from './user-project-access.entity';
@@ -11,11 +13,14 @@ describe('ProjectAccessService', () => {
   let service: ProjectAccessService;
   let accessRepo: jest.Mocked<Repository<UserProjectAccess>>;
   let projectsRepo: jest.Mocked<Repository<Project>>;
+  let membersRepo: jest.Mocked<Repository<ProjectMember>>;
+  let usersRepo: jest.Mocked<Repository<User>>;
 
   const tenantId = 'tenant-1';
   const admin: AuthenticatedUser = { userId: 'u-admin', tenantId, role: 'admin' };
   const member: AuthenticatedUser = { userId: 'u-member', tenantId, role: 'member' };
   const powerUser: AuthenticatedUser = { userId: 'u-power', tenantId, role: 'power_user' };
+  const readonlyUser: AuthenticatedUser = { userId: 'u-ro', tenantId, role: 'readonly' };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -35,12 +40,27 @@ describe('ProjectAccessService', () => {
           provide: getRepositoryToken(Project),
           useValue: { findOne: jest.fn(), countBy: jest.fn() },
         },
+        {
+          provide: getRepositoryToken(ProjectMember),
+          useValue: {
+            countBy: jest.fn().mockResolvedValue(0),
+            find: jest.fn().mockResolvedValue([]),
+            create: jest.fn((dto: Partial<ProjectMember>) => dto as ProjectMember),
+            save: jest.fn((e: unknown) => Promise.resolve(e)),
+          },
+        },
+        {
+          provide: getRepositoryToken(User),
+          useValue: { findOne: jest.fn().mockResolvedValue({ name: '山田' }) },
+        },
       ],
     }).compile();
 
     service = module.get(ProjectAccessService);
     accessRepo = module.get(getRepositoryToken(UserProjectAccess));
     projectsRepo = module.get(getRepositoryToken(Project));
+    membersRepo = module.get(getRepositoryToken(ProjectMember));
+    usersRepo = module.get(getRepositoryToken(User));
   });
 
   describe('accessibleProjectIds', () => {
@@ -165,6 +185,115 @@ describe('ProjectAccessService', () => {
         service.replaceForUser(tenantId, 'u-member', ['p1', 'other-tenant']),
       ).rejects.toThrow(BadRequestException);
       expect(accessRepo.save).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('編集の担い手', () => {
+    it('テナント admin もメンバーでなければ編集できない（タスクの作業は参加者だけ）', async () => {
+      membersRepo.countBy.mockResolvedValue(0);
+
+      await expect(service.isEditor(admin, 'p1')).resolves.toBe(false);
+      await expect(service.assertEditor(admin, 'p1')).rejects.toThrow(ForbiddenException);
+    });
+
+    it('管理操作なら、テナント admin はメンバーでなくても通る', async () => {
+      membersRepo.countBy.mockResolvedValue(0);
+
+      await expect(
+        service.assertEditor(admin, 'p1', { management: true }),
+      ).resolves.toBeUndefined();
+      expect(membersRepo.countBy).not.toHaveBeenCalled();
+    });
+
+    it('管理操作でも、admin でないならメンバーであることが要る', async () => {
+      membersRepo.countBy.mockResolvedValue(0);
+
+      await expect(service.assertEditor(member, 'p1', { management: true })).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('公開API の管理操作も、テナント admin は key を引かずに通す', async () => {
+      await service.assertEditorByKey(admin, 'demo', { management: true });
+
+      expect(projectsRepo.findOne).not.toHaveBeenCalled();
+    });
+
+    it('ProjectMember なら編集できる', async () => {
+      membersRepo.countBy.mockResolvedValue(1);
+
+      await expect(service.isEditor(member, 'p1')).resolves.toBe(true);
+      expect(membersRepo.countBy).toHaveBeenCalledWith({ projectId: 'p1', userId: 'u-member' });
+    });
+
+    it('ProjectMember でなければ 403（閲覧はできるので 404 ではない）', async () => {
+      membersRepo.countBy.mockResolvedValue(0);
+
+      await expect(service.assertEditor(member, 'p1')).rejects.toThrow(ForbiddenException);
+    });
+
+    it('公開API は key から解決して判定する', async () => {
+      projectsRepo.findOne.mockResolvedValue({ id: 'p1' } as Project);
+      membersRepo.countBy.mockResolvedValue(0);
+
+      await expect(service.assertEditorByKey(powerUser, 'demo')).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(projectsRepo.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { tenantId, key: 'DEMO' } }),
+      );
+    });
+  });
+
+  describe('editableProjectIds（画面の出し分け用）', () => {
+    it('readonly ロールはメンバーでもどこも編集できない', async () => {
+      const got = await service.editableProjectIds(readonlyUser, ['p1', 'p2']);
+
+      expect(got.size).toBe(0);
+      expect(membersRepo.find).not.toHaveBeenCalled();
+    });
+
+    it('テナント admin もメンバーになっているプロジェクトだけ（画面でタスクを編集できる所）', async () => {
+      membersRepo.find.mockResolvedValue([{ projectId: 'p1' }] as ProjectMember[]);
+
+      const got = await service.editableProjectIds(admin, ['p1', 'p2']);
+
+      expect([...got]).toEqual(['p1']);
+    });
+
+    it('それ以外はメンバーになっているプロジェクトだけ', async () => {
+      membersRepo.find.mockResolvedValue([{ projectId: 'p2' }] as ProjectMember[]);
+
+      const got = await service.editableProjectIds(member, ['p1', 'p2']);
+
+      expect([...got]).toEqual(['p2']);
+    });
+  });
+
+  describe('grantCreator', () => {
+    it('作成者に閲覧権を付け、プロジェクト管理者としてメンバーに入れる', async () => {
+      membersRepo.countBy.mockResolvedValue(0);
+
+      await service.grantCreator(tenantId, 'u-member', 'p1');
+
+      expect(accessRepo.save).toHaveBeenCalled();
+      expect(membersRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          projectId: 'p1',
+          userId: 'u-member',
+          displayName: '山田',
+          role: 'admin',
+        }),
+      );
+    });
+
+    it('すでにメンバーなら二重に作らない', async () => {
+      membersRepo.countBy.mockResolvedValue(1);
+
+      await service.grantCreator(tenantId, 'u-member', 'p1');
+
+      expect(membersRepo.save).not.toHaveBeenCalled();
+      expect(usersRepo.findOne).not.toHaveBeenCalled();
     });
   });
 });

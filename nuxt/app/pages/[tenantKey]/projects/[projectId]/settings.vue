@@ -2,18 +2,21 @@
 const route = useRoute();
 const currentTenantKey = useCurrentTenantKey();
 
-// readonly（閲覧のみ）ユーザーは設定を変更できないため、直リンクで来てもタスク一覧へ送り返す
-const { me, isReadonly } = useAuth();
-if (me.value && isReadonly.value) {
-  await navigateTo(`/${me.value.tenant.key}/projects/${route.params.projectId}/tasks`, {
-    replace: true,
-  });
-}
-
 const projectId = computed(() => route.params.projectId as string);
 
 const { data: projects } = await useProjects();
 const project = computed(() => projects.value.find((p) => p.id === projectId.value));
+
+// 設定画面（プロジェクト設定・マスタ・メンバー管理）はプロジェクトの管理なので、
+// メンバーに加えてテナント admin も入れる（メンバーでない admin が自分をメンバーに追加できるように）。
+// それ以外の閲覧のみの人は、直リンクで来てもタスク一覧へ送り返す。プロジェクト一覧を読んでから判定する
+const { isAdmin } = useAuth();
+const isReadonly = useProjectReadonly();
+if (isReadonly.value && !isAdmin.value) {
+  await navigateTo(`/${currentTenantKey.value}/projects/${projectId.value}/tasks`, {
+    replace: true,
+  });
+}
 
 const settingsBase = computed(
   () => `/${currentTenantKey.value}/projects/${projectId.value}/settings`,

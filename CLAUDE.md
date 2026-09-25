@@ -54,6 +54,7 @@ git config core.hooksPath .githooks
 - 秘匿 env は `config.getOrThrow<string>('X')`。ハードコードフォールバック禁止
 - 全テナント所有テーブルに `tenant_id`。Service / Controller では JWT 由来の `user.tenantId` で必ずスコープ
 - `projects/:projectId/...`（内部）/ `v1/projects/:key/...`（公開API）のコントローラには `ProjectAccessGuard` を付ける。プロジェクト横断のエンドポイントは `ProjectAccessService.accessibleProjectIds()` で絞る
+- 閲覧は閲覧権、タスクまわりの書き込みは ProjectMember のみ（テナント admin も同じ）。書き込みエンドポイントを新設したら、本人だけに関わる操作なら `@AllowReadonly()`、プロジェクトの管理（設定・マスタ・メンバー）なら `@ProjectManagement()`（admin はメンバーでなくても可）を付けるか判断する（詳細は [docs/PROJECT.md](docs/PROJECT.md) の「権限モデル」）
 - パスワード DTO は `@MinLength(8)` + `@MaxLength(72)`（bcrypt 切り詰め & hash DoS 対策）
 - 認証系エンドポイントには `@Throttle({ default: { ttl: 60_000, limit: 5 } })` を個別付与
 - 実装/テストが完了しても自動でコミットしない。明示指示を待つ

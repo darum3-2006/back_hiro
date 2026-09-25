@@ -1,8 +1,14 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
-import type { UserRole } from '../users/user.entity';
+import { ProjectMember } from '../members/member.entity';
+import { User, type UserRole } from '../users/user.entity';
 import { Project } from './project.entity';
 import { UserProjectAccess } from './user-project-access.entity';
 
@@ -10,7 +16,12 @@ import { UserProjectAccess } from './user-project-access.entity';
 const isUnrestricted = (role: UserRole): boolean => role === 'admin';
 
 /**
- * プロジェクトの閲覧可否（`user_project_access`）を一手に引き受けるサービス。
+ * プロジェクトの閲覧可否（`user_project_access`）と編集可否（ProjectMember）を一手に引き受けるサービス。
+ *
+ * - 閲覧: `user_project_access` に行があるか（テナント admin は全プロジェクト）
+ * - 編集: 閲覧できることに加え、そのプロジェクトの ProjectMember であること（テナント admin も同じ）。
+ *   閲覧権はあるがメンバーでない人は「このプロジェクトは見るだけ」になる
+ * - 管理（`@ProjectManagement()`）: テナント admin はメンバーでなくても実行できる
  *
  * 判定をここ 1 か所に集約しているため、内部 API（JWT）と公開API（APIキー）で
  * 同じルールが効く。`ProjectAccessGuard` と横断エンドポイントの絞り込みが利用者。
@@ -22,6 +33,10 @@ export class ProjectAccessService {
     private readonly access: Repository<UserProjectAccess>,
     @InjectRepository(Project)
     private readonly projects: Repository<Project>,
+    @InjectRepository(ProjectMember)
+    private readonly members: Repository<ProjectMember>,
+    @InjectRepository(User)
+    private readonly users: Repository<User>,
   ) {}
 
   /**
@@ -105,6 +120,95 @@ export class ProjectAccessService {
     });
     if (!project) return;
     await this.assertAccess(user, project.id);
+  }
+
+  /**
+   * 編集の担い手か（そのプロジェクトの ProjectMember か）。テナント admin も例外にしない。
+   * タスクを動かすのはそのプロジェクトの参加者で、admin も手を入れるなら自分をメンバーに追加する。
+   * readonly ロールかどうかは見ない。readonly の書き込みは ReadonlyWriteBlockInterceptor が
+   * 別途止め、そちらのほうが理由の分かるメッセージを返すため。
+   */
+  async isEditor(user: AuthenticatedUser, projectId: string): Promise<boolean> {
+    const count = await this.members.countBy({ projectId, userId: user.userId });
+    return count > 0;
+  }
+
+  /**
+   * プロジェクトの管理操作（`@ProjectManagement()`）の担い手か。テナント admin か、メンバーであること。
+   * 操作ごとの細かい権限（アーカイブは admin のみ等）は呼び出し側で判定する。
+   */
+  async isManager(user: AuthenticatedUser, projectId: string): Promise<boolean> {
+    if (isUnrestricted(user.role)) return true;
+    return this.isEditor(user, projectId);
+  }
+
+  /**
+   * 画面の出し分け用：このユーザーが編集できるプロジェクト ID。
+   * readonly ロールはどのプロジェクトも編集できないので空になる。
+   */
+  async editableProjectIds(user: AuthenticatedUser, projectIds: string[]): Promise<Set<string>> {
+    if (user.role === 'readonly' || projectIds.length === 0) return new Set();
+    const rows = await this.members.find({
+      where: { userId: user.userId, projectId: In(projectIds) },
+      select: { projectId: true },
+    });
+    return new Set(rows.map((r) => r.projectId));
+  }
+
+  /**
+   * 編集の担い手でなければ 403 を投げる。
+   * 閲覧はできるのでプロジェクトの存在は伏せず、理由を伝える 403 にする。
+   */
+  async assertEditor(
+    user: AuthenticatedUser,
+    projectId: string,
+    options: { management?: boolean } = {},
+  ): Promise<void> {
+    const ok = options.management
+      ? await this.isManager(user, projectId)
+      : await this.isEditor(user, projectId);
+    if (ok) return;
+    throw new ForbiddenException(
+      'このプロジェクトのメンバーではないため、編集できません（閲覧のみ）',
+    );
+  }
+
+  /** 公開API 用。プロジェクト key から解決して判定する（key が無ければ各コントローラが 404 を出す） */
+  async assertEditorByKey(
+    user: AuthenticatedUser,
+    key: string,
+    options: { management?: boolean } = {},
+  ): Promise<void> {
+    if (options.management && isUnrestricted(user.role)) return;
+    const project = await this.projects.findOne({
+      where: { tenantId: user.tenantId, key: key.trim().toUpperCase() },
+      select: { id: true },
+    });
+    if (!project) return;
+    await this.assertEditor(user, project.id, options);
+  }
+
+  /**
+   * プロジェクトの作成者に、閲覧権と ProjectMember（プロジェクト管理者）を付ける。
+   * 編集はメンバーに限られるので、メンバーにしないと admin でない作成者が
+   * 自分で作ったプロジェクトを編集できなくなる。どちらも冪等。
+   */
+  async grantCreator(tenantId: string, userId: string, projectId: string): Promise<void> {
+    await this.grant(tenantId, userId, projectId);
+    const existing = await this.members.countBy({ projectId, userId });
+    if (existing > 0) return;
+    const user = await this.users.findOne({
+      where: { tenantId, id: userId },
+      select: { name: true },
+    });
+    await this.members.save(
+      this.members.create({
+        projectId,
+        userId,
+        displayName: user?.name ?? '作成者',
+        role: 'admin',
+      }),
+    );
   }
 
   /**

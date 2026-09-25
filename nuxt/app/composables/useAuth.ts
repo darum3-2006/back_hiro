@@ -23,8 +23,14 @@ export const useAuth = () => {
 
   const isAuthenticated = computed(() => Boolean(token.value && me.value));
 
-  /** 閲覧のみ（readonly）ユーザーか。true なら編集系 UI を出さない。 */
+  /**
+   * readonly ロールか（テナント単位）。プロジェクト内の編集可否は、メンバーかどうかも含めた
+   * useProjectReadonly() を使う。これはプロジェクトに属さない操作（プロジェクトの新規作成等）用。
+   */
   const isReadonly = computed(() => me.value?.role === 'readonly');
+
+  /** テナント admin か。プロジェクトの管理（設定・マスタ・メンバー管理）はメンバーでなくてもできる */
+  const isAdmin = computed(() => me.value?.role === 'admin');
 
   const login = async (input: LoginInput) => {
     const res = await apiLogin($fetch.create({ baseURL: '/api' }), input);
@@ -67,5 +73,15 @@ export const useAuth = () => {
     }
   };
 
-  return { token, me, isAuthenticated, isReadonly, login, loginWithGoogle, fetchMe, logout };
+  return {
+    token,
+    me,
+    isAuthenticated,
+    isReadonly,
+    isAdmin,
+    login,
+    loginWithGoogle,
+    fetchMe,
+    logout,
+  };
 };

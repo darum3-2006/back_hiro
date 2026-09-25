@@ -7,8 +7,7 @@ const api = useApi();
 const { data: projects, refresh: refreshProjects } = await useProjects();
 const projectCreateModalOpen = useProjectCreateModalOpen();
 const currentTenantKey = useCurrentTenantKey();
-const { me, isReadonly } = useAuth();
-const isAdmin = computed(() => me.value?.role === 'admin');
+const { isReadonly, isAdmin } = useAuth();
 
 const showArchived = ref(false);
 
@@ -120,7 +119,7 @@ const columns: TableColumn<Project>[] = [
         <template #actions-cell="{ row }">
           <div class="flex items-center justify-end gap-1">
             <UButton
-              v-if="!row.original.archivedAt && !isReadonly"
+              v-if="!row.original.archivedAt && (row.original.canEdit || isAdmin)"
               icon="i-lucide-settings"
               color="neutral"
               variant="ghost"

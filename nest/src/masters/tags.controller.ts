@@ -17,6 +17,7 @@ import { ProjectAccessGuard } from '../auth/project-access.guard';
 import { CreateTagDto } from './dto/create-tag.dto';
 import { UpdateTagDto } from './dto/update-tag.dto';
 import { TagsService } from './tags.service';
+import { ProjectManagement } from '../auth/project-management.decorator';
 
 @Controller('projects/:projectId/tags')
 @UseGuards(JwtAuthGuard, ProjectAccessGuard)
@@ -32,6 +33,7 @@ export class TagsController {
   }
 
   @Post()
+  @ProjectManagement()
   create(
     @CurrentUser() user: AuthenticatedUser,
     @Param('projectId', new ParseUUIDPipe()) projectId: string,
@@ -41,6 +43,7 @@ export class TagsController {
   }
 
   @Patch(':code')
+  @ProjectManagement()
   update(
     @CurrentUser() user: AuthenticatedUser,
     @Param('projectId', new ParseUUIDPipe()) projectId: string,
@@ -51,6 +54,7 @@ export class TagsController {
   }
 
   @Delete(':code')
+  @ProjectManagement()
   @HttpCode(204)
   remove(
     @CurrentUser() user: AuthenticatedUser,
