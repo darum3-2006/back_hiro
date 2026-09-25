@@ -31,8 +31,16 @@ const range = defineModel<DateRangeValue>('range', { default: () => ({ from: nul
 
 const open = ref(false);
 onMounted(() => {
-  // 「+ フィルタ」から足した直後は値が空なので、そのまま値を選べるように開く
-  if (props.openOnMount) open.value = true;
+  // 「+ フィルタ」から足した直後は値が空なので、そのまま値を選べるように開く。
+  // 足した操作で「+ フィルタ」のメニューが閉じる最中に開くと、その閉じる処理
+  // （フォーカスの移動・外側クリックの判定）に巻き込まれてすぐ閉じるので、
+  // メニューが閉じ切った次の描画まで待ってから開く
+  if (!props.openOnMount) return;
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      open.value = true;
+    }),
+  );
 });
 
 const labelMap = computed(() => new Map((props.items ?? []).map((i) => [i.value, i.label])));

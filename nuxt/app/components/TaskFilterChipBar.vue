@@ -105,7 +105,14 @@ const clearAll = () => {
       />
     </template>
 
-    <UPopover v-model:open="addOpen" :ui="{ content: 'p-0 w-56' }">
+    <!-- 項目を選ぶとこのメニューが閉じ、同時に追加したチップのプルダウンが開く。閉じるときに
+         フォーカスを「+ フィルタ」ボタンへ戻すと、開いたばかりのプルダウンから外へフォーカスが
+         移ったと判定されてすぐ閉じてしまうので、戻さない -->
+    <UPopover
+      v-model:open="addOpen"
+      :ui="{ content: 'p-0 w-56' }"
+      :content="{ onCloseAutoFocus: (e: Event) => e.preventDefault() }"
+    >
       <UButton
         color="neutral"
         variant="outline"
