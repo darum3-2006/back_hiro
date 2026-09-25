@@ -52,12 +52,17 @@ const currentMemberId = computed<string | null>(() => {
 
 // ===== ガント固有の表示状態（URL クエリ保持・将来 SavedView 化しやすい形） =====
 const queryString = (key: string): string => (route.query[key] as string | undefined) ?? '';
-const setQuery = (key: string, value: string | undefined) => {
+/**
+ * 既定は replace（表示設定の切り替えで履歴を積まない）。
+ * `push: true` はタスク詳細の開閉など、ブラウザの「戻る」で戻れてほしい操作に使う。
+ */
+const setQuery = (key: string, value: string | undefined, options: { push?: boolean } = {}) => {
   const merged = { ...route.query, [key]: value || undefined };
   const cleaned = Object.fromEntries(
     Object.entries(merged).filter(([, v]) => v !== undefined && v !== ''),
   );
-  router.replace({ query: cleaned });
+  if (options.push) router.push({ query: cleaned });
+  else router.replace({ query: cleaned });
 };
 
 const GROUP_KEYS = Object.keys(GANTT_GROUP_DEFS) as GroupByKey[];
@@ -233,10 +238,10 @@ const violatedIds = computed(() => {
 
 // バー/ラベルのクリックで詳細スライドをその場で開く（遷移しない）
 const openTask = (task: Task) => {
-  setQuery('task', String(task.seq));
+  setQuery('task', String(task.seq), { push: true });
 };
 const closeSlideover = () => {
-  setQuery('task', undefined);
+  setQuery('task', undefined, { push: true });
 };
 
 const updateTaskField = async (

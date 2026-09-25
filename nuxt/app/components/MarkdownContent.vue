@@ -32,7 +32,8 @@ const onClick = (e: MouseEvent) => {
   if (!target) return;
   e.preventDefault();
   const seq = target.getAttribute('data-task-seq');
-  if (seq) void router.replace({ query: { ...route.query, task: seq } });
+  // 別のタスクへ移る操作なので push（「戻る」で元のタスクに戻れるように）
+  if (seq) void router.push({ query: { ...route.query, task: seq } });
 };
 </script>
 

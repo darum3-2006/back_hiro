@@ -46,7 +46,8 @@ const grouped = computed(() =>
 );
 
 const openOther = (r: TaskRelationView) => {
-  void router.replace({ query: { ...route.query, task: String(r.otherSeq) } });
+  // 別のタスクへ移る操作なので push（「戻る」で元のタスクに戻れるように）
+  void router.push({ query: { ...route.query, task: String(r.otherSeq) } });
 };
 
 // ===== 追加フォーム =====

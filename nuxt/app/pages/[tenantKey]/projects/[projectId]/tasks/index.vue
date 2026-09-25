@@ -109,12 +109,20 @@ const memberMap = computed(() => Object.fromEntries(members.value.map((m) => [m.
 const departmentMap = computed(() => Object.fromEntries(departments.value.map((d) => [d.code, d])));
 
 // ===== フィルタ / ソート: URL クエリで同期 =====
-const updateQuery = (changes: Record<string, string | undefined>) => {
+/**
+ * URL クエリを書き換える。既定は replace（フィルタ等の操作で履歴を積まない）。
+ * `push: true` はタスク詳細の開閉など、ブラウザの「戻る」で戻れてほしい操作に使う。
+ */
+const updateQuery = (
+  changes: Record<string, string | undefined>,
+  options: { push?: boolean } = {},
+) => {
   const merged = { ...route.query, ...changes };
   const cleaned = Object.fromEntries(
     Object.entries(merged).filter(([, v]) => v !== undefined && v !== ''),
   );
-  router.replace({ query: cleaned });
+  if (options.push) router.push({ query: cleaned });
+  else router.replace({ query: cleaned });
 };
 
 const queryString = (key: string): string => (route.query[key] as string | undefined) ?? '';
@@ -206,23 +214,28 @@ const selectedTask = computed<Task | null>(() => {
 // 該当タスクが解決できたときだけ開く（未存在の番号で空パネルを出さない）。
 const slideoverOpen = computed(() => selectedTask.value !== null);
 
-const setSelectedTaskSeq = (seq: number | null) => {
-  updateQuery({ task: seq === null ? undefined : String(seq) });
+/**
+ * 開いているタスクを URL に反映する。
+ * ユーザーが開いた・閉じた操作は push（「戻る」でその前の表示に戻れるように）。
+ * 存在しない番号の除去や旧 URL の正規化など、自動の補正は replace（戻るで同じ補正を繰り返さない）。
+ */
+const setSelectedTaskSeq = (seq: number | null, options: { push?: boolean } = {}) => {
+  updateQuery({ task: seq === null ? undefined : String(seq) }, options);
 };
 
 const openTask = (task: Task) => {
   focusComments.value = false;
-  setSelectedTaskSeq(task.seq);
+  setSelectedTaskSeq(task.seq, { push: true });
 };
 
 // コメントアイコンから開く: コメント位置までスクロールする意図を立ててから開く
 const openTaskComments = (task: Task) => {
   focusComments.value = true;
-  setSelectedTaskSeq(task.seq);
+  setSelectedTaskSeq(task.seq, { push: true });
 };
 
 const closeSlideover = () => {
-  setSelectedTaskSeq(null);
+  setSelectedTaskSeq(null, { push: true });
 };
 
 const createSlideoverOpen = ref(false);
@@ -306,7 +319,7 @@ const onTaskCreated = async (task: Task) => {
         label: '開く',
         color: 'success',
         variant: 'outline',
-        onClick: () => setSelectedTaskSeq(task.seq),
+        onClick: () => setSelectedTaskSeq(task.seq, { push: true }),
       },
     ],
   });
@@ -459,7 +472,7 @@ const updateSubtaskField = async (
   }
 };
 // 子行クリックで親タスク詳細を開く
-const openParentOfSub = (s: SubtaskRow) => setSelectedTaskSeq(s.parentSeq);
+const openParentOfSub = (s: SubtaskRow) => setSelectedTaskSeq(s.parentSeq, { push: true });
 // 子の期限切れ（未完了 かつ 期限が今日より前）
 const subOverdue = (s: SubtaskRow): boolean =>
   Boolean(s.deadline) && !s.done && dayjs(s.deadline).isBefore(dayjs(), 'day');
