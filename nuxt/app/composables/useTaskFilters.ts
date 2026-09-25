@@ -479,20 +479,43 @@ export const useTaskFilters = (data: TaskFilterData) => {
     noneLabel: '(依頼部署なし)',
   });
 
-  /** タグフィルタ用: 実際にタスクに付いているタグのみ */
-  const tagFilterItems = computed(() => {
-    const codes = new Set(tasks.value.flatMap((t) => t.tagCodes));
-    return tags.value
-      .filter((t) => codes.has(t.code))
-      .map((t) => ({ label: t.name, value: t.code }));
+  /**
+   * 多値フィールド（タグ・フラグ）の選択肢。単値と同じく「タスクに実在する値」だけを出し、
+   * 選択中（含む・除外の両方）の値が候補から消えた場合は補う。
+   * 補わないと、そのタグ/フラグの付いたタスクが一覧から無くなったとき（完了して一覧から外れた、
+   * 絞り込みの結果 0 件になった等）に、チップや選択肢の表示がコードに化ける。
+   */
+  const presentMultiValueItems = <T>(opts: {
+    master: Ref<T[]>;
+    codeOf: (x: T) => string;
+    labelOf: (x: T) => string;
+    valuesOf: (t: Task) => string[];
+    selected: Ref<string[]>[];
+  }) =>
+    computed<FilterItem[]>(() => {
+      const present = new Set(tasks.value.flatMap(opts.valuesOf));
+      for (const ref of opts.selected) for (const v of ref.value) present.add(v);
+      return opts.master.value
+        .filter((x) => present.has(opts.codeOf(x)))
+        .map((x) => ({ label: opts.labelOf(x), value: opts.codeOf(x) }));
+    });
+
+  /** タグフィルタ用: 実際にタスクに付いているタグ ＋ 選択中のタグ */
+  const tagFilterItems = presentMultiValueItems({
+    master: tags,
+    codeOf: (t) => t.code,
+    labelOf: (t) => t.name,
+    valuesOf: (t) => t.tagCodes,
+    selected: [uiFilters.tag, uiFilters.tagNot],
   });
 
-  /** フラグフィルタ用: 実際にタスクに付いているフラグのみ */
-  const flagFilterItems = computed(() => {
-    const codes = new Set(tasks.value.flatMap((t) => t.flagCodes));
-    return flags.value
-      .filter((f) => codes.has(f.code))
-      .map((f) => ({ label: f.name, value: f.code }));
+  /** フラグフィルタ用: 実際にタスクに付いているフラグ ＋ 選択中のフラグ */
+  const flagFilterItems = presentMultiValueItems({
+    master: flags,
+    codeOf: (f) => f.code,
+    labelOf: (f) => f.name,
+    valuesOf: (t) => t.flagCodes,
+    selected: [uiFilters.flag, uiFilters.flagNot],
   });
 
   /** 完了系ステータスを表示するか（既定 false）。URL クエリで保持 */
@@ -576,15 +599,38 @@ export const useTaskFilters = (data: TaskFilterData) => {
    * 選択肢はフィルタごとに出所（マスタ / タスクに実在する値）が違うので、
    * 定義側には持たせずここでキーに対応付ける。多値フィルタは含む/除外で同じ選択肢を使う。
    */
+  /**
+   * 選択中なのにマスタに無い値（選んだあとでステータスやタグ等そのものが削除された、
+   * 保存ビューや共有リンクに古い値が残っている等）を「(削除済み)」として末尾に足す。
+   * 足さないと、チップや選択肢にコード / ID がそのまま出る。選択を外せるよう候補にも残す。
+   */
+  const withDeletedSelected = (
+    items: ComputedRef<FilterItem[]>,
+    selected: Ref<string[]>[],
+  ): ComputedRef<FilterItem[]> =>
+    computed(() => {
+      const known = new Set(items.value.map((i) => i.value));
+      const missing = [...new Set(selected.flatMap((r) => r.value))].filter((v) => !known.has(v));
+      return [...items.value, ...missing.map((v) => ({ label: '(削除済み)', value: v }))];
+    });
+
+  const multiItems = (
+    items: ComputedRef<FilterItem[]>,
+    key: FilterArrayKey,
+    notKey: FilterArrayKey,
+  ) => withDeletedSelected(items, [uiFilters[key], uiFilters[notKey]]);
+  const tagItemsForFilter = multiItems(tagFilterItems, 'tag', 'tagNot');
+  const flagItemsForFilter = multiItems(flagFilterItems, 'flag', 'flagNot');
+
   const filterItems: Record<FilterArrayKey, ComputedRef<FilterItem[]>> = {
-    status: statusSelectItems,
-    priority: prioritySelectItems,
-    assignee: assigneeFilterItems,
-    requestingDept: departmentFilterItems,
-    tag: tagFilterItems,
-    tagNot: tagFilterItems,
-    flag: flagFilterItems,
-    flagNot: flagFilterItems,
+    status: withDeletedSelected(statusSelectItems, [uiFilters.status]),
+    priority: withDeletedSelected(prioritySelectItems, [uiFilters.priority]),
+    assignee: withDeletedSelected(assigneeFilterItems, [uiFilters.assignee]),
+    requestingDept: withDeletedSelected(departmentFilterItems, [uiFilters.requestingDept]),
+    tag: tagItemsForFilter,
+    tagNot: tagItemsForFilter,
+    flag: flagItemsForFilter,
+    flagNot: flagItemsForFilter,
   };
 
   /**
