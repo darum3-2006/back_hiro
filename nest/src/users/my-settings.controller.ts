@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Patch, UseGuards } from '@nestjs/common';
+import { AllowReadonly } from '../auth/allow-readonly.decorator';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
@@ -20,8 +21,12 @@ export class MySettingsController {
     return this.users.getSettings(user.tenantId, user.userId);
   }
 
-  /** PATCH /me/settings — 画面ごとの名前空間単位でマージする */
+  /**
+   * PATCH /me/settings — 画面ごとの名前空間単位でマージする。
+   * 自分の表示設定を変えるだけでプロジェクトのデータは変えないので、readonly にも許可する。
+   */
   @Patch()
+  @AllowReadonly()
   update(@CurrentUser() user: AuthenticatedUser, @Body() dto: UpdateUserSettingsDto) {
     return this.users.updateSettings(user.tenantId, user.userId, dto);
   }
