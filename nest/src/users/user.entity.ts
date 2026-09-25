@@ -1,4 +1,5 @@
 import { Column, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import type { UserSettings } from './user-settings';
 import { BaseEntity } from '../common/entities/base.entity';
 import { Tenant } from '../tenants/tenant.entity';
 
@@ -79,6 +80,13 @@ export class User extends BaseEntity {
     comment: 'APIキー発行日時',
   })
   apiKeyCreatedAt!: Date | null;
+
+  @Column({
+    type: 'json',
+    nullable: true,
+    comment: '画面ごとのユーザー設定（ダッシュボード等）。端末をまたいで引き継ぐ',
+  })
+  settings!: UserSettings | null;
 }
 
 export type UserRole = 'admin' | 'power_user' | 'member' | 'readonly';
