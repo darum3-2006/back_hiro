@@ -222,4 +222,67 @@ describe('UsersService', () => {
       expect(repo.softRemove).toHaveBeenCalled();
     });
   });
+
+  describe('画面設定', () => {
+    it('未設定なら既定値が入って返る', async () => {
+      repo.findOne.mockResolvedValue({ ...memberUser, settings: null });
+
+      const got = await service.getSettings(tenantId, memberUser.id);
+
+      expect(got.dashboard).toEqual({ dateField: 'deadline', dueSoonDays: 7, inactiveDays: 7 });
+    });
+
+    it('一部だけ保存済みなら、欠けた項目に既定値が当たる', async () => {
+      repo.findOne.mockResolvedValue({
+        ...memberUser,
+        settings: { dashboard: { dueSoonDays: 3 } },
+      } as User);
+
+      const got = await service.getSettings(tenantId, memberUser.id);
+
+      expect(got.dashboard).toEqual({ dateField: 'deadline', dueSoonDays: 3, inactiveDays: 7 });
+    });
+
+    it('更新は指定した項目だけ差し替え、同じ画面の他項目は残す', async () => {
+      const user = {
+        ...memberUser,
+        settings: { dashboard: { dateField: 'plannedRelease', dueSoonDays: 3 } },
+      } as User;
+      repo.findOne.mockResolvedValue(user);
+
+      await service.updateSettings(tenantId, memberUser.id, { dashboard: { dueSoonDays: 14 } });
+
+      expect(user.settings?.dashboard).toEqual({
+        dateField: 'plannedRelease',
+        dueSoonDays: 14,
+        inactiveDays: 7,
+      });
+    });
+
+    it('他画面の設定を巻き込まない', async () => {
+      const user = {
+        ...memberUser,
+        settings: { other: { foo: 1 }, dashboard: { dueSoonDays: 3 } },
+      } as unknown as User;
+      repo.findOne.mockResolvedValue(user);
+
+      await service.updateSettings(tenantId, memberUser.id, {
+        dashboard: { dateField: 'plannedCompletion' },
+      });
+
+      expect((user.settings as Record<string, unknown>).other).toEqual({ foo: 1 });
+    });
+
+    it('dashboard を渡さなければ既存設定は変わらない', async () => {
+      const user = {
+        ...memberUser,
+        settings: { dashboard: { dueSoonDays: 3 } },
+      } as User;
+      repo.findOne.mockResolvedValue(user);
+
+      await service.updateSettings(tenantId, memberUser.id, {});
+
+      expect(user.settings?.dashboard).toEqual({ dueSoonDays: 3 });
+    });
+  });
 });
