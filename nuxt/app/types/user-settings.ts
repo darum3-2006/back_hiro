@@ -21,6 +21,8 @@ export interface DashboardSettings {
   dateField: DashboardDateField;
   /** 期限間近とみなす日数（1〜30） */
   dueSoonDays: number;
+  /** ステータスがこの日数以上変わっていなければ「動きなし」とみなす（1〜90） */
+  inactiveDays: number;
 }
 
 /** 読み出し時の形。未設定の画面にも既定値が入っているので optional でない */
