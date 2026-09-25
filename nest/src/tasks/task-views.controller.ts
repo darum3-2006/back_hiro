@@ -1,4 +1,5 @@
 import { Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
+import { AllowReadonly } from '../auth/allow-readonly.decorator';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
@@ -15,9 +16,14 @@ import { TaskViewsService } from './task-views.service';
 export class TaskViewRecordController {
   constructor(private readonly views: TaskViewsService) {}
 
-  /** POST /projects/:projectId/tasks/:taskId/view — タスクの詳細を開いたときに呼ぶ */
+  /**
+   * POST /projects/:projectId/tasks/:taskId/view — タスクの詳細を開いたときに呼ぶ。
+   * 自分の閲覧の記録で、プロジェクトのデータは変えないので閲覧のみの人にも許可する。
+   * 付けないと readonly の人の閲覧が記録されず、画面側は失敗を握りつぶすので気づけない。
+   */
   @Post()
   @HttpCode(204)
+  @AllowReadonly()
   async record(
     @CurrentUser() user: AuthenticatedUser,
     @Param('projectId', new ParseUUIDPipe()) projectId: string,
