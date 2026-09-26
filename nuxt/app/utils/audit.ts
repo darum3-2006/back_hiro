@@ -17,6 +17,9 @@ const FIELD_LABELS: Record<string, string> = {
   links: '関連リンク',
   tags: 'タグ',
   flags: 'フラグ',
+  // プロジェクト間の移動（docs/TASK_MOVE.md）
+  project: 'プロジェクト',
+  seq: '番号',
 };
 
 // 日付として整形するフィールド
