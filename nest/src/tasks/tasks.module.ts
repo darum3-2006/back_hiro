@@ -24,6 +24,8 @@ import { TasksController } from './tasks.controller';
 import { MyTaskViewsController, TaskViewRecordController } from './task-views.controller';
 import { TaskViewsService } from './task-views.service';
 import { TaskView } from './task-view.entity';
+import { TaskMoveController } from './task-move.controller';
+import { TaskMoveService } from './task-move.service';
 import { TasksService } from './tasks.service';
 
 @Module({
@@ -56,8 +58,9 @@ import { TasksService } from './tasks.service';
     DashboardController,
     TaskViewRecordController,
     MyTaskViewsController,
+    TaskMoveController,
   ],
-  providers: [TasksService, TaskViewsService],
+  providers: [TasksService, TaskViewsService, TaskMoveService],
   exports: [TasksService, TypeOrmModule],
 })
 export class TasksModule {}

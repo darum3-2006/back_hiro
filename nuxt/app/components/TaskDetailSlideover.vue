@@ -49,6 +49,9 @@ const api = useApi();
 // このプロジェクトで閲覧のみか（readonly ロール、または ProjectMember でない）
 const isReadonly = useProjectReadonly();
 
+/** 別のプロジェクトへ移動するダイアログ */
+const moveOpen = ref(false);
+
 const props = defineProps<{
   task: Task | null;
   /** 同プロジェクトの全タスク（#番号 リンク解決用） */
@@ -462,29 +465,44 @@ const flagsList = computed(() => Object.values(props.flagMap));
     <template #description>
       <div class="flex items-start gap-2">
         <span class="flex-1">{{ task?.content }}</span>
-        <UButton
-          v-if="task"
-          size="xs"
-          color="neutral"
-          variant="ghost"
-          icon="i-lucide-link"
-          aria-label="タスクのリンクをコピー"
-          @click="copyShareLink"
-        />
-        <UButton
-          v-if="task"
-          size="xs"
-          color="neutral"
-          variant="ghost"
-          icon="i-lucide-copy"
-          aria-label="内容をコピー"
-          @click="copyContent(task.content)"
-        />
+        <!-- アイコンだけのボタンは何のボタンか分からないので、並びのすべてにツールチップを付ける -->
+        <UTooltip v-if="task" text="タスクのリンクをコピー（Shift+クリックで Markdown 形式）">
+          <UButton
+            size="xs"
+            color="neutral"
+            variant="ghost"
+            icon="i-lucide-link"
+            aria-label="タスクのリンクをコピー"
+            @click="copyShareLink"
+          />
+        </UTooltip>
+        <UTooltip v-if="task" text="内容をコピー">
+          <UButton
+            size="xs"
+            color="neutral"
+            variant="ghost"
+            icon="i-lucide-copy"
+            aria-label="内容をコピー"
+            @click="copyContent(task.content)"
+          />
+        </UTooltip>
+        <!-- 移動は移動元でも編集できる人だけ（移動先の条件はダイアログとサーバが確かめる） -->
+        <UTooltip v-if="task && !isReadonly" text="別のプロジェクトへ移動">
+          <UButton
+            size="xs"
+            color="neutral"
+            variant="ghost"
+            icon="i-lucide-folder-input"
+            aria-label="別のプロジェクトへ移動"
+            @click="moveOpen = true"
+          />
+        </UTooltip>
       </div>
     </template>
 
     <template #body>
       <SlideoverResizeHandle />
+      <TaskMoveModal v-if="task" v-model:open="moveOpen" :task="task" />
 
       <div v-if="task" class="space-y-4 p-1">
         <!-- 内容 (editable) -->
