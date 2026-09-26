@@ -1936,13 +1936,17 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
             @share="shareView"
             @delete="deleteView"
           />
-          <UButton
-            color="neutral"
-            variant="outline"
-            :icon="colorModeIcon"
-            :aria-label="colorModeAriaLabel"
-            @click="toggleColorMode"
-          />
+          <TaskViewHistoryMenu />
+          <!-- アイコンだけのボタンなので、閲覧履歴と同じくツールチップで何のボタンかを出す -->
+          <UTooltip :text="colorModeAriaLabel">
+            <UButton
+              color="neutral"
+              variant="outline"
+              :icon="colorModeIcon"
+              :aria-label="colorModeAriaLabel"
+              @click="toggleColorMode"
+            />
+          </UTooltip>
           <UDropdownMenu :items="columnVisibilityItems" :ui="{ content: 'min-w-40' }">
             <UButton
               color="neutral"

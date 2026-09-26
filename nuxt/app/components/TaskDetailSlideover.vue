@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { apiRecordTaskView } from '~/api/task-views';
 import dayjs from 'dayjs';
 import { apiCreateComment, apiUpdateComment } from '~/api/comments';
 import type { TaskActivity } from '~/types/activity';
@@ -166,6 +167,18 @@ watch(
 // コメントアイコンから開かれた場合、コメント欄の先頭までスクロールする。
 // USlideover の body はオープン時に描画されるため、nextTick + rAF で描画後に実行する。
 const commentsSection = useTemplateRef<HTMLElement>('commentsSection');
+// 閲覧履歴に記録する。一覧・ボード・ガントのどこから開いても（ダッシュボードや共有リンク経由でも）
+// 最終的にこのスライドオーバーで開くので、記録はここ 1 か所にまとめる。
+// 別のタスクに切り替えたときも記録する。記録は投げっぱなしで、失敗しても画面は止めない。
+watch(
+  () => [props.open, props.task?.id, props.task?.projectId] as const,
+  ([open, taskId, projectId]) => {
+    if (!open || !taskId || !projectId) return;
+    apiRecordTaskView(api, projectId, taskId).catch(() => {});
+  },
+  { immediate: true },
+);
+
 watch(
   () => [props.open, props.focusComments, taskIdRef.value] as const,
   ([open, focus]) => {
