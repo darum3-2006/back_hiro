@@ -4,6 +4,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
 import { MembersService } from '../members/members.service';
+import { ProjectAccessService } from '../projects/project-access.service';
 import type { Project } from '../projects/project.entity';
 import { ProjectsService } from '../projects/projects.service';
 import { SavedView, type SavedViewConfig } from './saved-view.entity';
@@ -14,6 +15,7 @@ describe('SavedViewsService', () => {
   let repo: jest.Mocked<Repository<SavedView>>;
   let projects: jest.Mocked<Pick<ProjectsService, 'findByIdInTenant'>>;
   let members: jest.Mocked<Pick<MembersService, 'assertProjectAdmin'>>;
+  let access: jest.Mocked<Pick<ProjectAccessService, 'isEditor'>>;
 
   const tenantId = 'tenant-1';
   const projectId = 'project-1';
@@ -59,6 +61,8 @@ describe('SavedViewsService', () => {
   beforeEach(async () => {
     projects = { findByIdInTenant: jest.fn().mockResolvedValue({ id: projectId } as Project) };
     members = { assertProjectAdmin: jest.fn().mockResolvedValue(undefined) };
+    // 既定はメンバー（編集の担い手）。メンバーでない人のケースは個別に false にする
+    access = { isEditor: jest.fn().mockResolvedValue(true) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -76,6 +80,7 @@ describe('SavedViewsService', () => {
         },
         { provide: ProjectsService, useValue: projects },
         { provide: MembersService, useValue: members },
+        { provide: ProjectAccessService, useValue: access },
       ],
     }).compile();
 
@@ -363,6 +368,64 @@ describe('SavedViewsService', () => {
         ForbiddenException,
       );
       expect(members.assertProjectAdmin).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('メンバーでない人（閲覧のみ）', () => {
+    it('private なら作成できる', async () => {
+      access.isEditor.mockResolvedValue(false);
+
+      await expect(
+        service.create(tenantId, projectId, other, { name: 'mine', config }),
+      ).resolves.toBeDefined();
+    });
+
+    it('shared ビューは作成できない（プロジェクトの全員に見えるため）', async () => {
+      access.isEditor.mockResolvedValue(false);
+
+      await expect(
+        service.create(tenantId, projectId, other, { name: 's', visibility: 'shared', config }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('他人の shared ビューは編集できない', async () => {
+      access.isEditor.mockResolvedValue(false);
+      repo.findOne.mockResolvedValue({ ...baseView, visibility: 'shared' });
+
+      await expect(
+        service.update(tenantId, projectId, baseView.id, other, { name: 'x' }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('自分の private ビューを shared にはできない', async () => {
+      access.isEditor.mockResolvedValue(false);
+      repo.findOne.mockResolvedValue({ ...baseView, ownerUserId: other.userId });
+
+      await expect(
+        service.update(tenantId, projectId, baseView.id, other, { visibility: 'shared' }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('メンバーでないテナント admin', () => {
+    const tenantAdmin: AuthenticatedUser = { userId: 'user-9', tenantId, role: 'admin' };
+
+    it('共有ビューを削除できる（共有ビューの管理は admin の仕事）', async () => {
+      access.isEditor.mockResolvedValue(false);
+      repo.findOne.mockResolvedValue({ ...baseView, visibility: 'shared' });
+
+      await expect(
+        service.remove(tenantId, projectId, baseView.id, tenantAdmin),
+      ).resolves.toBeUndefined();
+    });
+
+    it('共有ビューの名前・中身は編集できない（タスク側の作業はメンバーのみ）', async () => {
+      access.isEditor.mockResolvedValue(false);
+      repo.findOne.mockResolvedValue({ ...baseView, visibility: 'shared' });
+
+      await expect(
+        service.update(tenantId, projectId, baseView.id, tenantAdmin, { name: 'x' }),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 });

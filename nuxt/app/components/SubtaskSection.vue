@@ -37,7 +37,8 @@ const emit = defineEmits<{
 const api = useApi();
 
 // readonly（閲覧のみ）ユーザーには編集 UI を出さない（API 側でも 403 で拒否される）
-const { isReadonly } = useAuth();
+// このプロジェクトで閲覧のみか（readonly ロール、または ProjectMember でない）
+const isReadonly = useProjectReadonly();
 const toast = useToast();
 
 // IME 変換中フラグ。変換確定/キャンセルの Enter・ESC を本来の操作と区別する

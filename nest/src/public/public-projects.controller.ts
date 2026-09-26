@@ -17,6 +17,7 @@ import { ProjectAccessService } from '../projects/project-access.service';
 import { ProjectsService } from '../projects/projects.service';
 import { PublicCreateProjectDto, PublicUpdateProjectDto } from './dto/public-project-input';
 import { PublicProject, toPublicProject } from './dto/public-project';
+import { ProjectManagement } from '../auth/project-management.decorator';
 
 /**
  * 公開API: プロジェクト（APIキー所有ユーザーのテナントにスコープ）。
@@ -48,13 +49,15 @@ export class PublicProjectsController {
     @Body() dto: PublicCreateProjectDto,
   ): Promise<PublicProject> {
     const created = await this.projects.create(user.tenantId, dto);
-    // 内部 API と同じく、作成者だけに見えるようにする（明示付与運用）
-    await this.access.grant(user.tenantId, user.userId, created.id);
+    // 内部 API と同じく、作成者だけに見えるようにし、プロジェクト管理者としてメンバーにも入れる
+    // （編集はメンバーに限られるため。入れないと admin でない作成者が編集できない）
+    await this.access.grantCreator(user.tenantId, user.userId, created.id);
     return toPublicProject(created);
   }
 
   /** 部分更新（PATCH）。公開APIから書けるのは name / description のみ。 */
   @Patch(':key')
+  @ProjectManagement()
   async update(
     @CurrentUser() user: AuthenticatedUser,
     @Param('key') key: string,
@@ -70,6 +73,7 @@ export class PublicProjectsController {
 
   /** アーカイブ（admin のみ）。アーカイブ済みなら何もせず 200（冪等）。 */
   @Post(':key/archive')
+  @ProjectManagement()
   @HttpCode(200)
   async archive(
     @CurrentUser() user: AuthenticatedUser,
@@ -84,6 +88,7 @@ export class PublicProjectsController {
 
   /** アーカイブ解除（admin のみ）。非アーカイブなら何もせず 200（冪等）。 */
   @Post(':key/unarchive')
+  @ProjectManagement()
   @HttpCode(200)
   async unarchive(
     @CurrentUser() user: AuthenticatedUser,

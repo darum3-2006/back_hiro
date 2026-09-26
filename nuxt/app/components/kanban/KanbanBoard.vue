@@ -5,7 +5,8 @@ import type { Member } from '~/types/member';
 import type { Task } from '~/types/task';
 
 // readonly（閲覧のみ）ユーザーはドラッグでのステータス変更を不可にする
-const { isReadonly } = useAuth();
+// このプロジェクトで閲覧のみか（readonly ロール、または ProjectMember でない）
+const isReadonly = useProjectReadonly();
 
 const props = defineProps<{
   statuses: TaskStatus[];

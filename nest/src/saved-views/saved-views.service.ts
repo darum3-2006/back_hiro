@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
 import { generateShortCode } from '../common/short-code';
 import { MembersService } from '../members/members.service';
+import { ProjectAccessService } from '../projects/project-access.service';
 import { ProjectsService } from '../projects/projects.service';
 import { CreateSavedViewDto } from './dto/create-saved-view.dto';
 import { UpdateSavedViewDto } from './dto/update-saved-view.dto';
@@ -16,6 +17,7 @@ export class SavedViewsService {
     private readonly savedViews: Repository<SavedView>,
     private readonly projects: ProjectsService,
     private readonly members: MembersService,
+    private readonly access: ProjectAccessService,
   ) {}
 
   /** プロジェクト内で当該ユーザーが見られるビュー（自分の private ＋ shared 全部）を返す。 */
@@ -40,8 +42,8 @@ export class SavedViewsService {
     user: AuthenticatedUser,
     dto: CreateSavedViewDto,
   ): Promise<SavedView> {
-    if (user.role === 'readonly' && (dto.visibility ?? 'private') !== 'private') {
-      throw new ForbiddenException('閲覧専用ユーザーは共有ビューを作成できません');
+    if ((dto.visibility ?? 'private') !== 'private' && (await this.isViewerOnly(user, projectId))) {
+      throw new ForbiddenException('閲覧のみのユーザーは共有ビューを作成できません');
     }
     await this.projects.findByIdInTenant(tenantId, projectId);
     const view = this.savedViews.create({
@@ -95,7 +97,13 @@ export class SavedViewsService {
     dto: UpdateSavedViewDto,
   ): Promise<SavedView> {
     const view = await this.findVisible(tenantId, projectId, id, user);
-    this.assertReadonlyScope(user, view, dto.visibility);
+    // 公開範囲だけの変更は共有ビューの管理（削除と同じ扱い）なので、テナント admin は
+    // メンバーでなくても行える。名前・中身の編集はタスク側の作業としてメンバーに限る
+    const visibilityOnly =
+      dto.visibility !== undefined && dto.name === undefined && dto.config === undefined;
+    await this.assertViewerScope(user, projectId, view, dto.visibility, {
+      adminManaging: visibilityOnly,
+    });
     // 公開範囲の変更は実質的に共有解除（全メンバーから見えなくなる）なので削除と同じ権限に限定。
     // 名前・config の編集は閲覧できるビューなら誰でも可
     //（private は findVisible で owner 以外 404、shared は全メンバー編集可）
@@ -115,7 +123,8 @@ export class SavedViewsService {
     user: AuthenticatedUser,
   ): Promise<void> {
     const view = await this.findVisible(tenantId, projectId, id, user);
-    this.assertReadonlyScope(user, view);
+    // 共有ビューの削除は管理操作なので、テナント admin はメンバーでなくても行える
+    await this.assertViewerScope(user, projectId, view, undefined, { adminManaging: true });
     await this.assertOwnerOrAdmin(tenantId, projectId, view, user);
     await this.savedViews.remove(view);
   }
@@ -160,20 +169,35 @@ export class SavedViewsService {
   }
 
   /**
-   * readonly（閲覧のみ）ユーザーの保存ビュー操作を「自分の private ビュー」に限定する。
+   * このプロジェクトで「閲覧のみ」か。readonly ロールか、閲覧権はあるが ProjectMember でない人。
+   * 保存ビューのエンドポイントは @AllowReadonly() で両者を通しているので、共有ビューに
+   * 触らせない制約はここで担保する（共有ビューはプロジェクトの全員に見えるため）。
+   */
+  private async isViewerOnly(user: AuthenticatedUser, projectId: string): Promise<boolean> {
+    if (user.role === 'readonly') return true;
+    return !(await this.access.isEditor(user, projectId));
+  }
+
+  /**
+   * 閲覧のみのユーザーの保存ビュー操作を「自分の private ビュー」に限定する。
    * shared ビューの編集・削除（孤児ビューの引き取り含む）や、private→shared への変更は不可。
    */
-  private assertReadonlyScope(
+  private async assertViewerScope(
     user: AuthenticatedUser,
+    projectId: string,
     view: SavedView,
     nextVisibility?: 'private' | 'shared',
-  ): void {
-    if (user.role !== 'readonly') return;
+    options: { adminManaging?: boolean } = {},
+  ): Promise<void> {
+    // 共有ビューの管理（削除・公開範囲の変更）は、テナント admin ならメンバーでなくても可。
+    // 誰が削除・変更できるか自体は assertOwnerOrAdmin が別に判定する
+    if (options.adminManaging && user.role === 'admin') return;
+    if (!(await this.isViewerOnly(user, projectId))) return;
     if (view.visibility === 'shared' || view.ownerUserId !== user.userId) {
-      throw new ForbiddenException('閲覧専用ユーザーは自分の個人ビューのみ操作できます');
+      throw new ForbiddenException('閲覧のみのユーザーは自分の個人ビューのみ操作できます');
     }
     if (nextVisibility === 'shared') {
-      throw new ForbiddenException('閲覧専用ユーザーはビューを共有できません');
+      throw new ForbiddenException('閲覧のみのユーザーはビューを共有できません');
     }
   }
 

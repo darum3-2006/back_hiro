@@ -1618,7 +1618,9 @@ watch(
 // ===== 保存ビュー (SavedView) =====
 // 表示状態は全て URL クエリにシリアライズされている。capture = クエリ + 列 ref の
 // 読み取り、apply = 列 ref を直接セット + フィルタ/ソートを URL へ全置換。
-const { me, isReadonly } = useAuth();
+const { me } = useAuth();
+// このプロジェクトで閲覧のみか（readonly ロール、または ProjectMember でない）
+const isReadonly = useProjectReadonly();
 const currentTenantKey = useCurrentTenantKey();
 
 const lastViewKey = computed(() => `tasks:last-view:${currentProjectId.value}`);

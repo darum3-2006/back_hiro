@@ -46,7 +46,8 @@ const isPlannedCompletionOverdue = computed(
 const api = useApi();
 
 // readonly（閲覧のみ）ユーザーには編集 UI を一切出さない（API 側でも 403 で拒否される）
-const { isReadonly } = useAuth();
+// このプロジェクトで閲覧のみか（readonly ロール、または ProjectMember でない）
+const isReadonly = useProjectReadonly();
 
 const props = defineProps<{
   task: Task | null;

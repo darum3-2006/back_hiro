@@ -12,7 +12,7 @@ describe('PublicProjectsController', () => {
   let projects: jest.Mocked<
     Pick<ProjectsService, 'listByTenant' | 'findByKeyInTenant' | 'create' | 'update'>
   >;
-  let access: jest.Mocked<Pick<ProjectAccessService, 'accessibleProjectIds' | 'grant'>>;
+  let access: jest.Mocked<Pick<ProjectAccessService, 'accessibleProjectIds' | 'grantCreator'>>;
 
   const admin: AuthenticatedUser = { userId: 'u1', tenantId: 't1', role: 'admin' };
   const powerUser: AuthenticatedUser = { userId: 'u2', tenantId: 't1', role: 'power_user' };
@@ -35,7 +35,7 @@ describe('PublicProjectsController', () => {
     };
     access = {
       accessibleProjectIds: jest.fn().mockResolvedValue(null),
-      grant: jest.fn().mockResolvedValue(undefined),
+      grantCreator: jest.fn().mockResolvedValue(undefined),
     };
     const module: TestingModule = await Test.createTestingModule({
       controllers: [PublicProjectsController],
@@ -60,12 +60,12 @@ describe('PublicProjectsController', () => {
       expect(result).toEqual({ key: 'DEMO', name: 'デモ', description: null, archived: false });
     });
 
-    it('作成者にだけ閲覧権を付与する（明示付与運用）', async () => {
+    it('作成者にだけ閲覧権を付け、メンバーにも入れる（明示付与運用・編集はメンバーのみ）', async () => {
       projects.create.mockResolvedValue(activeProject);
 
       await controller.create(powerUser, { key: 'demo', name: 'デモ' });
 
-      expect(access.grant).toHaveBeenCalledWith('t1', 'u2', 'p1');
+      expect(access.grantCreator).toHaveBeenCalledWith('t1', 'u2', 'p1');
     });
   });
 

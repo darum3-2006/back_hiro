@@ -17,4 +17,9 @@ export interface Project {
   slackNotifyTaskCreated: boolean;
   slackNotifyStatusChanged: boolean;
   slackNotifyTaskCompleted: boolean;
+  /**
+   * ログインユーザーがこのプロジェクトを編集できるか。テナント admin か ProjectMember なら true。
+   * 閲覧権だけの人と readonly ロールは false（このプロジェクトは見るだけ）
+   */
+  canEdit: boolean;
 }
