@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { RouteLocationRaw } from 'vue-router';
 import type { TaskViewEntry } from '~/types/task-view';
 
 // 自分が最近開いたタスクの履歴（全プロジェクト横断）。開いたときに取り直すので、
@@ -20,8 +21,21 @@ defineShortcuts({
   },
 });
 
-const linkOf = (e: TaskViewEntry): string =>
-  `/${currentTenantKey.value}/projects/${e.projectId}/tasks?task=${e.seq}`;
+const route = useRoute();
+const currentProjectId = useCurrentProjectId();
+
+// 同じプロジェクトの一覧にいるときは、フィルタ・ソート・ビュー・列状態のクエリを保ったまま
+// task だけ差し替える（クエリ全体を置き換えると再マウントされないため復元も走らず、
+// 絞り込みが消えて記憶したフィルタまでクリアされてしまう）。
+// 別プロジェクトへは素の遷移にして、遷移先の一覧側の復元（前回ビュー / 記憶したフィルタ）に任せる。
+const linkOf = (e: TaskViewEntry): RouteLocationRaw => {
+  const path = `/${currentTenantKey.value}/projects/${e.projectId}/tasks`;
+  const task = String(e.seq);
+  if (e.projectId === currentProjectId.value) {
+    return { path, query: { ...route.query, task } };
+  }
+  return { path, query: { task } };
+};
 </script>
 
 <template>
