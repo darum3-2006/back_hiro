@@ -7,7 +7,14 @@ const route = useRoute();
 const projectId = computed(() => route.params.projectId as string);
 
 const api = useApi();
-const { data: members, refresh: refreshMembers } = await useMembers(projectId);
+const { data: members, refresh: refreshMemberList } = await useMembers(projectId);
+
+// 自分の User 紐付けが変わると、このプロジェクトの編集可否（GET /projects の canEdit）も変わる。
+// 編集可否はレイアウトが読み込んだプロジェクト一覧のキャッシュを見ている（useProjectReadonly）ため、
+// メンバーを変更したら一覧も取り直して、リロードしなくても画面の出し分けに反映させる。
+const refreshMembers = async () => {
+  await Promise.all([refreshMemberList(), refreshNuxtData('projects')]);
+};
 const { data: users } = await useUsers();
 
 const userMap = computed(() => Object.fromEntries(users.value.map((u) => [u.id, u])));
