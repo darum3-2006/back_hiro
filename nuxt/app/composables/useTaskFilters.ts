@@ -693,6 +693,34 @@ export const useTaskFilters = (data: TaskFilterData) => {
     })),
   ];
 
+  /**
+   * 値は空だがチップとして画面に出しておくフィルタのキー。
+   * チップは本来「値が入っているフィルタ」だけを出すが、次の 2 つのときは空でも残す。
+   * - 「+ フィルタ」から足した直後（値を選ぶ前に消えると、追加操作が何も起きないように見える）
+   * - 「すべてクリア」のあと（値だけ消して、どのフィルタで絞っていたかの枠は残す）
+   * URL には載せない（空のフィルタは共有・保存する意味がないため）。再読み込みで消える。
+   */
+  const pinnedChipKeys = ref<string[]>([]);
+  // 同じ画面のままプロジェクトだけ切り替わったとき、前のプロジェクトの空のチップを持ち越さない
+  watch(
+    () => route.params.projectId,
+    () => {
+      pinnedChipKeys.value = [];
+    },
+  );
+
+  /**
+   * フィルタの値だけを空にし、出ていたチップは「指定なし」の状態で残す。
+   * 「すべてクリア」と、0 件のときの「フィルタをクリア」の両方から使う。
+   */
+  const clearFilterValues = () => {
+    const shown = chipFilters
+      .filter((f) => f.isActive.value || pinnedChipKeys.value.includes(f.key))
+      .map((f) => f.key);
+    pinnedChipKeys.value = shown;
+    resetFilters();
+  };
+
   return {
     statusMap,
     search,
@@ -706,6 +734,10 @@ export const useTaskFilters = (data: TaskFilterData) => {
     filteredTasks,
     /** チップバーが回す、値 + 日付を通した 1 本のフィルタ一覧 */
     chipFilters,
+    /** 値は空でもチップとして出しておくフィルタのキー（URL には載せない） */
+    pinnedChipKeys,
+    /** 値だけ空にして、出ていたチップは残す（すべてクリア） */
+    clearFilterValues,
     /** 列ヘッダ等がキーから値フィルタを引くための索引 */
     valueFilterByKey,
     // 以下は `filteredTasks` とは別の絞り込みを自前で組む画面向けの内部プリミティブ。

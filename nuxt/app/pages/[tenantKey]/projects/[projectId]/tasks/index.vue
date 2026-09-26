@@ -2534,7 +2534,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
                 variant="ghost"
                 icon="i-lucide-x"
                 label="フィルタをクリア"
-                @click="taskFilters.resetFilters"
+                @click="taskFilters.clearFilterValues"
               />
             </div>
           </template>

@@ -9,25 +9,25 @@ const props = defineProps<{
 }>();
 
 // 値はすべて ref / computed / 関数 / 安定配列なので、分割代入してもリアクティブは保たれる。
-const { search, showCompleted, statusFilter, hasActiveFilter, resetFilters, chipFilters } =
-  props.filters;
+const {
+  search,
+  showCompleted,
+  statusFilter,
+  hasActiveFilter,
+  chipFilters,
+  pinnedChipKeys,
+  clearFilterValues,
+} = props.filters;
 
-/**
- * 「+ フィルタ」から足したが、まだ値が空のフィルタのキー。
- * チップは本来「値が入っているフィルタ」だけを出すが、それだけだと追加操作が
- * 何も起きないように見えるため、値が入るまでの間だけここで覚えて表示する。
- * URL には載せない（空のフィルタは共有・保存する意味がないため）。
- */
-const pendingKeys = ref<string[]>([]);
 /** 追加直後に編集ポップオーバーを自動で開くのは 1 回だけ。その対象 */
 const justAddedKey = ref<string | null>(null);
 
 const visibleFilters = computed(() =>
-  chipFilters.filter((f) => f.isActive.value || pendingKeys.value.includes(f.key)),
+  chipFilters.filter((f) => f.isActive.value || pinnedChipKeys.value.includes(f.key)),
 );
 
 const addableFilters = computed(() =>
-  chipFilters.filter((f) => !f.isActive.value && !pendingKeys.value.includes(f.key)),
+  chipFilters.filter((f) => !f.isActive.value && !pinnedChipKeys.value.includes(f.key)),
 );
 
 const addQuery = ref('');
@@ -39,7 +39,7 @@ const addableMatches = computed(() => {
 
 const addOpen = ref(false);
 const addFilter = (key: string) => {
-  if (!pendingKeys.value.includes(key)) pendingKeys.value = [...pendingKeys.value, key];
+  if (!pinnedChipKeys.value.includes(key)) pinnedChipKeys.value = [...pinnedChipKeys.value, key];
   justAddedKey.value = key;
   addOpen.value = false;
   addQuery.value = '';
@@ -48,13 +48,13 @@ const addFilter = (key: string) => {
 const removeFilter = (key: string) => {
   const target = chipFilters.find((f) => f.key === key);
   target?.clear();
-  pendingKeys.value = pendingKeys.value.filter((k) => k !== key);
+  pinnedChipKeys.value = pinnedChipKeys.value.filter((k) => k !== key);
   if (justAddedKey.value === key) justAddedKey.value = null;
 };
 
+// 値だけ消して、どのフィルタで絞っていたかのチップは「指定なし」で残す
 const clearAll = () => {
-  resetFilters();
-  pendingKeys.value = [];
+  clearFilterValues();
   justAddedKey.value = null;
 };
 </script>
