@@ -122,13 +122,14 @@ const selectedTask = computed<Task | null>(() => {
 
 const slideoverOpen = computed(() => selectedTask.value !== null);
 
+// 開閉は push（ブラウザの「戻る」でその前の表示に戻れるように）
 const openTask = (task: Task) => {
-  void router.replace({ query: { ...route.query, task: String(task.seq) } });
+  void router.push({ query: { ...route.query, task: String(task.seq) } });
 };
 const closeSlideover = () => {
   const q = { ...route.query };
   delete q.task;
-  void router.replace({ query: q });
+  void router.push({ query: q });
 };
 
 const updateTaskField = async (
