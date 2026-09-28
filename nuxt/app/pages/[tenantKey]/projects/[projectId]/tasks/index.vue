@@ -360,14 +360,16 @@ const filteredSubtaskRows = computed<SubtaskRow[]>(() => {
   const assigneeSet = new Set(applied.assignee.value);
   const flagSet = new Set(applied.flag.value);
   const flagNotSet = new Set(applied.flagNot.value);
-  // タグ除外は「その案件ごと隠す」意図なので、子はタグを持たないぶん親のタグで判定する
+  // タグ・ステータスの除外は「その案件ごと隠す」意図なので、子は自分の値を持たないぶん親の値で判定する
   const tagNotSet = new Set(applied.tagNot.value);
-  const parentTagMap =
-    tagNotSet.size > 0 ? new Map(tasks.value.map((t) => [t.id, t.tagCodes])) : null;
+  const statusNotSet = new Set(applied.statusNot.value);
+  const parentMap =
+    tagNotSet.size > 0 || statusNotSet.size > 0 ? new Map(tasks.value.map((t) => [t.id, t])) : null;
   return projectSubtasks.value.filter((s) => {
-    if (parentTagMap) {
-      const parentTags = parentTagMap.get(s.taskId);
-      if (parentTags?.some((c) => tagNotSet.has(c))) return false;
+    if (parentMap) {
+      const parent = parentMap.get(s.taskId);
+      if (parent?.tagCodes.some((c) => tagNotSet.has(c))) return false;
+      if (parent && statusNotSet.has(parent.statusCode)) return false;
     }
     if (!showCompleted.value && s.done) return false;
     if (search.value) {
@@ -823,7 +825,7 @@ const valueFilterHeader = (label: string, columnId: string, opts: { sortable: bo
         filterPopoverButton(f.isActive.value, `${label}でフィルタ`, () =>
           h(FilterValueList, {
             items: f.items.value,
-            triState: f.def.kind === 'multi',
+            triState: f.triState,
             searchPlaceholder: `${label}を検索…`,
             include: f.include.value,
             'onUpdate:include': (v: string[]) => {

@@ -44,11 +44,14 @@ interface FilterDefBase {
 
 /**
  * 単値フィールド（1 タスクが 1 つだけ値を持つ）。選択したいずれかに一致すれば通す。
- * 「含む」の選択が実質の除外を兼ねるので、除外状態は持たない。
+ * 基本は「含む」の選択が実質の除外を兼ねるので除外状態は持たないが、
+ * 値の種類が多く「これ以外」と指定したいフィールドは `notKey` で除外側を持てる。
  */
 export interface SingleValueFilterDef extends FilterDefBase {
   kind: 'single';
   key: FilterArrayKey;
+  /** 除外側の URL クエリキー。指定すると含む/除外の 3 状態になる */
+  notKey?: FilterArrayKey;
   /** そのタスクの値。null は「値なし」 */
   valueOf: (t: Task) => string | null;
   /**
@@ -103,6 +106,7 @@ export type DateFilterKey =
 
 export type FilterArrayKey =
   | 'status'
+  | 'statusNot'
   | 'priority'
   | 'assignee'
   | 'tag'
@@ -120,6 +124,7 @@ export const FILTER_DEFS: FilterDef[] = [
   {
     kind: 'single',
     key: 'status',
+    notKey: 'statusNot',
     label: 'ステータス',
     valueOf: (t) => t.statusCode,
   },
@@ -241,12 +246,12 @@ export const DATE_FILTER_DEFS = FILTER_DEFS.filter(
 );
 
 /**
- * 配列値フィルタのクエリキー一覧。多値フィルタは除外側の `notKey` も持つ。
+ * 配列値フィルタのクエリキー一覧。除外側を持つフィルタは `notKey` も含む。
  * UI バインド用 ref・applied 用 ref・URL 同期の 3 者がこの 1 本を回ることで、
  * フィルタ追加時に片方だけ直して board と一覧で挙動が食い違う事故を防ぐ。
  */
 export const FILTER_ARRAY_KEYS: FilterArrayKey[] = VALUE_FILTER_DEFS.flatMap((d) =>
-  d.kind === 'multi' ? [d.key, d.notKey] : [d.key],
+  d.notKey ? [d.key, d.notKey] : [d.key],
 );
 
 /**
@@ -551,13 +556,14 @@ export const useTaskFilters = (data: TaskFilterData) => {
 
     return tasks.value.filter((t) => {
       // ステータスは「完了も表示」と相互作用するので定義ループから外して個別に見る。
-      // ステータスフィルタが選択されていればそれを最優先（完了系も含めて表示）
+      // ステータスの「含む」が選択されていればそれを最優先（完了系も含めて表示）
       if (sets.status.size > 0) {
         if (!sets.status.has(t.statusCode)) return false;
       } else if (!showCompleted.value && statusMap.value[t.statusCode]?.isTerminal) {
-        // ステータスフィルタなし & 「完了も表示」OFF のときは完了系を除外
+        // 「含む」なし & 「完了も表示」OFF のときは完了系を除外（除外指定だけでは完了は出さない）
         return false;
       }
+      if (sets.statusNot.has(t.statusCode)) return false;
       if (search.value) {
         const q = search.value.toLowerCase();
         // #番号 / 番号 は seq の前方一致でも引っかける（#は任意）
@@ -573,8 +579,12 @@ export const useTaskFilters = (data: TaskFilterData) => {
         if (d.key === 'status') continue; // 上で処理済み
         if (d.kind === 'single') {
           const set = sets[d.key];
-          if (set.size === 0) continue;
           const v = d.valueOf(t);
+          const exclude = d.notKey ? sets[d.notKey] : null;
+          if (exclude && exclude.size > 0) {
+            if (v ? exclude.has(v) : Boolean(d.noneValue && exclude.has(d.noneValue))) return false;
+          }
+          if (set.size === 0) continue;
           // 値なしのタスクは、sentinel が定義されていてそれが選ばれている場合だけ通す
           const ok = v ? set.has(v) : Boolean(d.noneValue && set.has(d.noneValue));
           if (!ok) return false;
@@ -622,8 +632,14 @@ export const useTaskFilters = (data: TaskFilterData) => {
   const tagItemsForFilter = multiItems(tagFilterItems, 'tag', 'tagNot');
   const flagItemsForFilter = multiItems(flagFilterItems, 'flag', 'flagNot');
 
+  const statusItemsForFilter = withDeletedSelected(statusSelectItems, [
+    uiFilters.status,
+    uiFilters.statusNot,
+  ]);
+
   const filterItems: Record<FilterArrayKey, ComputedRef<FilterItem[]>> = {
-    status: withDeletedSelected(statusSelectItems, [uiFilters.status]),
+    status: statusItemsForFilter,
+    statusNot: statusItemsForFilter,
     priority: withDeletedSelected(prioritySelectItems, [uiFilters.priority]),
     assignee: withDeletedSelected(assigneeFilterItems, [uiFilters.assignee]),
     requestingDept: withDeletedSelected(departmentFilterItems, [uiFilters.requestingDept]),
@@ -637,23 +653,26 @@ export const useTaskFilters = (data: TaskFilterData) => {
    * 定義 + 選択肢 + ref をまとめた、UI がそのまま描画できる形。
    * フィルタバーはこれをループするだけでよく、フィルタ単位のマークアップを持たない。
    */
-  const valueFilters = VALUE_FILTER_DEFS.map((d) => ({
-    def: d,
-    items: filterItems[d.key],
-    /** 含む側の選択値（v-model 先） */
-    include: uiFilters[d.key],
-    /** 除外側の選択値。単値フィルタでは null */
-    exclude: d.kind === 'multi' ? uiFilters[d.notKey] : null,
-    isActive: computed(
-      () =>
-        uiFilters[d.key].value.length > 0 ||
-        (d.kind === 'multi' && uiFilters[d.notKey].value.length > 0),
-    ),
-    clear: () => {
-      uiFilters[d.key].value = [];
-      if (d.kind === 'multi') uiFilters[d.notKey].value = [];
-    },
-  }));
+  const valueFilters = VALUE_FILTER_DEFS.map((d) => {
+    const exclude = d.notKey ? uiFilters[d.notKey] : null;
+    return {
+      def: d,
+      items: filterItems[d.key],
+      /** 含む/除外の 3 状態か（除外側を持つか） */
+      triState: exclude !== null,
+      /** 含む側の選択値（v-model 先） */
+      include: uiFilters[d.key],
+      /** 除外側の選択値。除外側を持たないフィルタでは null */
+      exclude,
+      isActive: computed(
+        () => uiFilters[d.key].value.length > 0 || (exclude?.value.length ?? 0) > 0,
+      ),
+      clear: () => {
+        uiFilters[d.key].value = [];
+        if (exclude) exclude.value = [];
+      },
+    };
+  });
 
   /**
    * キー引きの値フィルタ索引。一覧の列ヘッダが「列 ID → フィルタ」で引くのに使う。
@@ -672,10 +691,10 @@ export const useTaskFilters = (data: TaskFilterData) => {
       label: f.def.label,
       chipLabel: f.def.chipLabel ?? f.def.label,
       icon: f.def.icon,
-      triState: f.def.kind === 'multi',
+      triState: f.triState,
       items: f.items,
       include: f.include,
-      // 単値フィルタに除外状態は無いが、UI 側の分岐を減らすため空 ref を置く。
+      // 除外側を持たないフィルタにも、UI 側の分岐を減らすため空 ref を置く。
       // triState=false のリストは exclude を書き換えないので、この ref は常に空のまま。
       exclude: f.exclude ?? ref<string[]>([]),
       isActive: f.isActive,
