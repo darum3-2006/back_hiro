@@ -82,6 +82,8 @@ export interface MyTaskResponse {
 export interface DashboardTaskResponse extends MyTaskResponse {
   /** 判定に使った基準日付の値（YYYY-MM-DD） */
   targetDate: string;
+  /** 担当メンバーの表示名。未割り当てなら null */
+  assigneeName: string | null;
 }
 
 /**
@@ -357,6 +359,7 @@ export class TasksService {
       .createQueryBuilder('t')
       .innerJoin('t.project', 'p')
       .innerJoin(TaskStatus, 's', 's.project_id = t.project_id AND s.code = t.status_code')
+      .leftJoin(ProjectMember, 'am', 'am.id = t.assignee_member_id AND am.deleted_at IS NULL')
       .where('p.tenant_id = :tenantId', { tenantId })
       .andWhere('p.archived_at IS NULL')
       .andWhere('s.is_terminal = false')
@@ -384,6 +387,7 @@ export class TasksService {
         `(${column} < CURDATE()) AS isOverdue`,
         't.project_id AS projectId',
         'p.name AS projectName',
+        'am.display_name AS assigneeName',
       ])
       .getRawMany<{
         shortCode: string;
@@ -398,6 +402,7 @@ export class TasksService {
         isOverdue: number;
         projectId: string;
         projectName: string;
+        assigneeName: string | null;
       }>();
 
     const overdue: DashboardTaskResponse[] = [];
@@ -431,6 +436,7 @@ export class TasksService {
       .createQueryBuilder('t')
       .innerJoin('t.project', 'p')
       .innerJoin(TaskStatus, 's', 's.project_id = t.project_id AND s.code = t.status_code')
+      .leftJoin(ProjectMember, 'am', 'am.id = t.assignee_member_id AND am.deleted_at IS NULL')
       .where('p.tenant_id = :tenantId', { tenantId })
       .andWhere('p.archived_at IS NULL')
       .andWhere('s.is_terminal = false')
@@ -457,6 +463,7 @@ export class TasksService {
         "DATE_FORMAT(t.status_changed_at, '%Y-%m-%d') AS targetDate",
         't.project_id AS projectId',
         'p.name AS projectName',
+        'am.display_name AS assigneeName',
       ])
       .getRawMany<DashboardTaskResponse>();
 

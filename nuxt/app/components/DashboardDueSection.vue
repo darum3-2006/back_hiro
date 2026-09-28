@@ -104,6 +104,14 @@ const toneClass = computed(() => TONE_CLASS[props.tone]);
                 :label="t.statusLabel"
                 class="ml-auto shrink-0"
               />
+              <!-- 幅を固定して行ごとに日付の位置を揃える。長い名前は省略し、全文は title で見せる -->
+              <span
+                class="w-24 shrink-0 truncate text-xs"
+                :class="t.assigneeName ? 'text-muted' : 'text-dimmed'"
+                :title="t.assigneeName ?? undefined"
+              >
+                {{ t.assigneeName ?? '未割り当て' }}
+              </span>
               <span class="shrink-0 tabular-nums text-xs text-muted">
                 {{ fmtDate(t.targetDate) }}
               </span>
