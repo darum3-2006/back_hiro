@@ -7,7 +7,8 @@ import type { FilterItem } from '~/composables/useTaskFilters';
  *
  * - `triState` false: 未選択 ⇄ 含む の 2 状態。単値フィールド用
  *   （1 タスクが 1 つしか値を持たないので、「含む」の選択が実質の除外を兼ねる）
- * - `triState` true : 未選択 → 含む ✓ → 除外 ⊘ の 3 状態。多値フィールド用
+ * - `triState` true : 未選択 → 含む ✓ → 除外 ⊘ の 3 状態。多値フィールドと、
+ *   除外側を持つ単値フィールド（ステータス）用
  */
 const props = defineProps<{
   items: FilterItem[];
