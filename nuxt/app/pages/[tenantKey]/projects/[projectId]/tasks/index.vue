@@ -19,7 +19,12 @@ import {
   type BulkUpdateTasksInput,
 } from '~/api/tasks';
 import type { DateRangeValue } from '~/components/DateRangeFilter.vue';
-import type { SavedView, SavedViewConfig, SavedViewVisibility } from '~/types/saved-view';
+import type {
+  SavedView,
+  SavedViewConfig,
+  SavedViewSort,
+  SavedViewVisibility,
+} from '~/types/saved-view';
 import type { SubtaskRow } from '~/types/subtask';
 import type { Task } from '~/types/task';
 import { fmtDateTime } from '~/utils/date';
@@ -1147,19 +1152,28 @@ const selectableTasks = computed<Task[]>(() => clippedRows.value.filter((r) => !
 
 // ソートもプロジェクトごとに localStorage 永続化（列幅と同じ流儀）。
 // プロジェクトを切り替えて素の遷移で開いたとき、前回のソートを復元する。
-// SavedView を選んだ場合はビューのソートが優先（フィルタ記憶と同じ思想）。
+// 前回ビューを再現する場合も、フィルタと同じく記憶した現在のソートを優先する。
 const sortMemoryKey = computed(() => `tasks:sort:${currentProjectId.value}`);
-const savedSortQuery = (): Record<string, string> => {
-  if (!import.meta.client) return {};
+/**
+ * 記憶したソートを読み出す。
+ * - undefined: 記憶なし
+ * - null: 未ソートを明示的に記憶
+ */
+const readSavedSort = (): SavedViewSort | null | undefined => {
+  if (!import.meta.client) return undefined;
   try {
     const raw = localStorage.getItem(sortMemoryKey.value);
-    if (!raw) return {};
+    if (raw === null) return undefined;
     const s = JSON.parse(raw) as { sort?: string; sortDir?: string };
-    if (!s.sort) return {};
-    return { sort: s.sort, sortDir: s.sortDir === 'desc' ? 'desc' : 'asc' };
+    if (!s.sort) return null;
+    return { columnId: s.sort, dir: s.sortDir === 'desc' ? 'desc' : 'asc' };
   } catch {
-    return {};
+    return undefined;
   }
+};
+const savedSortQuery = (): Record<string, string> => {
+  const s = readSavedSort();
+  return s ? { sort: s.columnId, sortDir: s.dir } : {};
 };
 
 // 列幅は localStorage に永続化（プロジェクトごと）
@@ -1483,8 +1497,13 @@ onMounted(() => {
     const view = lastId ? savedViews.value.find((v) => v.id === lastId) : null;
     if (view) {
       selectedViewId.value = view.id;
-      // 列/ソート/選択はビュー、フィルタは記憶した現在値を優先（変更後の絞り込みを保つ）
-      const config = savedFilters ? { ...view.config, filters: savedFilters } : view.config;
+      // 列/選択はビュー、フィルタ・ソートは記憶した現在値を優先（変更後の絞り込み・並びを保つ）
+      const savedSort = readSavedSort();
+      const config: SavedViewConfig = {
+        ...view.config,
+        filters: savedFilters ?? view.config.filters,
+        sort: savedSort === undefined ? view.config.sort : savedSort,
+      };
       applyViewConfig(config, view.id);
       return;
     }
@@ -1568,18 +1587,21 @@ watch(
   { deep: true },
 );
 
-// ソートをプロジェクトごとに保存（未ソートはキー削除）
+// ソートをプロジェクトごとに保存（未ソートは {} ＝未ソートを明示的に記憶）。
+// フィルタ記憶と同じく、ビュー適用・初期復元による変化も含めて常に現在値を保存する。
 watch(
   sorting,
   (v) => {
-    if (!import.meta.client || applyingColumnLayout) return;
-    if (v.length > 0) {
+    if (!import.meta.client) return;
+    try {
       localStorage.setItem(
         sortMemoryKey.value,
-        JSON.stringify({ sort: v[0]!.id, sortDir: v[0]!.desc ? 'desc' : 'asc' }),
+        JSON.stringify(
+          v.length > 0 ? { sort: v[0]!.id, sortDir: v[0]!.desc ? 'desc' : 'asc' } : {},
+        ),
       );
-    } else {
-      localStorage.removeItem(sortMemoryKey.value);
+    } catch {
+      // ignore（プライベートモード等）
     }
   },
   { deep: true },
