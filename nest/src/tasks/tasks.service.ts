@@ -610,6 +610,11 @@ export class TasksService {
       if (dto.flagCodes !== undefined) {
         await this.replaceTaskFlags(projectId, task.id, dto.flagCodes, em);
       }
+      // タグ / フラグは別テーブルなので、それだけの変更だと save() が UPDATE を発行せず
+      // updated_at が進まない。フロントは updatedAt の変化で変更履歴を取り直すため明示的に進める。
+      if (changes.some((c) => c.field === 'tags' || c.field === 'flags')) {
+        await em.update(Task, { id: task.id, projectId }, { updatedAt: () => 'CURRENT_TIMESTAMP' });
+      }
       if (changes.length > 0) {
         await this.audit.record(
           {
