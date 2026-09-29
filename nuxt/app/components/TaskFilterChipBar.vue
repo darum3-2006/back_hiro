@@ -37,9 +37,15 @@ const addableMatches = computed(() => {
   return addableFilters.value.filter((f) => f.label.toLowerCase().includes(q));
 });
 
+// 値を編集したチップは、値を全部外しても「指定なし」で残す。共有ビュー・URL 由来で
+// 表示されていたチップ（pinned に入っていない）が、編集中に消えてしまわないようにする
+const keepShown = (key: string) => {
+  if (!pinnedChipKeys.value.includes(key)) pinnedChipKeys.value = [...pinnedChipKeys.value, key];
+};
+
 const addOpen = ref(false);
 const addFilter = (key: string) => {
-  if (!pinnedChipKeys.value.includes(key)) pinnedChipKeys.value = [...pinnedChipKeys.value, key];
+  keepShown(key);
   justAddedKey.value = key;
   addOpen.value = false;
   addQuery.value = '';
@@ -89,6 +95,7 @@ const clearAll = () => {
         :icon="f.icon"
         date-range
         :open-on-mount="justAddedKey === f.key"
+        @update:range="keepShown(f.key)"
         @remove="removeFilter(f.key)"
       />
       <TaskFilterChip
@@ -101,6 +108,8 @@ const clearAll = () => {
         :tri-state="f.triState"
         :search-placeholder="`${f.label}を検索…`"
         :open-on-mount="justAddedKey === f.key"
+        @update:include="keepShown(f.key)"
+        @update:exclude="keepShown(f.key)"
         @remove="removeFilter(f.key)"
       />
     </template>
