@@ -25,7 +25,12 @@ describe('TasksService', () => {
   let tasksRepo: jest.Mocked<Repository<Task>>;
   let projects: jest.Mocked<Pick<ProjectsService, 'findByIdInTenant'>>;
   let audit: jest.Mocked<Pick<AuditService, 'record' | 'listForEntity'>>;
-  let em: { save: jest.Mock<Promise<Task>, [Task]>; remove: jest.Mock; getRepository: jest.Mock };
+  let em: {
+    save: jest.Mock<Promise<Task>, [Task]>;
+    update: jest.Mock;
+    remove: jest.Mock;
+    getRepository: jest.Mock;
+  };
   let filterQb: {
     where: jest.Mock;
     andWhere: jest.Mock;
@@ -91,6 +96,7 @@ describe('TasksService', () => {
     const taskFlagEm = { delete: jest.fn(), save: jest.fn(), create: jest.fn((x: unknown) => x) };
     em = {
       save: jest.fn((e: Task): Promise<Task> => Promise.resolve({ ...e, id: e.id ?? 't1' })),
+      update: jest.fn(),
       remove: jest.fn(),
       getRepository: jest.fn((entity: unknown) =>
         entity === Tag
@@ -520,6 +526,28 @@ describe('TasksService', () => {
       await service.update(tenantId, projectId, 't1', { content: 'same' }, actor);
 
       expect(audit.record).not.toHaveBeenCalled();
+    });
+
+    it('タグだけの変更でも updated_at を進める（save() では UPDATE が出ないため）', async () => {
+      tagQb.getRawMany.mockResolvedValue([{ code: 'x' }]);
+      tasksRepo.findOne.mockResolvedValue({ ...baseTask } as Task);
+
+      await service.update(tenantId, projectId, 't1', { tagCodes: [] }, actor);
+
+      expect(em.update).toHaveBeenCalledWith(
+        Task,
+        { id: 't1', projectId },
+        { updatedAt: expect.any(Function) },
+      );
+    });
+
+    it('タグ / フラグの変更がなければ updated_at を明示更新しない', async () => {
+      const target = { ...baseTask, content: 'old' };
+      tasksRepo.findOne.mockResolvedValue(target as Task);
+
+      await service.update(tenantId, projectId, 't1', { content: 'new' }, actor);
+
+      expect(em.update).not.toHaveBeenCalled();
     });
 
     it('存在しない id は NotFound', async () => {
