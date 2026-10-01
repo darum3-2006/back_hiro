@@ -28,9 +28,11 @@ import { UsersModule } from './users/users.module';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     // 全体のレート制限（IP 単位）。auth/login 等で個別に override 可能。
+    // 分単位の制限は `default` という名前にしておく。@Throttle({ default: ... }) は同名の
+    // 制限だけを上書きするため、名前が合っていないと個別の厳しい制限が効かない。
     ThrottlerModule.forRoot([
       { name: 'short', ttl: 1000, limit: 20 }, // 20 req/sec
-      { name: 'medium', ttl: 60_000, limit: 200 }, // 200 req/min
+      { name: 'default', ttl: 60_000, limit: 200 }, // 200 req/min
     ]),
     TypeOrmModule.forRootAsync({
       useFactory: () => buildDatabaseOptions(process.env),
