@@ -60,6 +60,8 @@ async function fetchData(id: string) { ... }
 ### レート制限
 
 - `@nestjs/throttler` で全体・ログインともに必ず適用
+- カウント単位はログイン済みならユーザー、それ以外（未ログイン・API キー・無効トークン）は IP（`common/throttle/throttle-tracker.ts`）
+  - ThrottlerGuard は JwtAuthGuard より先に走るので、tracker 内で JWT の署名を検証してから `sub` を使う（未検証の値を使うと偽トークンで制限をすり抜けられる）
 - AppModule で `ThrottlerModule.forRoot([...])` + `APP_GUARD: ThrottlerGuard`
 - 認証系エンドポイントには `@Throttle({ default: { ttl: 60_000, limit: 5 } })` で個別に厳しく
   - `@Throttle` は同名の制限だけを上書きする。分単位の全体制限を `default` という名前にしているのはこのため（名前を変えると個別制限が黙って効かなくなる）
