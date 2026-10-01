@@ -14,6 +14,9 @@ import { ProjectEventsService, type ProjectEventType } from './project-events.se
  * より具体的なリソース（comments 等）を先に判定する（/tasks/:id/comments は comments 扱い）。
  */
 const classify = (path: string): ProjectEventType[] => {
+  // 閲覧履歴の記録（POST /tasks/:taskId/view）は本人だけのデータで、タスク自体は変わらない。
+  // tasks.changed を流すと詳細を開くたびに全員の一覧が再取得されるので、何も流さない。
+  if (/\/tasks\/[^/]+\/view$/.test(path)) return [];
   if (path.includes('/saved-views')) return ['views.changed'];
   if (path.includes('/comments')) return ['comments.changed'];
   if (path.includes('/members')) return ['members.changed'];
