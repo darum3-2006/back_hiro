@@ -203,6 +203,17 @@ describe('ProjectEventsInterceptor', () => {
     });
   });
 
+  it('閲覧履歴の記録（POST /tasks/:taskId/view）では emit しない', async () => {
+    await run({
+      method: 'POST',
+      path: '/api/projects/p1/tasks/t1/view',
+      params: { projectId: 'p1', taskId: 't1' },
+      user,
+    });
+
+    expect(service.emit).not.toHaveBeenCalled();
+  });
+
   it('GET リクエストでは emit しない', async () => {
     await run({
       method: 'GET',

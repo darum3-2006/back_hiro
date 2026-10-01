@@ -174,8 +174,11 @@ const commentsSection = useTemplateRef<HTMLElement>('commentsSection');
 // 閲覧履歴に記録する。一覧・ボード・ガントのどこから開いても（ダッシュボードや共有リンク経由でも）
 // 最終的にこのスライドオーバーで開くので、記録はここ 1 か所にまとめる。
 // 別のタスクに切り替えたときも記録する。記録は投げっぱなしで、失敗しても画面は止めない。
+// ソースは配列形式で渡し、各値が実際に変わったときだけ発火させる。`() => [...]` の getter だと
+// 毎回新しい配列になるため、一覧の再取得で task が新しいオブジェクトに差し替わるたびに
+// 同じタスクでも記録が飛び、それが他タブの再取得を呼んで無限に往復していた。
 watch(
-  () => [props.open, props.task?.id, props.task?.projectId] as const,
+  [() => props.open, () => props.task?.id, () => props.task?.projectId] as const,
   ([open, taskId, projectId]) => {
     if (!open || !taskId || !projectId) return;
     apiRecordTaskView(api, projectId, taskId).catch(() => {});
