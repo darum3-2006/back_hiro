@@ -62,7 +62,11 @@ async function fetchData(id: string) { ... }
 - `@nestjs/throttler` で全体・ログインともに必ず適用
 - AppModule で `ThrottlerModule.forRoot([...])` + `APP_GUARD: ThrottlerGuard`
 - 認証系エンドポイントには `@Throttle({ default: { ttl: 60_000, limit: 5 } })` で個別に厳しく
-- 本番で nginx 等の後ろに置くなら `app.set('trust proxy', true)` でクライアント IP を取得（IP 単位の制限のため）
+  - `@Throttle` は同名の制限だけを上書きする。分単位の全体制限を `default` という名前にしているのはこのため（名前を変えると個別制限が黙って効かなくなる）
+- ALB → nginx → Nest の構成なので、クライアント IP は X-Forwarded-For から取る（IP 単位の制限のため）
+  - nginx は `set_real_ip_from`（プライベートアドレス）+ `real_ip_header X-Forwarded-For` + `real_ip_recursive off` で、ALB が末尾に追記した値だけを採用する
+  - nginx から Nest へは `X-Forwarded-For $remote_addr` で上書きする（`$proxy_add_x_forwarded_for` の追記だとクライアントの偽装値が残る）
+  - Nest は `app.set('trust proxy', 'loopback, linklocal, uniquelocal')` でプライベートアドレスからの接続だけ信頼する（`true` にすると外から直接来たリクエストの偽装 XFF を信じてしまう）
 
 ### 入力長の上限
 
