@@ -1,12 +1,14 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { JwtService } from '@nestjs/jwt';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
+import { buildThrottleTracker } from './common/throttle/throttle-tracker';
 import { ReadonlyWriteBlockInterceptor } from './auth/readonly-write-block.interceptor';
 import { buildDatabaseOptions } from './config/database.config';
 import { CommentsModule } from './comments/comments.module';
@@ -27,13 +29,22 @@ import { UsersModule } from './users/users.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    // 全体のレート制限（IP 単位）。auth/login 等で個別に override 可能。
+    // 全体のレート制限。ログイン済みはユーザー単位、それ以外は IP 単位（buildThrottleTracker）。
+    // auth/login 等で個別に override 可能。
     // 分単位の制限は `default` という名前にしておく。@Throttle({ default: ... }) は同名の
     // 制限だけを上書きするため、名前が合っていないと個別の厳しい制限が効かない。
-    ThrottlerModule.forRoot([
-      { name: 'short', ttl: 1000, limit: 20 }, // 20 req/sec
-      { name: 'default', ttl: 60_000, limit: 200 }, // 200 req/min
-    ]),
+    ThrottlerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        throttlers: [
+          { name: 'short', ttl: 1000, limit: 20 }, // 20 req/sec
+          { name: 'default', ttl: 60_000, limit: 200 }, // 200 req/min
+        ],
+        getTracker: buildThrottleTracker(
+          new JwtService({ secret: config.getOrThrow<string>('JWT_SECRET') }),
+        ),
+      }),
+    }),
     TypeOrmModule.forRootAsync({
       useFactory: () => buildDatabaseOptions(process.env),
     }),
