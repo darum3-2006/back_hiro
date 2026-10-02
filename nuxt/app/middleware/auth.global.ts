@@ -1,4 +1,6 @@
+import type { FetchError } from 'ofetch';
 import { apiRefresh } from '~/api/auth';
+import { rateLimitToast } from '~/utils/rate-limit';
 
 /**
  * 認証ミドルウェア。
@@ -19,6 +21,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
   if (tenantKey && to.path === `/${tenantKey}/login`) return;
 
   const { token, me, fetchMe } = useAuth();
+  const toast = useToast();
 
   // 再ログイン後に元の URL に戻せるよう、login へ飛ばす際は redirect クエリで fullPath を保持する。
   const loginUrlFor = (key: string) => `/${key}/login?redirect=${encodeURIComponent(to.fullPath)}`;
@@ -28,7 +31,9 @@ export default defineNuxtRouteMiddleware(async (to) => {
     try {
       const res = await apiRefresh();
       token.value = res.accessToken;
-    } catch {
+    } catch (e) {
+      // 429 はトークンが無効なのではなく制限中。ログイン画面へ送る前に理由と解除見込みを出す
+      if ((e as FetchError).response?.status === 429) toast.add(rateLimitToast(e));
       if (tenantKey) return navigateTo(loginUrlFor(tenantKey), { replace: true });
       return navigateTo('/', { replace: true });
     }
