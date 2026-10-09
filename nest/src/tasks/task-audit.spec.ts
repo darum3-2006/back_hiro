@@ -1,4 +1,9 @@
-import { buildTaskChanges, TaskChangeLabels, TaskFieldSnapshot } from './task-audit';
+import {
+  buildLinkChanges,
+  buildTaskChanges,
+  TaskChangeLabels,
+  TaskFieldSnapshot,
+} from './task-audit';
 
 const emptyLabels = (): TaskChangeLabels => ({
   status: new Map(),
@@ -86,13 +91,15 @@ describe('buildTaskChanges', () => {
     expect(changes).toEqual([{ field: 'description', old: null, new: null }]);
   });
 
-  it('links は内容変化でフラグのみ', () => {
+  it('links は 1 リンク 1 件の変更として記録する', () => {
     const changes = buildTaskChanges(
       snapshot({ links: [] }),
       snapshot({ links: [{ label: 'PR', url: 'https://example.com' }] }),
       emptyLabels(),
     );
-    expect(changes).toEqual([{ field: 'links', old: null, new: null }]);
+    expect(changes).toEqual([
+      { field: 'link_added', old: null, new: 'https://example.com', newLabel: 'PR' },
+    ]);
   });
 
   it('tags は順序非依存で比較し、変化時に code/label を連結', () => {
@@ -150,5 +157,53 @@ describe('buildTaskChanges', () => {
       emptyLabels(),
     );
     expect(changes.map((c) => c.field).sort()).toEqual(['content', 'status']);
+  });
+});
+
+describe('buildLinkChanges', () => {
+  const a = { label: 'A', url: 'https://a.example.com' };
+  const b = { label: 'B', url: 'https://b.example.com' };
+  const c = { label: 'C', url: 'https://c.example.com' };
+
+  it('変化がなければ空', () => {
+    expect(buildLinkChanges([a, b], [a, b])).toEqual([]);
+  });
+
+  it('追加', () => {
+    expect(buildLinkChanges([a], [a, b])).toEqual([
+      { field: 'link_added', old: null, new: b.url, newLabel: 'B' },
+    ]);
+  });
+
+  it('途中のリンクを削除しても、後ろのリンクを書き換えと誤判定しない', () => {
+    expect(buildLinkChanges([a, b, c], [a, c])).toEqual([
+      { field: 'link_removed', old: b.url, new: null, oldLabel: 'B' },
+    ]);
+  });
+
+  it('同じ位置で URL を変えたら書き換え（link_updated）', () => {
+    const b2 = { label: 'B', url: 'https://b2.example.com' };
+    expect(buildLinkChanges([a, b, c], [a, b2, c])).toEqual([
+      { field: 'link_updated', old: b.url, new: b2.url, oldLabel: 'B', newLabel: 'B' },
+    ]);
+  });
+
+  it('URL が同じで表示名だけ変えたら link_updated（old と new の URL が同じ）', () => {
+    expect(buildLinkChanges([a], [{ ...a, label: 'A2' }])).toEqual([
+      { field: 'link_updated', old: a.url, new: a.url, oldLabel: 'A', newLabel: 'A2' },
+    ]);
+  });
+
+  it('並びだけ変わったら link_reordered', () => {
+    expect(buildLinkChanges([a, b], [b, a])).toEqual([
+      { field: 'link_reordered', old: null, new: null },
+    ]);
+  });
+
+  it('全部消したら 1 件ずつ削除', () => {
+    expect(buildLinkChanges([a, b], [])).toEqual([
+      { field: 'link_removed', old: a.url, new: null, oldLabel: 'A' },
+      { field: 'link_removed', old: b.url, new: null, oldLabel: 'B' },
+    ]);
   });
 });

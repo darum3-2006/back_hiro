@@ -1090,8 +1090,24 @@ const flagsList = computed(() => Object.values(props.flagMap));
                       タスクを削除
                     </p>
                     <ul v-else class="mt-0.5 space-y-0.5 text-sm text-muted">
-                      <li v-for="(ch, idx) in item.activity.changes ?? []" :key="idx">
-                        {{ describeAuditChange(ch) }}
+                      <li
+                        v-for="(ch, idx) in item.activity.changes ?? []"
+                        :key="idx"
+                        class="break-words"
+                      >
+                        <template v-for="(part, pi) in describeAuditChange(ch)" :key="pi">
+                          <template v-if="part.kind === 'text'">{{ part.text }}</template>
+                          <a
+                            v-else-if="isHttpUrl(part.url)"
+                            :href="part.url"
+                            :title="part.url"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="text-primary hover:underline"
+                            >{{ shortenUrl(part.url) }}</a
+                          >
+                          <span v-else :title="part.url">{{ shortenUrl(part.url) }}</span>
+                        </template>
                       </li>
                     </ul>
                   </div>
