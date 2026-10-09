@@ -23,7 +23,8 @@
     "markdown-it": "^14.2.0",
     "nuxt": "^4.4.2",
     "tailwindcss": "^4.2.4",
-    "vue-draggable-plus": "^0.6.1"
+    "vue-draggable-plus": "^0.6.1",
+    "xlsx": "0.18.5"
   },
   "devDependencies": {
     "@nuxt/eslint": "^1.15.2",
