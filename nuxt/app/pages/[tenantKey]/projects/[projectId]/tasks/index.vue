@@ -2196,6 +2196,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
           <template #assigneeMemberId-cell="{ row }">
             <SelectMenu
               v-if="isSubRow(row.original)"
+              lazy
               :disabled="isReadonly"
               :items="memberSelectItems"
               :current="subOf(row.original)!.assigneeMemberId"
@@ -2219,6 +2220,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
             </SelectMenu>
             <SelectMenu
               v-else
+              lazy
               :disabled="isReadonly"
               :items="memberSelectItems"
               :current="row.original.assigneeMemberId"
@@ -2242,6 +2244,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
             <span v-if="isSubRow(row.original)" />
             <SelectMenu
               v-else-if="statusMap[row.original.statusCode]"
+              lazy
               :disabled="isReadonly"
               :items="statusSelectItems"
               :current="row.original.statusCode"
@@ -2263,6 +2266,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
             <span v-if="isSubRow(row.original)" />
             <SelectMenu
               v-else
+              lazy
               :disabled="isReadonly"
               :items="prioritySelectItems"
               :current="row.original.priorityCode"
@@ -2291,6 +2295,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
             <span v-if="isSubRow(row.original)" />
             <TagPicker
               v-else
+              lazy
               :disabled="isReadonly"
               :tags="tags"
               :selected="row.original.tagCodes"
@@ -2321,6 +2326,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
           <template #flagCodes-cell="{ row }">
             <TagPicker
               v-if="isSubRow(row.original)"
+              lazy
               :disabled="isReadonly"
               :tags="flags"
               :selected="subOf(row.original)!.flagCodes"
@@ -2348,6 +2354,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
             </TagPicker>
             <TagPicker
               v-else
+              lazy
               :disabled="isReadonly"
               :tags="flags"
               :selected="row.original.flagCodes"
@@ -2378,6 +2385,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
           <template #deadline-cell="{ row }">
             <DatePopover
               v-if="isSubRow(row.original)"
+              lazy
               :disabled="isReadonly"
               :model-value="subOf(row.original)!.deadline"
               @update:model-value="
@@ -2399,6 +2407,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
             </DatePopover>
             <DatePopover
               v-else
+              lazy
               :disabled="isReadonly"
               :model-value="row.original.deadline"
               @update:model-value="
@@ -2418,6 +2427,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
             <span v-if="isSubRow(row.original)" />
             <DatePopover
               v-else
+              lazy
               :disabled="isReadonly"
               :model-value="row.original.plannedStartDate"
               @update:model-value="
@@ -2437,6 +2447,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
             <span v-if="isSubRow(row.original)" />
             <DatePopover
               v-else
+              lazy
               :disabled="isReadonly"
               :model-value="row.original.plannedCompletionDate"
               @update:model-value="
@@ -2456,6 +2467,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
             <span v-if="isSubRow(row.original)" />
             <DatePopover
               v-else
+              lazy
               :disabled="isReadonly"
               :model-value="row.original.plannedReleaseDate"
               @update:model-value="
@@ -2486,6 +2498,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
             <span v-if="isSubRow(row.original)" />
             <SelectMenu
               v-else
+              lazy
               :disabled="isReadonly"
               :items="departmentSelectItems"
               :current="row.original.requestingDeptCode"

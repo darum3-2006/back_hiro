@@ -19,6 +19,8 @@ const props = defineProps<{
   selfLabel?: string;
   /** true ならメニューを開かず、スロットを表示するだけ（readonly ユーザー等） */
   disabled?: boolean;
+  /** true ならクリックされるまで Popover を生成しない（一覧セル等、大量に並べる場合用。useLazyPopover 参照） */
+  lazy?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -74,7 +76,7 @@ const menuItems = computed<DropdownMenuItem[][]>(() => {
   return groups;
 });
 
-const { activated, open, prewarm, activateAndOpen } = useLazyPopover();
+const { activated, open, activate } = useLazyPopover();
 
 // searchable モード用
 const query = ref('');
@@ -99,7 +101,7 @@ watch(open, (v) => {
   <span v-if="disabled" class="pointer-events-none">
     <slot />
   </span>
-  <span v-else-if="!activated" class="contents" @pointerover="prewarm" @click="activateAndOpen">
+  <span v-else-if="lazy && !activated" class="contents" @click="activate">
     <slot />
   </span>
   <UPopover v-else-if="searchable" v-model:open="open">
