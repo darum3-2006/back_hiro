@@ -6,6 +6,8 @@ defineProps<{
   modelValue: string | null;
   /** true ならカレンダーを開かず、スロットを表示するだけ（readonly ユーザー等） */
   disabled?: boolean;
+  /** true ならクリックされるまで Popover を生成しない（一覧セル等、大量に並べる場合用。useLazyPopover 参照） */
+  lazy?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -25,13 +27,18 @@ const onCalendarUpdate = (d: DateValue | DateRangeLike | DateValue[] | null | un
   }
   emit('update:modelValue', calendarDateToIso(d));
 };
+
+const { activated, open, activate } = useLazyPopover();
 </script>
 
 <template>
   <span v-if="disabled" class="pointer-events-none">
     <slot />
   </span>
-  <UPopover v-else>
+  <span v-else-if="lazy && !activated" class="contents" @click="activate">
+    <slot />
+  </span>
+  <UPopover v-else v-model:open="open">
     <slot />
     <template #content>
       <div class="p-2 space-y-2">

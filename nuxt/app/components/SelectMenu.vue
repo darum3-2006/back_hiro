@@ -19,6 +19,8 @@ const props = defineProps<{
   selfLabel?: string;
   /** true ならメニューを開かず、スロットを表示するだけ（readonly ユーザー等） */
   disabled?: boolean;
+  /** true ならクリックされるまで Popover を生成しない（一覧セル等、大量に並べる場合用。useLazyPopover 参照） */
+  lazy?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -74,8 +76,9 @@ const menuItems = computed<DropdownMenuItem[][]>(() => {
   return groups;
 });
 
+const { activated, open, activate } = useLazyPopover();
+
 // searchable モード用
-const open = ref(false);
 const query = ref('');
 
 const filteredItems = computed(() => {
@@ -96,6 +99,9 @@ watch(open, (v) => {
 
 <template>
   <span v-if="disabled" class="pointer-events-none">
+    <slot />
+  </span>
+  <span v-else-if="lazy && !activated" class="contents" @click="activate">
     <slot />
   </span>
   <UPopover v-else-if="searchable" v-model:open="open">
@@ -154,7 +160,12 @@ watch(open, (v) => {
       </div>
     </template>
   </UPopover>
-  <UDropdownMenu v-else :items="menuItems" :ui="{ content: 'max-h-80 overflow-y-auto' }">
+  <UDropdownMenu
+    v-else
+    v-model:open="open"
+    :items="menuItems"
+    :ui="{ content: 'max-h-80 overflow-y-auto' }"
+  >
     <slot />
   </UDropdownMenu>
 </template>
