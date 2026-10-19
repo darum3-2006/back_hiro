@@ -25,13 +25,18 @@ const onCalendarUpdate = (d: DateValue | DateRangeLike | DateValue[] | null | un
   }
   emit('update:modelValue', calendarDateToIso(d));
 };
+
+const { activated, open, prewarm, activateAndOpen } = useLazyPopover();
 </script>
 
 <template>
   <span v-if="disabled" class="pointer-events-none">
     <slot />
   </span>
-  <UPopover v-else>
+  <span v-else-if="!activated" class="contents" @pointerover="prewarm" @click="activateAndOpen">
+    <slot />
+  </span>
+  <UPopover v-else v-model:open="open">
     <slot />
     <template #content>
       <div class="p-2 space-y-2">

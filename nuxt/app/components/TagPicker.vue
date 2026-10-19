@@ -16,13 +16,18 @@ const toggleTag = (code: string, enabled: boolean) => {
   const next = enabled ? [...props.selected, code] : props.selected.filter((c) => c !== code);
   emit('update:selected', next);
 };
+
+const { activated, open, prewarm, activateAndOpen } = useLazyPopover();
 </script>
 
 <template>
   <span v-if="disabled" class="pointer-events-none">
     <slot />
   </span>
-  <UPopover v-else>
+  <span v-else-if="!activated" class="contents" @pointerover="prewarm" @click="activateAndOpen">
+    <slot />
+  </span>
+  <UPopover v-else v-model:open="open">
     <slot />
     <template #content>
       <div class="p-2 space-y-1 min-w-48">

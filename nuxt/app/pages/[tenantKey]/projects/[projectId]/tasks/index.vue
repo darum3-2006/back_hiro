@@ -68,21 +68,30 @@ const includeCompleted = computed(
 // 独自復元を行うため自動復元は切り、保存のみ利用する。
 useTaskFilterMemory({ autoRestore: false });
 
-const {
-  data: tasks,
-  refresh: refreshTasks,
-  status: tasksStatus,
-} = await useTasks(currentProjectId, includeCompleted);
-const { data: projectSubtasks, refresh: refreshSubtasks } =
-  await useProjectSubtasks(currentProjectId);
-const { data: statuses, refresh: refreshStatuses } = await useTaskStatuses(currentProjectId);
-const { data: priorities, refresh: refreshPriorities } = await useTaskPriorities(currentProjectId);
-const { data: tags, refresh: refreshTags } = await useTags(currentProjectId);
-const { data: flags, refresh: refreshFlags } = await useFlags(currentProjectId);
-const { data: members, refresh: refreshMembers } = await useMembers(currentProjectId);
-const { data: departments } = await useDepartments();
-const { data: projects } = await useProjects();
-const { data: savedViews, refresh: refreshSavedViews } = await useSavedViews(currentProjectId);
+// 1 本ずつ await すると往復が直列に積み上がるため、全取得を先に開始してまとめて待つ
+const [
+  { data: tasks, refresh: refreshTasks, status: tasksStatus },
+  { data: projectSubtasks, refresh: refreshSubtasks },
+  { data: statuses, refresh: refreshStatuses },
+  { data: priorities, refresh: refreshPriorities },
+  { data: tags, refresh: refreshTags },
+  { data: flags, refresh: refreshFlags },
+  { data: members, refresh: refreshMembers },
+  { data: departments },
+  { data: projects },
+  { data: savedViews, refresh: refreshSavedViews },
+] = await Promise.all([
+  useTasks(currentProjectId, includeCompleted),
+  useProjectSubtasks(currentProjectId),
+  useTaskStatuses(currentProjectId),
+  useTaskPriorities(currentProjectId),
+  useTags(currentProjectId),
+  useFlags(currentProjectId),
+  useMembers(currentProjectId),
+  useDepartments(),
+  useProjects(),
+  useSavedViews(currentProjectId),
+]);
 
 // 他ユーザーの変更（SSE）を受けて表示中のデータを自動反映する
 useProjectEvents(currentProjectId, {

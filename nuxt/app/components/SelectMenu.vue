@@ -74,8 +74,9 @@ const menuItems = computed<DropdownMenuItem[][]>(() => {
   return groups;
 });
 
+const { activated, open, prewarm, activateAndOpen } = useLazyPopover();
+
 // searchable モード用
-const open = ref(false);
 const query = ref('');
 
 const filteredItems = computed(() => {
@@ -96,6 +97,9 @@ watch(open, (v) => {
 
 <template>
   <span v-if="disabled" class="pointer-events-none">
+    <slot />
+  </span>
+  <span v-else-if="!activated" class="contents" @pointerover="prewarm" @click="activateAndOpen">
     <slot />
   </span>
   <UPopover v-else-if="searchable" v-model:open="open">
@@ -154,7 +158,12 @@ watch(open, (v) => {
       </div>
     </template>
   </UPopover>
-  <UDropdownMenu v-else :items="menuItems" :ui="{ content: 'max-h-80 overflow-y-auto' }">
+  <UDropdownMenu
+    v-else
+    v-model:open="open"
+    :items="menuItems"
+    :ui="{ content: 'max-h-80 overflow-y-auto' }"
+  >
     <slot />
   </UDropdownMenu>
 </template>
