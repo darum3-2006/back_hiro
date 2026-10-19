@@ -126,6 +126,17 @@ const DATE_QUERY_KEYS = {
 
 const tasksPath = (projectId: string) => `/${currentTenantKey.value}/projects/${projectId}/tasks`;
 
+// 一覧を開いたときもダッシュボードと同じ並びにする（サーバ側の並びと揃える）。
+// 期限切れ・期限間近は基準日の古い順、動きなしはステータス更新日時の古い順。
+// キーはタスク一覧の列 id（sort= / sortDir= クエリ）
+const DATE_SORT_COLUMN = {
+  deadline: 'deadline',
+  plannedStart: 'plannedStartDate',
+  plannedCompletion: 'plannedCompletionDate',
+  plannedRelease: 'plannedReleaseDate',
+} as const;
+const sortQuery = (columnId: string) => `sort=${columnId}&sortDir=asc`;
+
 const dueListLink = (projectId: string, kind: 'overdue' | 'dueSoon'): string => {
   const [fromKey, toKey] = DATE_QUERY_KEYS[dateField.value];
   const today = dayjs().startOf('day');
@@ -133,7 +144,7 @@ const dueListLink = (projectId: string, kind: 'overdue' | 'dueSoon'): string => 
     kind === 'overdue'
       ? `${toKey}=${today.subtract(1, 'day').format('YYYY-MM-DD')}`
       : `${fromKey}=${today.format('YYYY-MM-DD')}&${toKey}=${today.add(dueSoonDays.value, 'day').format('YYYY-MM-DD')}`;
-  return `${tasksPath(projectId)}?${query}`;
+  return `${tasksPath(projectId)}?${query}&${sortQuery(DATE_SORT_COLUMN[dateField.value])}`;
 };
 
 /**
@@ -149,7 +160,7 @@ const inactiveListLink = (projectId: string): string => {
     .startOf('day')
     .subtract(inactiveDays.value + 1, 'day')
     .format('YYYY-MM-DD');
-  return `${tasksPath(projectId)}?statusChangedTo=${to}&status=${codes.join(',')}`;
+  return `${tasksPath(projectId)}?statusChangedTo=${to}&status=${codes.join(',')}&${sortQuery('statusChangedAt')}`;
 };
 
 /**
