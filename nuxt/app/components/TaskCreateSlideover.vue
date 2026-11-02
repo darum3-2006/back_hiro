@@ -302,6 +302,9 @@ const assigneeSelectItems = computed(() =>
 const departmentSelectItems = computed(() =>
   props.departments.map((d) => ({ value: d.code, label: d.name })),
 );
+
+// IME 変換キャンセルの ESC でスライドオーバーが閉じないようにする（全入力欄共通）
+const onEscapeKeyDown = useDialogImeEscapeGuard(() => props.open);
 </script>
 
 <template>
@@ -309,6 +312,7 @@ const departmentSelectItems = computed(() =>
     :open="open"
     title="新規タスク"
     :ui="{ content: 'sm:max-w-(--task-slideover-width)' }"
+    :content="{ onEscapeKeyDown }"
     @update:open="(v: boolean) => emit('update:open', v)"
   >
     <template #body>

@@ -455,6 +455,9 @@ const departmentSelectItems = computed(() =>
 
 const tagsList = computed(() => Object.values(props.tagMap));
 const flagsList = computed(() => Object.values(props.flagMap));
+
+// IME 変換キャンセルの ESC でスライドオーバーが閉じないようにする（全入力欄共通）
+const onEscapeKeyDown = useDialogImeEscapeGuard(() => props.open);
 </script>
 
 <template>
@@ -463,6 +466,7 @@ const flagsList = computed(() => Object.values(props.flagMap));
     :title="task ? `#${task.seq}` : ''"
     :description="task?.content ?? ''"
     :ui="{ content: 'sm:max-w-(--task-slideover-width)' }"
+    :content="{ onEscapeKeyDown }"
     @update:open="(v: boolean) => $emit('update:open', v)"
   >
     <template #description>

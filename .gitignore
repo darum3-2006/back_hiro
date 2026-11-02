@@ -1,1 +1,4 @@
 .idea/
+
+# Claude Code の作業用一時ファイル（PR 追跡の状態ファイル等）
+.claude/tmp/
