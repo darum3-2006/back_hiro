@@ -2112,6 +2112,10 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
           :columns="columns"
           :column-sizing-options="{ enableColumnResizing: true, columnResizeMode: 'onChange' }"
           :ui="{
+            // 行が少ないとき、テーブル（flex 子）の高さが内容ぴったりで決まり、常時表示型の
+            // 横スクロールバー（外部マウス接続時の macOS など）が最終行に重なる。
+            // 残り高さいっぱいに広げて、スクロールバーをパネル下端に置く。
+            root: 'flex-1 min-h-0',
             base: 'table-fixed',
             th: 'relative group px-1',
             td: 'align-top py-2 px-1 truncate',
