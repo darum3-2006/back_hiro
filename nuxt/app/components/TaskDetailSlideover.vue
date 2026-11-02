@@ -993,12 +993,15 @@ const onEscapeKeyDown = useDialogImeEscapeGuard(() => props.open);
             <div v-else class="space-y-3">
               <template v-for="item in timeline" :key="item.id">
                 <!-- コメント -->
+                <!-- 履歴と見分けやすいよう、コメントだけカードで囲む -->
                 <div v-if="item.kind === 'comment'" class="flex gap-3 group">
                   <UAvatar
                     :alt="memberMap[item.comment.authorMemberId]?.displayName ?? '?'"
                     size="sm"
                   />
-                  <div class="flex-1 min-w-0">
+                  <div
+                    class="flex-1 min-w-0 rounded-lg border border-default bg-elevated/50 px-3 py-2"
+                  >
                     <div class="flex items-baseline gap-2">
                       <span class="text-sm font-medium">
                         {{ memberMap[item.comment.authorMemberId]?.displayName ?? '不明' }}
@@ -1070,35 +1073,23 @@ const onEscapeKeyDown = useDialogImeEscapeGuard(() => props.open);
                   </div>
                 </div>
 
-                <!-- 変更履歴 -->
-                <div v-else class="flex gap-3">
-                  <div class="flex size-8 shrink-0 items-center justify-center">
-                    <UIcon name="i-lucide-history" class="size-4 text-muted" />
+                <!-- 変更履歴（コメントより控えめに、小さい文字で 1 行に詰める） -->
+                <div v-else class="flex gap-3 items-start">
+                  <div class="flex w-8 shrink-0 justify-center pt-0.5">
+                    <UIcon name="i-lucide-history" class="size-3.5 text-dimmed" />
                   </div>
-                  <div class="flex-1 min-w-0">
-                    <div class="flex items-baseline gap-2">
-                      <span class="text-sm font-medium">
-                        {{ item.activity.actor.name ?? '（削除済みユーザー）' }}
-                      </span>
-                      <span class="text-xs text-muted">{{
-                        fmtDateTime(item.activity.createdAt)
-                      }}</span>
-                    </div>
-                    <p v-if="item.activity.action === 'create'" class="mt-0.5 text-sm text-muted">
-                      タスクを作成
-                    </p>
-                    <p
-                      v-else-if="item.activity.action === 'delete'"
-                      class="mt-0.5 text-sm text-muted"
+                  <p class="flex-1 min-w-0 text-xs text-muted break-words">
+                    <span class="font-medium text-toned">
+                      {{ item.activity.actor.name ?? '（削除済みユーザー）' }}
+                    </span>
+                    <template v-if="item.activity.action === 'create'"> がタスクを作成</template>
+                    <template v-else-if="item.activity.action === 'delete'">
+                      がタスクを削除</template
                     >
-                      タスクを削除
-                    </p>
-                    <ul v-else class="mt-0.5 space-y-0.5 text-sm text-muted">
-                      <li
-                        v-for="(ch, idx) in item.activity.changes ?? []"
-                        :key="idx"
-                        class="break-words"
-                      >
+                    <template v-else>
+                      <template v-for="(ch, idx) in item.activity.changes ?? []" :key="idx">
+                        <span v-if="idx > 0" class="text-dimmed"> / </span>
+                        <span v-else>&nbsp;</span>
                         <template v-for="(part, pi) in describeAuditChange(ch)" :key="pi">
                           <template v-if="part.kind === 'text'">{{ part.text }}</template>
                           <a
@@ -1112,9 +1103,10 @@ const onEscapeKeyDown = useDialogImeEscapeGuard(() => props.open);
                           >
                           <span v-else :title="part.url">{{ shortenUrl(part.url) }}</span>
                         </template>
-                      </li>
-                    </ul>
-                  </div>
+                      </template>
+                    </template>
+                    <span class="text-dimmed"> · {{ fmtDateTime(item.activity.createdAt) }}</span>
+                  </p>
                 </div>
               </template>
             </div>
