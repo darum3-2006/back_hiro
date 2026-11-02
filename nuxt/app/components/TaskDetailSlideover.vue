@@ -66,6 +66,8 @@ const props = defineProps<{
   departmentMap: Record<string, Department>;
   /** true で開いたとき、コメント欄の先頭までスクロールする（一覧のコメントアイコン起点） */
   focusComments?: boolean;
+  /** 前後のタスクへの移動ボタンの状態（タスク一覧から開いたときだけ渡す。無ければ出さない） */
+  nav?: { hasPrev: boolean; hasNext: boolean; loading: boolean; position: string } | null;
 }>();
 
 const emit = defineEmits<{
@@ -77,6 +79,9 @@ const emit = defineEmits<{
   'subtasks-changed': [];
   /** 関連タスクに変更があった（ガント等で再取得する用） */
   'relations-changed': [];
+  /** 前 / 次のタスクへ移動（nav を渡したときだけ） */
+  prev: [];
+  next: [];
 }>();
 
 const projectIdRef = computed(() => props.task?.projectId ?? '');
@@ -504,6 +509,30 @@ const onEscapeKeyDown = useDialogImeEscapeGuard(() => props.open);
             @click="moveOpen = true"
           />
         </UTooltip>
+        <template v-if="task && nav">
+          <UTooltip :text="`前のタスク（${nav.position}）`">
+            <UButton
+              size="md"
+              color="neutral"
+              variant="ghost"
+              icon="i-lucide-chevron-up"
+              aria-label="前のタスク"
+              :disabled="!nav.hasPrev || nav.loading"
+              @click="$emit('prev')"
+            />
+          </UTooltip>
+          <UTooltip :text="`次のタスク（${nav.position}）`">
+            <UButton
+              size="md"
+              color="neutral"
+              variant="ghost"
+              icon="i-lucide-chevron-down"
+              aria-label="次のタスク"
+              :disabled="!nav.hasNext || nav.loading"
+              @click="$emit('next')"
+            />
+          </UTooltip>
+        </template>
       </div>
     </template>
 
