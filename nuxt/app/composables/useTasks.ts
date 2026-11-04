@@ -1,4 +1,4 @@
-import { apiListTasks, type TaskFilter } from '~/api/tasks';
+import { apiListTasks } from '~/api/tasks';
 
 /**
  * プロジェクトのタスク一覧。既定では完了（終端ステータス）タスクを取得しない
@@ -14,14 +14,12 @@ export const useTasks = (
   const api = useApi();
   return useAsyncData(
     () =>
-      `tasks:${projectId.value}:${includeCompleted.value ? 'all' : 'open'}` +
-      (includeLatestComment.value ? ':latest-comment' : ''),
-    () => {
-      const filter: TaskFilter = {};
-      if (includeCompleted.value) filter.includeCompleted = true;
-      if (includeLatestComment.value) filter.includeLatestComment = true;
-      return apiListTasks(api, projectId.value, filter);
-    },
+      `tasks:${projectId.value}:${includeCompleted.value ? 'all' : 'open'}:${includeLatestComment.value ? 'comment' : ''}`,
+    () =>
+      apiListTasks(api, projectId.value, {
+        includeCompleted: includeCompleted.value || undefined,
+        includeLatestComment: includeLatestComment.value || undefined,
+      }),
     { default: () => [], watch: [projectId, includeCompleted, includeLatestComment] },
   );
 };

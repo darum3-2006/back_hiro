@@ -39,15 +39,10 @@ describe('TasksService', () => {
     getMany: jest.Mock;
     getCount: jest.Mock;
   };
+  // comments.createQueryBuilder が返す結果。件数集計（groupBy あり）と最新コメントで返し分ける
+  let commentRows: { counts: unknown[]; latest: unknown[] };
+  let commentsRepo: { createQueryBuilder: jest.Mock };
   // getTagCodes が使う taskTags.createQueryBuilder の返り値（テストから差し替える）
-  let commentsQb: {
-    select: jest.Mock;
-    addSelect: jest.Mock;
-    where: jest.Mock;
-    andWhere: jest.Mock;
-    groupBy: jest.Mock;
-    getRawMany: jest.Mock;
-  };
   let tagQb: {
     innerJoin: jest.Mock;
     select: jest.Mock;
@@ -137,14 +132,23 @@ describe('TasksService', () => {
       where: jest.fn().mockReturnThis(),
       getRawMany: jest.fn().mockResolvedValue([]),
     };
-    commentsQb = {
-      select: jest.fn().mockReturnThis(),
-      addSelect: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      groupBy: jest.fn().mockReturnThis(),
-      getRawMany: jest.fn().mockResolvedValue([]),
+    commentRows = { counts: [], latest: [] };
+    // 件数集計と最新コメントは並行に走るので、呼び出し順ではなくクエリの形で返し分ける
+    const makeCommentsQb = () => {
+      const groupBy = jest.fn().mockReturnThis();
+      return {
+        select: jest.fn().mockReturnThis(),
+        addSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        groupBy,
+        orderBy: jest.fn().mockReturnThis(),
+        getRawMany: jest.fn(() =>
+          Promise.resolve(groupBy.mock.calls.length > 0 ? commentRows.counts : commentRows.latest),
+        ),
+      };
     };
+    commentsRepo = { createQueryBuilder: jest.fn(makeCommentsQb) };
     filterQb = {
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
@@ -215,7 +219,7 @@ describe('TasksService', () => {
         },
         {
           provide: getRepositoryToken(Comment),
-          useValue: { createQueryBuilder: jest.fn(() => commentsQb) },
+          useValue: commentsRepo,
         },
         {
           provide: getRepositoryToken(Subtask),
@@ -293,25 +297,30 @@ describe('TasksService', () => {
 
       expect(result).not.toHaveProperty('latestComment');
       // 件数集計の 1 回だけ
-      expect(commentsQb.getRawMany).toHaveBeenCalledTimes(1);
+      expect(commentsRepo.createQueryBuilder).toHaveBeenCalledTimes(1);
     });
 
     it('includeLatestComment=true なら最新コメントを付け、無いタスクは null', async () => {
       const createdAt = new Date('2026-11-01T10:00:00Z');
       filterQb.getMany.mockResolvedValue([{ ...baseTask }, { ...baseTask, id: 't2' }]);
-      commentsQb.getRawMany
-        .mockResolvedValueOnce([{ taskId: 't1', cnt: '2' }])
-        .mockResolvedValueOnce([
+      commentRows = {
+        counts: [{ taskId: 't1', cnt: '2' }],
+        latest: [
           { taskId: 't1', body: '最新', authorMemberId: 'm1', createdAt },
-          // 同時刻の重複は先勝ち
+          // 同時刻の重複は先勝ち（クエリ側で id 降順に並べている）
           { taskId: 't1', body: '同時刻', authorMemberId: 'm2', createdAt },
-        ]);
+        ],
+      };
 
-      const result = await service.listByProject(tenantId, projectId, {
-        includeLatestComment: true,
-      });
+      const result = await service.listByProject(
+        tenantId,
+        projectId,
+        {},
+        { includeLatestComment: true },
+      );
 
       expect(result[0].latestComment).toEqual({ body: '最新', authorMemberId: 'm1', createdAt });
+      expect(result[0].commentCount).toBe(2);
       expect(result[1].latestComment).toBeNull();
     });
   });

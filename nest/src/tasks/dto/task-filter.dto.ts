@@ -15,15 +15,6 @@ export class TaskFilterDto {
   @IsBoolean()
   includeCompleted?: boolean;
 
-  /**
-   * 各タスクの最新コメントを latestComment として付けるか。一覧(listByProject)でのみ参照する
-   * （一覧の「最新コメント表示」モード用。既定では付けずペイロードを抑える）。
-   */
-  @IsOptional()
-  @Transform(({ value }) => value === true || value === 'true' || value === '1')
-  @IsBoolean()
-  includeLatestComment?: boolean;
-
   @IsOptional()
   @IsString()
   @MaxLength(64)
@@ -56,4 +47,16 @@ export class TaskFilterDto {
   @IsString()
   @MaxLength(64)
   requestingDeptCode?: string;
+}
+
+/**
+ * 内部 API の GET /projects/:projectId/tasks 専用クエリ。絞り込み（TaskFilterDto）に加え、
+ * レスポンスに何を添えるかのオプションを持つ。公開 API には出さない。
+ */
+export class ListTasksQueryDto extends TaskFilterDto {
+  /** 各タスクの最新コメントを latestComment として付けるか（一覧の「最新コメント表示」モード用） */
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true' || value === '1')
+  @IsBoolean()
+  includeLatestComment?: boolean;
 }

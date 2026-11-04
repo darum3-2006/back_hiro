@@ -68,23 +68,8 @@ const includeCompleted = computed(
 // 個人の表示好みなので全プロジェクト共通で localStorage に記憶する（ssr: false のため
 // setup 時点で読める。初回フェッチから latestComment 付きで取れるよう useTasks より前に置く）。
 const LATEST_COMMENT_MODE_KEY = 'tasks:show-latest-comment';
-const readLatestCommentMode = (): boolean => {
-  if (!import.meta.client) return false;
-  try {
-    return localStorage.getItem(LATEST_COMMENT_MODE_KEY) === '1';
-  } catch {
-    return false;
-  }
-};
-const showLatestComment = ref(readLatestCommentMode());
-watch(showLatestComment, (on) => {
-  try {
-    if (on) localStorage.setItem(LATEST_COMMENT_MODE_KEY, '1');
-    else localStorage.removeItem(LATEST_COMMENT_MODE_KEY);
-  } catch {
-    // ストレージ不可（プライベートモード等）でも表示切替自体は効かせる
-  }
-});
+const showLatestComment = ref(localStorage.getItem(LATEST_COMMENT_MODE_KEY) === '1');
+watch(showLatestComment, (v) => localStorage.setItem(LATEST_COMMENT_MODE_KEY, v ? '1' : '0'));
 
 // フィルタを画面間で共有・記憶（await より前に登録）。一覧は SavedView と協調した
 // 独自復元を行うため自動復元は切り、保存のみ利用する。
