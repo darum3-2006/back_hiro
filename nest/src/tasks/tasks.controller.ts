@@ -18,7 +18,7 @@ import type { AuthenticatedUser } from '../auth/jwt.strategy';
 import { ProjectAccessGuard } from '../auth/project-access.guard';
 import { BulkUpdateTasksDto } from './dto/bulk-update-tasks.dto';
 import { CreateTaskDto } from './dto/create-task.dto';
-import { TaskFilterDto } from './dto/task-filter.dto';
+import { ListTasksQueryDto, TaskFilterDto } from './dto/task-filter.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { TasksService } from './tasks.service';
 
@@ -31,9 +31,10 @@ export class TasksController {
   list(
     @CurrentUser() user: AuthenticatedUser,
     @Param('projectId', new ParseUUIDPipe()) projectId: string,
-    @Query() filter: TaskFilterDto,
+    @Query() query: ListTasksQueryDto,
   ) {
-    return this.tasks.listByProject(user.tenantId, projectId, filter);
+    const { includeLatestComment, ...filter } = query;
+    return this.tasks.listByProject(user.tenantId, projectId, filter, { includeLatestComment });
   }
 
   @Get('count')
