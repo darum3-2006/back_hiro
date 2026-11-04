@@ -217,8 +217,19 @@ watch(taskParam, (raw) => {
   if (!raw) {
     openTaskCache.value = null;
     focusComments.value = false;
+    navSeqs.value = null;
+    navFetched.value = null;
   }
 });
+
+// ===== 詳細スライドの上下移動 =====
+// スライドを開いたときの一覧の表示順（タスク番号）を控え、開いている間はこの順番で
+// 前後のタスクへ移動する。操作で並び替わったり一覧から外れたりしても順番は変わらない。
+const navSeqs = ref<number[] | null>(null);
+// 一覧から外れたタスクへ移るときに単体取得した結果。URL の切替より先に用意しておき、
+// 切替の瞬間に selectedTask が解決できずスライドが閉じかけるのを防ぐ。
+const navFetched = ref<Task | null>(null);
+const navLoading = ref(false);
 
 const selectedTask = computed<Task | null>(() => {
   const raw = taskParam.value;
@@ -227,7 +238,13 @@ const selectedTask = computed<Task | null>(() => {
   // 一覧から外れた場合でも、キャッシュが同じタスクを指していればそれを使う
   const cached = openTaskCache.value;
   if (cached && (String(cached.seq) === raw || cached.id === raw)) return cached;
+  const fetched = navFetched.value;
+  if (fetched && String(fetched.seq) === raw) return fetched;
   return null;
+});
+// 上下移動で単体取得したタスクもキャッシュに載せ、以降の更新（updateTaskField）で最新を保つ
+watch(selectedTask, (t) => {
+  if (t) openTaskCache.value = t;
 });
 
 // 該当タスクが解決できたときだけ開く（未存在の番号で空パネルを出さない）。
@@ -242,15 +259,85 @@ const setSelectedTaskSeq = (seq: number | null, options: { push?: boolean } = {}
   updateQuery({ task: seq === null ? undefined : String(seq) }, options);
 };
 
+/** 一覧の今の表示順（親タスクのみ・ソート適用後）を上下移動の順番として控える */
+const captureNavOrder = () => {
+  const rows = tableRef.value?.tableApi?.getRowModel().rows ?? [];
+  // 一覧の描画前（行が無い）なら控えない。次の機会（スライドの開き直し等）に取り直す
+  if (rows.length === 0) return;
+  navSeqs.value = rows.filter((r) => !isSubRow(r.original)).map((r) => r.original.seq);
+};
+
+// URL 直開き（ディープリンク・リロード）でも、開いた時点の表示順を控える
+watch(
+  slideoverOpen,
+  async (open) => {
+    if (!import.meta.client || !open || navSeqs.value) return;
+    await nextTick();
+    if (slideoverOpen.value && !navSeqs.value) captureNavOrder();
+  },
+  { immediate: true },
+);
+
 const openTask = (task: Task) => {
   focusComments.value = false;
+  // 一覧の行から開いた時点の並びを控える（開いたまま別の行を開いた場合も、その時点で取り直す）
+  captureNavOrder();
   setSelectedTaskSeq(task.seq, { push: true });
 };
 
 // コメントアイコンから開く: コメント位置までスクロールする意図を立ててから開く
 const openTaskComments = (task: Task) => {
   focusComments.value = true;
+  captureNavOrder();
   setSelectedTaskSeq(task.seq, { push: true });
+};
+
+const navIndex = computed(() => {
+  const t = selectedTask.value;
+  if (!t || !navSeqs.value) return -1;
+  return navSeqs.value.indexOf(t.seq);
+});
+/** 詳細スライドの上下ボタンの状態。控えた順番に今のタスクが無ければ出さない */
+const detailNav = computed(() => {
+  const seqs = navSeqs.value;
+  const i = navIndex.value;
+  if (!seqs || i < 0) return null;
+  return {
+    hasPrev: i > 0,
+    hasNext: i < seqs.length - 1,
+    loading: navLoading.value,
+    position: `${i + 1} / ${seqs.length}`,
+  };
+});
+
+/**
+ * 控えた順番で前（-1）/ 次（+1）のタスクへ移る。一覧から外れたタスクは単体取得してから開き、
+ * 削除・別プロジェクトへの移動で取得できない（404）タスクは順番から除いて飛ばす。
+ */
+const moveDetail = async (offset: -1 | 1): Promise<void> => {
+  const seqs = navSeqs.value;
+  const i = navIndex.value;
+  if (!seqs || i < 0 || navLoading.value) return;
+  const seq = seqs[i + offset];
+  if (seq === undefined) return;
+  if (!tasks.value.some((t) => t.seq === seq)) {
+    navLoading.value = true;
+    let notFound = false;
+    try {
+      navFetched.value = await apiGetTaskBySeq(api, currentProjectId.value, seq);
+    } catch (e) {
+      notFound = (e as { statusCode?: number }).statusCode === 404;
+      if (!notFound) toast.add({ title: 'タスクを開けませんでした', color: 'error' });
+    }
+    navLoading.value = false;
+    if (notFound) {
+      navSeqs.value = seqs.filter((s) => s !== seq);
+      return moveDetail(offset);
+    }
+    if (!navFetched.value || navFetched.value.seq !== seq) return;
+  }
+  focusComments.value = false;
+  setSelectedTaskSeq(seq, { push: true });
 };
 
 const closeSlideover = () => {
@@ -1202,7 +1289,10 @@ const columnSizingInfo = ref<ColumnSizingInfoState>({
 // 列リサイズ中、ヘッダのリサイズバーの中心に列全体（ヘッダ〜全行）を貫く
 // ガイド線を出す。カーソル X ではなくハンドルの実描画位置を毎フレーム読むので、
 // minSize でのクランプ等で移動幅が大きくなってもヘッダの線とズレない。
-const tableRef = useTemplateRef<{ $el?: HTMLElement }>('tableRef');
+const tableRef = useTemplateRef<{
+  $el?: HTMLElement;
+  tableApi?: { getRowModel: () => { rows: Row<Task>[] } };
+}>('tableRef');
 const resizeGuide = ref<{ x: number; top: number; height: number } | null>(null);
 const resizingColumnId = computed(() => {
   const id = columnSizingInfo.value.isResizingColumn;
@@ -2632,7 +2722,10 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
     :flag-map="flagMap"
     :department-map="departmentMap"
     :focus-comments="focusComments"
+    :nav="detailNav"
     @focused="focusComments = false"
+    @prev="moveDetail(-1)"
+    @next="moveDetail(1)"
     @update:open="(v: boolean) => !v && closeSlideover()"
     @change-field="
       (patch: Partial<Task>) => selectedTask && updateTaskField(selectedTask.id, patch)
