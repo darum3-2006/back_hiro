@@ -30,6 +30,8 @@ export interface TaskFilter {
   requestingDeptCode?: string;
   /** 完了（終端ステータス）タスクも含めて取得するか。一覧でのみ使用 */
   includeCompleted?: boolean;
+  /** 各タスクの最新コメント（latestComment）も取得するか。一覧でのみ使用 */
+  includeLatestComment?: boolean;
 }
 
 const buildQuery = (filter: TaskFilter): string => {

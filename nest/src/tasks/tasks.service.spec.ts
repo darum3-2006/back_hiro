@@ -40,6 +40,14 @@ describe('TasksService', () => {
     getCount: jest.Mock;
   };
   // getTagCodes が使う taskTags.createQueryBuilder の返り値（テストから差し替える）
+  let commentsQb: {
+    select: jest.Mock;
+    addSelect: jest.Mock;
+    where: jest.Mock;
+    andWhere: jest.Mock;
+    groupBy: jest.Mock;
+    getRawMany: jest.Mock;
+  };
   let tagQb: {
     innerJoin: jest.Mock;
     select: jest.Mock;
@@ -129,10 +137,11 @@ describe('TasksService', () => {
       where: jest.fn().mockReturnThis(),
       getRawMany: jest.fn().mockResolvedValue([]),
     };
-    const commentsQb = {
+    commentsQb = {
       select: jest.fn().mockReturnThis(),
       addSelect: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
       groupBy: jest.fn().mockReturnThis(),
       getRawMany: jest.fn().mockResolvedValue([]),
     };
@@ -275,6 +284,35 @@ describe('TasksService', () => {
 
       expect(filterQb.leftJoin).not.toHaveBeenCalled();
       expect(filterQb.andWhere).not.toHaveBeenCalledWith(TERMINAL_CONDITION);
+    });
+
+    it('既定では latestComment を付けない（最新コメントを引かない）', async () => {
+      filterQb.getMany.mockResolvedValue([{ ...baseTask }]);
+
+      const [result] = await service.listByProject(tenantId, projectId);
+
+      expect(result).not.toHaveProperty('latestComment');
+      // 件数集計の 1 回だけ
+      expect(commentsQb.getRawMany).toHaveBeenCalledTimes(1);
+    });
+
+    it('includeLatestComment=true なら最新コメントを付け、無いタスクは null', async () => {
+      const createdAt = new Date('2026-11-01T10:00:00Z');
+      filterQb.getMany.mockResolvedValue([{ ...baseTask }, { ...baseTask, id: 't2' }]);
+      commentsQb.getRawMany
+        .mockResolvedValueOnce([{ taskId: 't1', cnt: '2' }])
+        .mockResolvedValueOnce([
+          { taskId: 't1', body: '最新', authorMemberId: 'm1', createdAt },
+          // 同時刻の重複は先勝ち
+          { taskId: 't1', body: '同時刻', authorMemberId: 'm2', createdAt },
+        ]);
+
+      const result = await service.listByProject(tenantId, projectId, {
+        includeLatestComment: true,
+      });
+
+      expect(result[0].latestComment).toEqual({ body: '最新', authorMemberId: 'm1', createdAt });
+      expect(result[1].latestComment).toBeNull();
     });
   });
 

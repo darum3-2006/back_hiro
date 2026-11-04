@@ -77,6 +77,11 @@ const emit = defineEmits<{
   'subtasks-changed': [];
   /** 関連タスクに変更があった（ガント等で再取得する用） */
   'relations-changed': [];
+  /**
+   * コメントを投稿・編集した（一覧の件数・最新コメントを再取得する用）。
+   * 自タブ発の変更は SSE で戻ってこないため、親へ直接知らせる。
+   */
+  'comments-changed': [];
 }>();
 
 const projectIdRef = computed(() => props.task?.projectId ?? '');
@@ -230,6 +235,7 @@ const postComment = async () => {
   try {
     await apiCreateComment(api, task.projectId, task.id, { authorMemberId: memberId, body });
     commentBody.value = '';
+    emit('comments-changed');
     await refreshComments();
   } finally {
     posting.value = false;
@@ -260,6 +266,7 @@ const saveCommentEdit = async () => {
     await apiUpdateComment(api, task.projectId, task.id, id, { body });
     editingCommentId.value = null;
     commentEditBuffer.value = '';
+    emit('comments-changed');
     await refreshComments();
   } finally {
     savingEdit.value = false;

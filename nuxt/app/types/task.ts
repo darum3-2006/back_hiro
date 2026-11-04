@@ -31,9 +31,22 @@ export interface Task {
   flagCodes: string[];
   /** このタスクに付いたコメント件数（一覧のアイコン表示用） */
   commentCount: number;
+  /**
+   * 最新コメント（一覧の「最新コメント表示」モード用）。includeLatestComment で取得した
+   * ときだけ付く。取得時にコメントが無ければ null。
+   */
+  latestComment?: TaskLatestComment | null;
   description: string;
   createdAt: string;
   updatedAt: string;
+}
+
+/** タスク一覧に添える最新コメント 1 件 */
+export interface TaskLatestComment {
+  body: string;
+  /** 投稿者メンバー（null = 削除済みメンバー） */
+  authorMemberId: string | null;
+  createdAt: string;
 }
 
 /** グローバル検索（プロジェクト横断）の結果 1 件。 */

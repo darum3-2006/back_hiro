@@ -54,7 +54,11 @@ export class PublicTasksController {
     @Query() filter: TaskFilterDto,
   ): Promise<PublicTask[]> {
     const project = await this.projects.findByKeyInTenant(user.tenantId, key);
-    const tasks = await this.tasks.listByProject(user.tenantId, project.id, filter);
+    // latestComment は公開 DTO に載せないので、無駄なクエリを走らせないよう落とす
+    const tasks = await this.tasks.listByProject(user.tenantId, project.id, {
+      ...filter,
+      includeLatestComment: false,
+    });
     return tasks.map(toPublicTask);
   }
 

@@ -53,8 +53,21 @@ export interface TaskResponse {
   flagCodes: string[];
   /** このタスクに付いたコメント件数（一覧のアイコン表示用） */
   commentCount: number;
+  /**
+   * 最新コメント（一覧の「最新コメント表示」モード用）。includeLatestComment 指定時のみ付く。
+   * 指定時にコメントが無ければ null。
+   */
+  latestComment?: LatestCommentResponse | null;
   createdAt: Date;
   updatedAt: Date;
+}
+
+/** タスク一覧に添える最新コメント 1 件 */
+export interface LatestCommentResponse {
+  body: string;
+  /** 投稿者メンバー（NULL = 削除済みメンバー） */
+  authorMemberId: string | null;
+  createdAt: Date;
 }
 
 /**
@@ -172,7 +185,45 @@ export class TasksService {
       ).andWhere('(s.is_terminal IS NULL OR s.is_terminal = false)');
     }
     const tasks = await qb.orderBy('t.created_at', 'ASC').getMany();
-    return this.attachTagCodes(tasks);
+    const responses = await this.attachTagCodes(tasks);
+    if (!filter.includeLatestComment) return responses;
+    const latest = await this.latestComments(responses.map((t) => t.id));
+    return responses.map((t) => ({ ...t, latestComment: latest.get(t.id) ?? null }));
+  }
+
+  /**
+   * タスクごとの最新コメントを 1 クエリで引く（idx_comments_task_created を使う相関サブクエリ）。
+   * 同時刻のコメントが複数あれば先に見つかった 1 件を採用する。
+   * 呼び出し元でテナント/プロジェクト絞り込み済みのタスク ID だけを渡すこと。
+   */
+  private async latestComments(taskIds: string[]): Promise<Map<string, LatestCommentResponse>> {
+    const map = new Map<string, LatestCommentResponse>();
+    if (taskIds.length === 0) return map;
+    const rows = await this.comments
+      .createQueryBuilder('c')
+      .select('c.task_id', 'taskId')
+      .addSelect('c.body', 'body')
+      .addSelect('c.author_member_id', 'authorMemberId')
+      .addSelect('c.created_at', 'createdAt')
+      .where('c.task_id IN (:...ids)', { ids: taskIds })
+      .andWhere(
+        'c.created_at = (SELECT MAX(c2.created_at) FROM comments c2 WHERE c2.task_id = c.task_id)',
+      )
+      .getRawMany<{
+        taskId: string;
+        body: string;
+        authorMemberId: string | null;
+        createdAt: Date;
+      }>();
+    for (const r of rows) {
+      if (map.has(r.taskId)) continue;
+      map.set(r.taskId, {
+        body: r.body,
+        authorMemberId: r.authorMemberId,
+        createdAt: r.createdAt,
+      });
+    }
+    return map;
   }
 
   async count(tenantId: string, projectId: string, filter: TaskFilterDto = {}): Promise<number> {

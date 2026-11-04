@@ -27,7 +27,7 @@ import type {
 } from '~/types/saved-view';
 import type { SubtaskRow } from '~/types/subtask';
 import type { Task } from '~/types/task';
-import { fmtDateTime } from '~/utils/date';
+import { fmtDateTime, fmtRelative } from '~/utils/date';
 import { isTaskDatePast } from '~/utils/task-overdue';
 
 const api = useApi();
@@ -64,6 +64,28 @@ const includeCompleted = computed(
   () => route.query.showCompleted === '1' || Boolean(route.query.status),
 );
 
+// 最新コメント表示モード: 内容セルの下に各タスクの最新コメントを出す。
+// 個人の表示好みなので全プロジェクト共通で localStorage に記憶する（ssr: false のため
+// setup 時点で読める。初回フェッチから latestComment 付きで取れるよう useTasks より前に置く）。
+const LATEST_COMMENT_MODE_KEY = 'tasks:show-latest-comment';
+const readLatestCommentMode = (): boolean => {
+  if (!import.meta.client) return false;
+  try {
+    return localStorage.getItem(LATEST_COMMENT_MODE_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
+const showLatestComment = ref(readLatestCommentMode());
+watch(showLatestComment, (on) => {
+  try {
+    if (on) localStorage.setItem(LATEST_COMMENT_MODE_KEY, '1');
+    else localStorage.removeItem(LATEST_COMMENT_MODE_KEY);
+  } catch {
+    // ストレージ不可（プライベートモード等）でも表示切替自体は効かせる
+  }
+});
+
 // フィルタを画面間で共有・記憶（await より前に登録）。一覧は SavedView と協調した
 // 独自復元を行うため自動復元は切り、保存のみ利用する。
 useTaskFilterMemory({ autoRestore: false });
@@ -81,7 +103,7 @@ const [
   { data: projects },
   { data: savedViews, refresh: refreshSavedViews },
 ] = await Promise.all([
-  useTasks(currentProjectId, includeCompleted),
+  useTasks(currentProjectId, includeCompleted, showLatestComment),
   useProjectSubtasks(currentProjectId),
   useTaskStatuses(currentProjectId),
   useTaskPriorities(currentProjectId),
@@ -99,6 +121,8 @@ useProjectEvents(currentProjectId, {
     void refreshTasks();
     void refreshSubtasks();
   },
+  // コメント件数・最新コメントは一覧の取得結果に含まれるので、コメント変更でも再取得する
+  'comments.changed': () => void refreshTasks(),
   'masters.changed': () => {
     void refreshStatuses();
     void refreshPriorities();
@@ -2072,6 +2096,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
       <template v-else>
         <TaskFilterChipBar :filters="taskFilters">
           <template #actions>
+            <UCheckbox v-model="showLatestComment" label="最新コメントを表示" />
             <UCheckbox
               v-if="!isReadonly"
               :model-value="someVisibleSelected ? 'indeterminate' : allVisibleSelected"
@@ -2193,6 +2218,27 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
                 :title="`コメント ${row.original.commentCount} 件`"
                 class="shrink-0 gap-0.5 px-1 text-muted"
                 @click.stop="openTaskComments(row.original)"
+              />
+            </div>
+            <div
+              v-if="!isSubRow(row.original) && showLatestComment && row.original.latestComment"
+              class="mt-1 ml-1 pl-2 border-l-2 border-default text-xs whitespace-normal"
+            >
+              <div class="flex items-center gap-1.5 text-dimmed">
+                <UIcon name="i-lucide-message-square" class="size-3 shrink-0" />
+                <span class="truncate">
+                  {{
+                    memberMap[row.original.latestComment.authorMemberId ?? '']?.displayName ??
+                    '削除済みメンバー'
+                  }}
+                </span>
+                <span class="shrink-0" :title="fmtDateTime(row.original.latestComment.createdAt)">
+                  {{ fmtRelative(row.original.latestComment.createdAt) }}
+                </span>
+              </div>
+              <TaskLatestCommentPreview
+                :key="row.original.id"
+                :body="row.original.latestComment.body"
               />
             </div>
           </template>
@@ -2638,6 +2684,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
       (patch: Partial<Task>) => selectedTask && updateTaskField(selectedTask.id, patch)
     "
     @subtasks-changed="refreshSubtasks"
+    @comments-changed="refreshTasks"
   />
 
   <TaskCreateSlideover

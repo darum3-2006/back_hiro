@@ -15,6 +15,15 @@ export class TaskFilterDto {
   @IsBoolean()
   includeCompleted?: boolean;
 
+  /**
+   * 各タスクの最新コメントを latestComment として付けるか。一覧(listByProject)でのみ参照する
+   * （一覧の「最新コメント表示」モード用。既定では付けずペイロードを抑える）。
+   */
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true' || value === '1')
+  @IsBoolean()
+  includeLatestComment?: boolean;
+
   @IsOptional()
   @IsString()
   @MaxLength(64)
