@@ -27,7 +27,9 @@ export class DocsController {
   </head>
   <body>
     <redoc spec-url="/api/docs/openapi.yaml"></redoc>
-    <script src="https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js"></script>
+    <!-- Redoc v3 は ES Module 形式のため type="module" で読む（classic script だと SyntaxError で真っ白になる）。
+         latest 指定だと CDN 側の破壊的変更をそのまま受けるため、バージョンを固定する。 -->
+    <script type="module" src="https://cdn.redoc.ly/redoc/v3.0.1/bundles/redoc.standalone.js"></script>
   </body>
 </html>`;
   }
