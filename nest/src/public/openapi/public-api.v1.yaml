@@ -398,6 +398,58 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /v1/tasks/search:
+    get:
+      tags: [Tasks]
+      summary: タスクのキーワード検索（プロジェクト横断）
+      description: |
+        閲覧できる全プロジェクトを横断してタスクを検索する（画面のグローバル検索と同じ挙動）。
+        アーカイブ済みプロジェクトのタスクは対象外。完了タスクも対象に含む。
+
+        一致条件（いずれか）:
+        - タイトル・説明・関連リンク（URL / ラベル）の部分一致
+        - 短縮コードの完全一致
+        - `#15` / `15` のような数値はプロジェクト内連番（seq）の一致
+
+        並び順: 短縮コード完全一致 → タイトル一致 → 作成日時の新しい順。
+        応答の projectKey を使うと、seq ベースの各エンドポイント（更新・ステータス変更など）へ繋げられる。
+      operationId: searchTasks
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: 検索キーワード。未指定・空白のみの場合は空配列を返す。
+          schema: { type: string, maxLength: 200 }
+          example: ログイン
+        - name: limit
+          in: query
+          required: false
+          description: 最大件数。
+          schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+      responses:
+        '200':
+          description: 検索結果（所属プロジェクトの key 付き）
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  allOf:
+                    - $ref: '#/components/schemas/Task'
+                    - type: object
+                      required: [projectKey]
+                      properties:
+                        projectKey:
+                          type: string
+                          description: 所属プロジェクトの key
+                          example: DEMO
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /v1/tasks/short/{shortCode}:
     get:
       tags: [Tasks]

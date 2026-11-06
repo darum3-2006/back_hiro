@@ -1,4 +1,4 @@
-import { Controller, Get, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiKeyGuard } from '../auth/api-key.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
@@ -6,9 +6,10 @@ import { ProjectAccessService } from '../projects/project-access.service';
 import { ProjectsService } from '../projects/projects.service';
 import { TasksService } from '../tasks/tasks.service';
 import { PublicTask, toPublicTask } from './dto/public-task';
+import { PublicTaskSearchQueryDto } from './dto/public-task-search';
 
 /**
- * 公開API: 共有リンクの短縮コード（グローバル一意）でタスクを引く。
+ * 公開API: プロジェクト横断でタスクを引く（短縮コード / キーワード検索）。
  * プロジェクト key を含まないテナントスコープのエンドポイントなので、
  * v1/projects/:key/tasks 配下の PublicTasksController とは分けている
  * （内部 API の TaskLinksController と同じ構成）。
@@ -36,5 +37,23 @@ export class PublicTaskLookupController {
       this.projects.findByIdInTenant(user.tenantId, resolved.projectId),
     ]);
     return { ...toPublicTask(task), projectKey: project.key };
+  }
+
+  /**
+   * キーワード検索（画面のグローバル検索と同じ条件・並び順）。閲覧できるプロジェクトに絞る。
+   * 応答は各件に projectKey を付け、seq ベースの既存エンドポイントへ繋げられるようにする。
+   */
+  @Get('search')
+  async search(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: PublicTaskSearchQueryDto,
+  ): Promise<Array<PublicTask & { projectKey: string }>> {
+    const hits = await this.tasks.searchWithDetails(
+      user.tenantId,
+      query.q ?? '',
+      query.limit ?? 20,
+      await this.access.accessibleProjectIds(user),
+    );
+    return hits.map((t) => ({ ...toPublicTask(t), projectKey: t.projectKey }));
   }
 }
