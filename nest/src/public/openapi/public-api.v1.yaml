@@ -433,16 +433,7 @@ paths:
             application/json:
               schema:
                 type: array
-                items:
-                  allOf:
-                    - $ref: '#/components/schemas/Task'
-                    - type: object
-                      required: [projectKey]
-                      properties:
-                        projectKey:
-                          type: string
-                          description: 所属プロジェクトの key
-                          example: DEMO
+                items: { $ref: '#/components/schemas/TaskWithProjectKey' }
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -471,15 +462,7 @@ paths:
           content:
             application/json:
               schema:
-                allOf:
-                  - $ref: '#/components/schemas/Task'
-                  - type: object
-                    required: [projectKey]
-                    properties:
-                      projectKey:
-                        type: string
-                        description: 所属プロジェクトの key
-                        example: DEMO
+                $ref: '#/components/schemas/TaskWithProjectKey'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
@@ -943,6 +926,18 @@ components:
         updatedAt:
           type: string
           format: date-time
+
+    TaskWithProjectKey:
+      description: プロジェクト横断のエンドポイントが返すタスク。projectKey で seq ベースの各エンドポイントへ繋げられる。
+      allOf:
+        - $ref: '#/components/schemas/Task'
+        - type: object
+          required: [projectKey]
+          properties:
+            projectKey:
+              type: string
+              description: 所属プロジェクトの key
+              example: DEMO
 
     Status:
       type: object

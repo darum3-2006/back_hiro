@@ -5,8 +5,8 @@ import type { AuthenticatedUser } from '../auth/jwt.strategy';
 import { ProjectAccessService } from '../projects/project-access.service';
 import { ProjectsService } from '../projects/projects.service';
 import { TasksService } from '../tasks/tasks.service';
-import { PublicTask, toPublicTask } from './dto/public-task';
-import { PublicTaskSearchQueryDto } from './dto/public-task-search';
+import { SearchTasksQueryDto } from '../tasks/dto/search-tasks-query.dto';
+import { PublicTaskWithProjectKey, toPublicTaskWithProjectKey } from './dto/public-task';
 
 /**
  * 公開API: プロジェクト横断でタスクを引く（短縮コード / キーワード検索）。
@@ -28,7 +28,7 @@ export class PublicTaskLookupController {
   async byShortCode(
     @CurrentUser() user: AuthenticatedUser,
     @Param('shortCode') shortCode: string,
-  ): Promise<PublicTask & { projectKey: string }> {
+  ): Promise<PublicTaskWithProjectKey> {
     const resolved = await this.tasks.resolveByCode(user.tenantId, shortCode);
     // 閲覧できないプロジェクトのタスクは 404（存在を伏せる）
     await this.access.assertAccess(user, resolved.projectId);
@@ -36,7 +36,7 @@ export class PublicTaskLookupController {
       this.tasks.findInProject(user.tenantId, resolved.projectId, resolved.id),
       this.projects.findByIdInTenant(user.tenantId, resolved.projectId),
     ]);
-    return { ...toPublicTask(task), projectKey: project.key };
+    return toPublicTaskWithProjectKey(task, project.key);
   }
 
   /**
@@ -46,14 +46,14 @@ export class PublicTaskLookupController {
   @Get('search')
   async search(
     @CurrentUser() user: AuthenticatedUser,
-    @Query() query: PublicTaskSearchQueryDto,
-  ): Promise<Array<PublicTask & { projectKey: string }>> {
+    @Query() query: SearchTasksQueryDto,
+  ): Promise<PublicTaskWithProjectKey[]> {
     const hits = await this.tasks.searchWithDetails(
       user.tenantId,
-      query.q ?? '',
-      query.limit ?? 20,
+      query.q,
+      query.limit,
       await this.access.accessibleProjectIds(user),
     );
-    return hits.map((t) => ({ ...toPublicTask(t), projectKey: t.projectKey }));
+    return hits.map((t) => toPublicTaskWithProjectKey(t, t.projectKey));
   }
 }

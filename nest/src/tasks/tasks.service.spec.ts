@@ -328,7 +328,7 @@ describe('TasksService', () => {
 
   describe('search', () => {
     it('空クエリは即 [] を返す（DB を引かない）', async () => {
-      const result = await service.search(tenantId, '   ');
+      const result = await service.search(tenantId, '   ', 20, null);
       expect(result).toEqual([]);
       expect(tasksRepo.createQueryBuilder).not.toHaveBeenCalled();
     });
@@ -356,7 +356,7 @@ describe('TasksService', () => {
       };
       tasksRepo.createQueryBuilder.mockReturnValue(qb as never);
 
-      const result = await service.search(tenantId, 'ログイン');
+      const result = await service.search(tenantId, 'ログイン', 20, null);
 
       expect(result).toEqual([
         {
@@ -385,7 +385,7 @@ describe('TasksService', () => {
       };
       tasksRepo.createQueryBuilder.mockReturnValue(qb as never);
 
-      await service.search(tenantId, '#15');
+      await service.search(tenantId, '#15', 20, null);
 
       const calls = qb.andWhere.mock.calls as Array<[string, Record<string, unknown>?]>;
       const usedSeq = calls.some((c) => c[1]?.seq === 15);
@@ -406,7 +406,7 @@ describe('TasksService', () => {
     });
 
     it('空クエリ・閲覧できるプロジェクトなしは即 [] を返す（DB を引かない）', async () => {
-      expect(await service.searchWithDetails(tenantId, '  ')).toEqual([]);
+      expect(await service.searchWithDetails(tenantId, '  ', 20, null)).toEqual([]);
       expect(await service.searchWithDetails(tenantId, 'x', 20, [])).toEqual([]);
       expect(tasksRepo.createQueryBuilder).not.toHaveBeenCalled();
     });
@@ -414,7 +414,7 @@ describe('TasksService', () => {
     it('ヒットが無ければタスク本体を引かない', async () => {
       tasksRepo.createQueryBuilder.mockReturnValue(makeSearchQb([]) as never);
 
-      expect(await service.searchWithDetails(tenantId, 'なし')).toEqual([]);
+      expect(await service.searchWithDetails(tenantId, 'なし', 20, null)).toEqual([]);
       expect(tasksRepo.find).not.toHaveBeenCalled();
     });
 

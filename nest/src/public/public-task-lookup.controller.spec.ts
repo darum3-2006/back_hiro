@@ -108,11 +108,5 @@ describe('PublicTaskLookupController', () => {
       expect(result[0]).not.toHaveProperty('projectId');
       expect(result[0]).not.toHaveProperty('commentCount');
     });
-
-    it('q / limit 未指定は空文字・20 件で検索する', async () => {
-      await controller.search(user, {});
-
-      expect(tasks.searchWithDetails).toHaveBeenCalledWith('t1', '', 20, ['p1']);
-    });
   });
 });

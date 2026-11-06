@@ -1,8 +1,9 @@
-import { Controller, DefaultValuePipe, Get, ParseIntPipe, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
 import { ProjectAccessService } from '../projects/project-access.service';
+import { SearchTasksQueryDto } from './dto/search-tasks-query.dto';
 import { TasksService } from './tasks.service';
 
 /**
@@ -20,11 +21,12 @@ export class SearchController {
 
   /** GET /search/tasks?q=&limit= — タイトル/説明/コード横断でタスクを検索 */
   @Get('tasks')
-  async searchTasks(
-    @CurrentUser() user: AuthenticatedUser,
-    @Query('q') q = '',
-    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
-  ) {
-    return this.tasks.search(user.tenantId, q, limit, await this.access.accessibleProjectIds(user));
+  async searchTasks(@CurrentUser() user: AuthenticatedUser, @Query() query: SearchTasksQueryDto) {
+    return this.tasks.search(
+      user.tenantId,
+      query.q,
+      query.limit,
+      await this.access.accessibleProjectIds(user),
+    );
   }
 }

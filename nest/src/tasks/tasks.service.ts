@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, In, Repository } from 'typeorm';
+import { EntityManager, In, Repository, SelectQueryBuilder } from 'typeorm';
 import { AuditChange } from '../audit/audit-log.entity';
 import { AuditService } from '../audit/audit.service';
 import { Comment } from '../comments/comment.entity';
@@ -346,8 +346,9 @@ export class TasksService {
   async search(
     tenantId: string,
     rawQuery: string,
-    limit = 20,
-    accessibleProjectIds: string[] | null = null,
+    limit: number,
+    /** null = テナント内の全プロジェクト（閲覧制限のないロール） */
+    accessibleProjectIds: string[] | null,
   ): Promise<TaskSearchResult[]> {
     const qb = this.searchQuery(tenantId, rawQuery, limit, accessibleProjectIds);
     if (!qb) return [];
@@ -374,14 +375,15 @@ export class TasksService {
   }
 
   /**
-   * 公開API用のグローバル検索。検索条件・並び順・件数は search() と同じで、
-   * 各件をタスクの完全な形（TaskResponse）＋所属プロジェクトの key で返す。
+   * search() の完全版。検索条件・並び順・件数は search() と同じで、各件をタスクの
+   * 完全な形（TaskResponse）＋所属プロジェクトの key で返す（プロジェクト横断で seq を引けるように）。
    */
   async searchWithDetails(
     tenantId: string,
     rawQuery: string,
-    limit = 20,
-    accessibleProjectIds: string[] | null = null,
+    limit: number,
+    /** null = テナント内の全プロジェクト（閲覧制限のないロール） */
+    accessibleProjectIds: string[] | null,
   ): Promise<Array<TaskResponse & { projectKey: string }>> {
     const qb = this.searchQuery(tenantId, rawQuery, limit, accessibleProjectIds);
     if (!qb) return [];
@@ -401,19 +403,20 @@ export class TasksService {
   }
 
   /**
-   * グローバル検索の共通クエリ（条件・並び順・件数まで）。select は呼び出し側で決める。
+   * グローバル検索の共通クエリ（条件・並び順・件数まで）。select は持たないので、
+   * 呼び出し側で必ず select する（t / p / s の別名を使える）。
    * 検索しない（空クエリ・閲覧できるプロジェクトが無い）ときは null。
+   * limit の範囲（1〜50）は SearchTasksQueryDto で検証済みの前提。
    */
   private searchQuery(
     tenantId: string,
     rawQuery: string,
     limit: number,
     accessibleProjectIds: string[] | null,
-  ) {
+  ): SelectQueryBuilder<Task> | null {
     const q = rawQuery.trim();
     if (!q) return null;
     if (accessibleProjectIds !== null && accessibleProjectIds.length === 0) return null;
-    const take = Math.min(Math.max(limit, 1), 50);
     const like = `%${escapeLike(q)}%`;
     // 「#15」「15」のような数値はプロジェクト内連番(seq)としても照合する
     const seqMatch = /^#?(\d+)$/.exec(q);
@@ -440,7 +443,7 @@ export class TasksService {
         .orderBy('t.short_code = :code', 'DESC')
         .addOrderBy('t.content LIKE :like', 'DESC')
         .addOrderBy('t.created_at', 'DESC')
-        .limit(take)
+        .limit(limit)
     );
   }
 
