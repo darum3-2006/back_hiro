@@ -165,6 +165,7 @@ describe('TasksService', () => {
           provide: getRepositoryToken(Task),
           useValue: {
             manager: { transaction },
+            find: jest.fn(),
             findOne: jest.fn(),
             create: jest.fn((dto: Partial<Task>) => dto as Task),
             save: jest.fn((entity: Task) => Promise.resolve({ ...entity, id: entity.id ?? 't1' })),
@@ -327,7 +328,7 @@ describe('TasksService', () => {
 
   describe('search', () => {
     it('空クエリは即 [] を返す（DB を引かない）', async () => {
-      const result = await service.search(tenantId, '   ');
+      const result = await service.search(tenantId, '   ', 20, null);
       expect(result).toEqual([]);
       expect(tasksRepo.createQueryBuilder).not.toHaveBeenCalled();
     });
@@ -355,7 +356,7 @@ describe('TasksService', () => {
       };
       tasksRepo.createQueryBuilder.mockReturnValue(qb as never);
 
-      const result = await service.search(tenantId, 'ログイン');
+      const result = await service.search(tenantId, 'ログイン', 20, null);
 
       expect(result).toEqual([
         {
@@ -384,11 +385,67 @@ describe('TasksService', () => {
       };
       tasksRepo.createQueryBuilder.mockReturnValue(qb as never);
 
-      await service.search(tenantId, '#15');
+      await service.search(tenantId, '#15', 20, null);
 
       const calls = qb.andWhere.mock.calls as Array<[string, Record<string, unknown>?]>;
       const usedSeq = calls.some((c) => c[1]?.seq === 15);
       expect(usedSeq).toBe(true);
+    });
+  });
+
+  describe('searchWithDetails', () => {
+    const makeSearchQb = (hits: unknown[]) => ({
+      innerJoin: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValue(hits),
+    });
+
+    it('空クエリ・閲覧できるプロジェクトなしは即 [] を返す（DB を引かない）', async () => {
+      expect(await service.searchWithDetails(tenantId, '  ', 20, null)).toEqual([]);
+      expect(await service.searchWithDetails(tenantId, 'x', 20, [])).toEqual([]);
+      expect(tasksRepo.createQueryBuilder).not.toHaveBeenCalled();
+    });
+
+    it('ヒットが無ければタスク本体を引かない', async () => {
+      tasksRepo.createQueryBuilder.mockReturnValue(makeSearchQb([]) as never);
+
+      expect(await service.searchWithDetails(tenantId, 'なし', 20, null)).toEqual([]);
+      expect(tasksRepo.find).not.toHaveBeenCalled();
+    });
+
+    it('検索の並び順を保ったまま、完全な形に projectKey を付けて返す', async () => {
+      const qb = makeSearchQb([
+        { id: 't2', projectKey: 'B' },
+        { id: 't1', projectKey: 'A' },
+      ]);
+      tasksRepo.createQueryBuilder.mockReturnValue(qb as never);
+      // IN 取得は順序不定なので、検索順と逆で返す
+      tasksRepo.find.mockResolvedValue([
+        { ...baseTask, id: 't1' },
+        { ...baseTask, id: 't2', seq: 2 },
+      ] as Task[]);
+
+      const result = await service.searchWithDetails(tenantId, 'ログイン', 20, ['p1', 'p2']);
+
+      expect(result.map((r) => [r.id, r.projectKey])).toEqual([
+        ['t2', 'B'],
+        ['t1', 'A'],
+      ]);
+      expect(result[0]).toMatchObject({ seq: 2, tagCodes: [], commentCount: 0 });
+      // 画面の検索と同じ条件（アーカイブ除外・閲覧できるプロジェクトに限定）
+      expect(qb.andWhere).toHaveBeenCalledWith('p.archived_at IS NULL');
+      expect(qb.andWhere).toHaveBeenCalledWith('t.project_id IN (:...accessibleProjectIds)', {
+        accessibleProjectIds: ['p1', 'p2'],
+      });
+      // 本体取得もテナントで絞る
+      expect(tasksRepo.find).toHaveBeenCalledWith({
+        where: { id: expect.anything() as unknown, project: { tenantId } },
+      });
     });
   });
 

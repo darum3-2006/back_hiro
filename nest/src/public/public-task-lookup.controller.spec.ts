@@ -11,9 +11,11 @@ import { PublicTaskLookupController } from './public-task-lookup.controller';
 
 describe('PublicTaskLookupController', () => {
   let controller: PublicTaskLookupController;
-  let tasks: jest.Mocked<Pick<TasksService, 'resolveByCode' | 'findInProject'>>;
+  let tasks: jest.Mocked<
+    Pick<TasksService, 'resolveByCode' | 'findInProject' | 'searchWithDetails'>
+  >;
   let projects: jest.Mocked<Pick<ProjectsService, 'findByIdInTenant'>>;
-  let access: jest.Mocked<Pick<ProjectAccessService, 'assertAccess'>>;
+  let access: jest.Mocked<Pick<ProjectAccessService, 'assertAccess' | 'accessibleProjectIds'>>;
 
   const user: AuthenticatedUser = { userId: 'u1', tenantId: 't1', role: 'power_user' };
   const project = { id: 'p1', key: 'DEMO', archivedAt: null } as Project;
@@ -46,9 +48,13 @@ describe('PublicTaskLookupController', () => {
     tasks = {
       resolveByCode: jest.fn().mockResolvedValue({ projectId: 'p1', id: 'task-1' }),
       findInProject: jest.fn().mockResolvedValue(taskResponse),
+      searchWithDetails: jest.fn().mockResolvedValue([{ ...taskResponse, projectKey: 'DEMO' }]),
     };
     projects = { findByIdInTenant: jest.fn().mockResolvedValue(project) };
-    access = { assertAccess: jest.fn().mockResolvedValue(undefined) };
+    access = {
+      assertAccess: jest.fn().mockResolvedValue(undefined),
+      accessibleProjectIds: jest.fn().mockResolvedValue(['p1']),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [PublicTaskLookupController],
@@ -87,5 +93,20 @@ describe('PublicTaskLookupController', () => {
 
     await expect(controller.byShortCode(user, 'ghost')).rejects.toThrow(NotFoundException);
     expect(access.assertAccess).not.toHaveBeenCalled();
+  });
+
+  describe('search', () => {
+    it('閲覧できるプロジェクトに絞って検索し、公開形 + projectKey で返す', async () => {
+      const result = await controller.search(user, { q: 'タスク', limit: 5 });
+
+      expect(access.accessibleProjectIds).toHaveBeenCalledWith(user);
+      expect(tasks.searchWithDetails).toHaveBeenCalledWith('t1', 'タスク', 5, ['p1']);
+      expect(result).toHaveLength(1);
+      expect(result[0]).toMatchObject({ seq: 5, shortCode: 'abc123', projectKey: 'DEMO' });
+      // 内部 UUID や内部向け項目は露出しない
+      expect(result[0]).not.toHaveProperty('id');
+      expect(result[0]).not.toHaveProperty('projectId');
+      expect(result[0]).not.toHaveProperty('commentCount');
+    });
   });
 });

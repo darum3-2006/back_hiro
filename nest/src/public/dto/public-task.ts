@@ -49,3 +49,11 @@ export const toPublicTask = (t: TaskResponse): PublicTask => ({
   createdAt: t.createdAt,
   updatedAt: t.updatedAt,
 });
+
+/** プロジェクト key を含まない横断エンドポイント用。projectKey で seq ベースの各エンドポイントへ繋げる */
+export type PublicTaskWithProjectKey = PublicTask & { projectKey: string };
+
+export const toPublicTaskWithProjectKey = (
+  t: TaskResponse,
+  projectKey: string,
+): PublicTaskWithProjectKey => ({ ...toPublicTask(t), projectKey });
