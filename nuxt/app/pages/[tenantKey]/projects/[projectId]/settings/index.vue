@@ -130,9 +130,7 @@ const clearWebhook = async () => {
 };
 
 type SlackToggleField =
-  | 'slackNotifyTaskCreated'
-  | 'slackNotifyStatusChanged'
-  | 'slackNotifyTaskCompleted';
+  'slackNotifyTaskCreated' | 'slackNotifyStatusChanged' | 'slackNotifyTaskCompleted';
 
 const slackToggles: { field: SlackToggleField; label: string }[] = [
   { field: 'slackNotifyTaskCreated', label: '新しいタスクが登録されたとき' },

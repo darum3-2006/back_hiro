@@ -26,9 +26,8 @@ const refreshAccessToken = (token: Ref<string | null>): Promise<RefreshResult> =
       token.value = res.accessToken;
       return { kind: 'ok' };
     })
-    .catch(
-      (e: unknown): RefreshResult =>
-        statusOf(e) === 429 ? { kind: 'rate-limited', error: e } : { kind: 'failed' },
+    .catch((e: unknown): RefreshResult =>
+      statusOf(e) === 429 ? { kind: 'rate-limited', error: e } : { kind: 'failed' },
     )
     .finally(() => {
       refreshInFlight = null;

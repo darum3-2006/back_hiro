@@ -3,11 +3,7 @@ import { Observable, Subject } from 'rxjs';
 
 /** プロジェクト単位のデータ更新イベント種別（クライアントは該当データを再取得する） */
 export type ProjectEventType =
-  | 'tasks.changed'
-  | 'comments.changed'
-  | 'masters.changed'
-  | 'members.changed'
-  | 'views.changed';
+  'tasks.changed' | 'comments.changed' | 'masters.changed' | 'members.changed' | 'views.changed';
 
 /**
  * データ本体は載せない薄い「再取得シグナル」。

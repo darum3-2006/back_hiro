@@ -14,26 +14,26 @@
     "typecheck": "nuxt typecheck"
   },
   "dependencies": {
-    "@iconify-json/lucide": "^1.2.104",
-    "@iconify-json/simple-icons": "^1.2.80",
-    "@internationalized/date": "^3.12.1",
-    "@nuxt/ui": "^4.7.0",
+    "@iconify-json/lucide": "^1.2.154",
+    "@iconify-json/simple-icons": "^1.2.102",
+    "@internationalized/date": "^3.12.4",
+    "@nuxt/ui": "^4.12.0",
     "@tanstack/vue-table": "^8.21.3",
-    "dayjs": "^1.11.20",
-    "markdown-it": "^14.2.0",
-    "nuxt": "^4.4.2",
-    "tailwindcss": "^4.2.4",
+    "dayjs": "^1.11.23",
+    "markdown-it": "^14.3.3",
+    "nuxt": "^4.6.4",
+    "tailwindcss": "^4.3.5",
     "vue-draggable-plus": "^0.6.1",
-    "xlsx": "0.18.5"
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
-    "@nuxt/eslint": "^1.15.2",
-    "@types/markdown-it": "^14.1.2",
-    "eslint": "^10.2.1",
+    "@nuxt/eslint": "^1.17.0",
+    "@types/markdown-it": "^14.2.0",
+    "eslint": "^10.14.0",
     "eslint-config-prettier": "^10.1.8",
-    "prettier": "^3.8.3",
+    "prettier": "^3.10.1",
     "typescript": "^6.0.3",
-    "vue-tsc": "^3.2.7"
+    "vue-tsc": "~3.2.9"
   },
   "packageManager": "pnpm@10.33.2"
 }
