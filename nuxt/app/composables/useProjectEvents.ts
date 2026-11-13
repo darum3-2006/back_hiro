@@ -1,10 +1,6 @@
 /** サーバの ProjectEventType と対応（nest/src/project-events/project-events.service.ts） */
 export type ProjectEventType =
-  | 'tasks.changed'
-  | 'comments.changed'
-  | 'masters.changed'
-  | 'members.changed'
-  | 'views.changed';
+  'tasks.changed' | 'comments.changed' | 'masters.changed' | 'members.changed' | 'views.changed';
 
 export interface ProjectEvent {
   type: ProjectEventType;
