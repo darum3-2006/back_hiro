@@ -170,6 +170,14 @@ export class MembersService {
     await this.members.remove(member);
   }
 
+  /**
+   * ユーザー本人のメンバーを返す（無ければ null）。
+   * projectId は呼び出し側でテナント内のプロジェクトとして解決済みであること。
+   */
+  async findOwnInProject(projectId: string, userId: string): Promise<ProjectMember | null> {
+    return this.members.findOne({ where: { projectId, userId } });
+  }
+
   private async findByIdInProject(
     tenantId: string,
     projectId: string,
