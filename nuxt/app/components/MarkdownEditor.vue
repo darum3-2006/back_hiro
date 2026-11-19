@@ -21,6 +21,8 @@ const props = withDefaults(
     disabled?: boolean;
     /** マウント時に編集欄へフォーカスする（編集モード開始で表示されるケース用） */
     autofocus?: boolean;
+    /** 編集欄の高さを内容に合わせて自動調整する（MentionTextarea の autoresize） */
+    autoresize?: boolean;
   }>(),
   {
     tasks: () => [],
@@ -31,6 +33,7 @@ const props = withDefaults(
     placeholder: '',
     disabled: false,
     autofocus: false,
+    autoresize: false,
   },
 );
 
@@ -79,6 +82,7 @@ watch(
       :placeholder="placeholder"
       :disabled="disabled"
       :autofocus="autofocus"
+      :autoresize="autoresize"
       @update:model-value="(v: string) => emit('update:modelValue', v)"
       @submit="emit('submit')"
     />

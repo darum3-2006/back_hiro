@@ -593,6 +593,7 @@ const onEscapeKeyDown = useDialogImeEscapeGuard(() => props.open);
               :show-images="showImages"
               :rows="5"
               autofocus
+              autoresize
               placeholder="説明（Markdown 可・Cmd/Ctrl+Enter で保存）…"
               @submit="commitEdit"
             />
