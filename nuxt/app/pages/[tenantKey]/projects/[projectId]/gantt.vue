@@ -288,6 +288,7 @@ const updateTaskField = async (
               class="w-24"
             />
           </div>
+          <ColorModeButton />
         </template>
       </UDashboardNavbar>
     </template>

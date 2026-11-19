@@ -186,6 +186,60 @@ export const ganttBarColorClass = (color: MasterColor | undefined): string => {
 };
 
 /**
+ * バー枠線色クラス（完了タスクの中抜きバー用）。ganttBarColorClass と同じ色を枠線で使う。
+ * 動的クラス生成は purge されるため、リテラルで列挙する。
+ */
+export const ganttBarBorderClass = (color: MasterColor | undefined): string => {
+  const map: Record<MasterColor, string> = {
+    neutral: 'border-neutral-400',
+    primary: 'border-primary',
+    secondary: 'border-secondary',
+    info: 'border-info',
+    success: 'border-success',
+    warning: 'border-warning',
+    error: 'border-error',
+    rose: 'border-rose-500',
+    sky: 'border-sky-500',
+    amber: 'border-amber-500',
+    fuchsia: 'border-fuchsia-500',
+    emerald: 'border-emerald-500',
+    violet: 'border-violet-500',
+    cyan: 'border-cyan-500',
+    indigo: 'border-indigo-500',
+    mauve: 'border-mauve-500',
+    olive: 'border-olive-500',
+  };
+  return color ? map[color] : 'border-primary';
+};
+
+/**
+ * 文字色クラス（完了タスクのチェックアイコンを完了ステータスの色に合わせる用）。
+ * 動的クラス生成は purge されるため、リテラルで列挙する。
+ */
+export const ganttTextColorClass = (color: MasterColor | undefined): string => {
+  const map: Record<MasterColor, string> = {
+    neutral: 'text-neutral-400',
+    primary: 'text-primary',
+    secondary: 'text-secondary',
+    info: 'text-info',
+    success: 'text-success',
+    warning: 'text-warning',
+    error: 'text-error',
+    rose: 'text-rose-500',
+    sky: 'text-sky-500',
+    amber: 'text-amber-500',
+    fuchsia: 'text-fuchsia-500',
+    emerald: 'text-emerald-500',
+    violet: 'text-violet-500',
+    cyan: 'text-cyan-500',
+    indigo: 'text-indigo-500',
+    mauve: 'text-mauve-500',
+    olive: 'text-olive-500',
+  };
+  return color ? map[color] : 'text-primary';
+};
+
+/**
  * ガントにバーを描画できるか（着手予定日・完了予定日のどちらか一方でもあれば可）。
  * 片方だけのときは、欠けた側をもう片方で補って 1 日幅の点バーにする（GanttChart 側）。
  */

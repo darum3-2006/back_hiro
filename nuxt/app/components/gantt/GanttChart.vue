@@ -2,7 +2,13 @@
 import type { GanttScale } from '~/composables/useGanttScale';
 import type { TaskStatus } from '~/types/master';
 import type { Task } from '~/types/task';
-import { ganttBarColorClass, hasPlannedBar, type GanttGroup } from '~/utils/gantt';
+import {
+  ganttBarBorderClass,
+  ganttBarColorClass,
+  ganttTextColorClass,
+  hasPlannedBar,
+  type GanttGroup,
+} from '~/utils/gantt';
 
 const props = defineProps<{
   groups: GanttGroup[];
@@ -20,6 +26,21 @@ const emit = defineEmits<{ select: [Task] }>();
 
 const isRelated = (task: Task): boolean => props.relatedIds?.has(task.id) ?? false;
 const isViolated = (task: Task): boolean => props.violatedIds?.has(task.id) ?? false;
+/** 完了扱い（ステータスマスタの isTerminal）。完了タスク表示時に見分けられるよう中抜きで描く */
+const isDone = (task: Task): boolean => props.statusMap[task.statusCode]?.isTerminal ?? false;
+/**
+ * バーの塗り。未完了はステータス色で塗りつぶし、完了は塗らずにステータス色の枠線だけ（中抜き）にする。
+ * 色ではなく形で分けるので、ステータス色の組み合わせによらず見分けられ、完了が多くてもうるさくならない。
+ */
+const barFillClass = (task: Task): string => {
+  const color = props.statusMap[task.statusCode]?.color;
+  return isDone(task)
+    ? `border-2 bg-default text-default ${ganttBarBorderClass(color)}`
+    : `text-white shadow-sm ${ganttBarColorClass(color)}`;
+};
+/** 完了タスクの印（チェックアイコン・期限の ▼）の色。完了扱いステータスに設定された色に合わせる */
+const doneIconClass = (task: Task): string =>
+  ganttTextColorClass(props.statusMap[task.statusCode]?.color);
 // バーの枠線: 依存違反(赤) > 関連ハイライト(primary) の優先
 const ringClass = (task: Task): string =>
   isViolated(task)
@@ -101,7 +122,16 @@ const barStyle = (task: Task) => {
             @click="emit('select', task)"
           >
             <span class="shrink-0 text-xs text-muted tabular-nums">#{{ task.seq }}</span>
-            <span class="truncate">{{ task.content }}</span>
+            <UIcon
+              v-if="isDone(task)"
+              name="i-lucide-circle-check"
+              class="size-3.5 shrink-0"
+              :class="doneIconClass(task)"
+              title="完了"
+            />
+            <span class="truncate" :class="{ 'line-through text-muted': isDone(task) }">
+              {{ task.content }}
+            </span>
             <UIcon
               v-if="isViolated(task)"
               name="i-lucide-triangle-alert"
@@ -121,21 +151,31 @@ const barStyle = (task: Task) => {
             <button
               v-if="hasPlannedBar(task)"
               type="button"
-              class="absolute rounded px-1 text-left text-xs text-white truncate shadow-sm"
-              :class="[ganttBarColorClass(statusMap[task.statusCode]?.color), ringClass(task)]"
+              class="absolute flex items-center gap-1 overflow-hidden rounded px-1 text-left text-xs"
+              :class="[barFillClass(task), ringClass(task)]"
               :style="barStyle(task)"
               :title="
                 isViolated(task)
                   ? '先行/ブロック元の完了予定より早く着手予定になっています'
-                  : task.content
+                  : isDone(task)
+                    ? `（完了）${task.content}`
+                    : task.content
               "
               @click="emit('select', task)"
             >
-              {{ task.content }}
+              <UIcon
+                v-if="isDone(task)"
+                name="i-lucide-check"
+                class="size-3 shrink-0"
+                :class="doneIconClass(task)"
+              />
+              <span class="truncate">{{ task.content }}</span>
             </button>
+            <!-- 完了済みは期限を過ぎていても警告ではないので、赤ではなく完了ステータスの色にする -->
             <div
               v-if="xOf(task.deadline) !== null"
-              class="absolute -translate-x-1/2 text-xs text-error pointer-events-none"
+              class="absolute -translate-x-1/2 text-xs pointer-events-none"
+              :class="isDone(task) ? doneIconClass(task) : 'text-error'"
               :style="{ left: `${xOf(task.deadline)}px`, top: '0px' }"
               title="期限"
             >

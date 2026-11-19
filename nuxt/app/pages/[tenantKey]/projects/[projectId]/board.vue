@@ -158,6 +158,9 @@ const updateTaskField = async (
             {{ currentProject.name }}
           </span>
         </template>
+        <template #right>
+          <ColorModeButton />
+        </template>
       </UDashboardNavbar>
     </template>
 
