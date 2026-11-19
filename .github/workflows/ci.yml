@@ -14,8 +14,14 @@ concurrency:
 
 jobs:
   nuxt:
-    name: nuxt (lint / format / typecheck)
+    name: nuxt (lint / format / typecheck, Node ${{ matrix.node }})
     runs-on: ubuntu-latest
+    strategy:
+      # 片方の Node で落ちても、もう片方の結果も見られるようにする
+      fail-fast: false
+      matrix:
+        # サポート対象の Node（package.json の engines と揃える）
+        node: [24, 26]
     defaults:
       run:
         working-directory: nuxt
@@ -28,7 +34,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: ${{ matrix.node }}
           cache: pnpm
           cache-dependency-path: nuxt/pnpm-lock.yaml
 
@@ -45,8 +51,14 @@ jobs:
         run: pnpm typecheck
 
   nest:
-    name: nest (lint / format / test)
+    name: nest (lint / format / test, Node ${{ matrix.node }})
     runs-on: ubuntu-latest
+    strategy:
+      # 片方の Node で落ちても、もう片方の結果も見られるようにする
+      fail-fast: false
+      matrix:
+        # サポート対象の Node（package.json の engines と揃える）
+        node: [24, 26]
     defaults:
       run:
         working-directory: nest
@@ -59,7 +71,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: ${{ matrix.node }}
           cache: pnpm
           cache-dependency-path: nest/pnpm-lock.yaml
 

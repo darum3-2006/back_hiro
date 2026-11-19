@@ -106,5 +106,8 @@
       "@nestjs/core",
       "bcrypt"
     ]
+  },
+  "engines": {
+    "node": "^24 || ^26"
   }
 }
