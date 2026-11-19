@@ -32,19 +32,6 @@ import { isTaskDatePast } from '~/utils/task-overdue';
 
 const api = useApi();
 
-// テーマ切替: 初期は preference='system' のまま OS に追従。クリック時に
-// 現在描画されている方の反対側 (light <-> dark) に preference を上書きする。
-const colorMode = useColorMode();
-const toggleColorMode = () => {
-  colorMode.preference = colorMode.value === 'dark' ? 'light' : 'dark';
-};
-const colorModeIcon = computed(() =>
-  colorMode.value === 'dark' ? 'i-lucide-moon' : 'i-lucide-sun',
-);
-const colorModeAriaLabel = computed(() =>
-  colorMode.value === 'dark' ? 'ライトモードに切り替え' : 'ダークモードに切り替え',
-);
-
 const UButton = resolveComponent('UButton');
 const UIcon = resolveComponent('UIcon');
 const UPopover = resolveComponent('UPopover');
@@ -2084,16 +2071,7 @@ const isPlannedReleaseOverdue = (task: Task): boolean =>
             @delete="deleteView"
           />
           <TaskViewHistoryMenu />
-          <!-- アイコンだけのボタンなので、閲覧履歴と同じくツールチップで何のボタンかを出す -->
-          <UTooltip :text="colorModeAriaLabel">
-            <UButton
-              color="neutral"
-              variant="outline"
-              :icon="colorModeIcon"
-              :aria-label="colorModeAriaLabel"
-              @click="toggleColorMode"
-            />
-          </UTooltip>
+          <ColorModeButton />
           <UDropdownMenu :items="columnVisibilityItems" :ui="{ content: 'min-w-40' }">
             <UButton
               color="neutral"
