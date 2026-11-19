@@ -15,8 +15,10 @@ const props = withDefaults(
     disabled?: boolean;
     /** マウント時にフォーカスする（編集モード開始で表示されるケース用） */
     autofocus?: boolean;
+    /** 内容に合わせて高さを自動調整する（rows 行が最小、画面高の 60% が上限で超えたらスクロール） */
+    autoresize?: boolean;
   }>(),
-  { rows: 3, placeholder: '', disabled: false, autofocus: false },
+  { rows: 3, placeholder: '', disabled: false, autofocus: false, autoresize: false },
 );
 
 const emit = defineEmits<{
@@ -134,7 +136,27 @@ const onBlur = () => {
   }, 150);
 };
 
+/** autoresize 時、内容が収まる高さにする（上限は CSS の max-height に任せる） */
+const resize = () => {
+  const el = taRef.value;
+  if (!props.autoresize || !el) return;
+  el.style.height = 'auto';
+  // 非表示（MarkdownEditor のプレビュータブ中など）は scrollHeight が 0 になるので直前の高さを保つ
+  if (el.scrollHeight === 0) {
+    el.style.height = '';
+    return;
+  }
+  // scrollHeight は border を含まない（box-sizing: border-box なので足す）
+  const style = getComputedStyle(el);
+  const border = parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth);
+  el.style.height = `${el.scrollHeight + border}px`;
+};
+
+// 入力・メンション挿入・親からの差し替えのどれでも追従させる
+watch(() => props.modelValue, resize, { flush: 'post' });
+
 onMounted(() => {
+  resize();
   if (!props.autofocus) return;
   const el = taRef.value;
   if (!el) return;
@@ -152,6 +174,7 @@ onMounted(() => {
       :rows="rows"
       :disabled="disabled"
       :placeholder="placeholder"
+      :class="{ 'max-h-[60vh]': autoresize }"
       class="w-full resize-y rounded-md border border-default bg-default px-2.5 py-1.5 text-sm text-highlighted placeholder:text-dimmed focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary disabled:cursor-not-allowed disabled:opacity-75"
       @input="onInput"
       @keydown="onKeydown"

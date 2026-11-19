@@ -353,6 +353,7 @@ const onEscapeKeyDown = useDialogImeEscapeGuard(() => props.open);
             :tasks="tasks ?? []"
             :rows="4"
             show-images
+            autoresize
             placeholder="詳細を記入（Markdown 可）"
             @update:model-value="
               (v: string) => {
