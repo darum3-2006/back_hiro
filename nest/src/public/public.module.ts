@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ApiKeyGuard } from '../auth/api-key.guard';
+import { CommentsModule } from '../comments/comments.module';
 import { DepartmentsModule } from '../departments/departments.module';
 import { MastersModule } from '../masters/masters.module';
 import { MembersModule } from '../members/members.module';
@@ -7,6 +8,7 @@ import { ProjectsModule } from '../projects/projects.module';
 import { TasksModule } from '../tasks/tasks.module';
 import { UsersModule } from '../users/users.module';
 import { DocsController } from './docs.controller';
+import { PublicCommentsController } from './public-comments.controller';
 import { PublicDepartmentsController } from './public-departments.controller';
 import { PublicMastersController } from './public-masters.controller';
 import { PublicProjectsController } from './public-projects.controller';
@@ -25,11 +27,13 @@ import { PublicTasksController } from './public-tasks.controller';
     MastersModule,
     MembersModule,
     DepartmentsModule,
+    CommentsModule,
   ],
   controllers: [
     DocsController,
     PublicProjectsController,
     PublicTasksController,
+    PublicCommentsController,
     PublicTaskLookupController,
     PublicMastersController,
     PublicDepartmentsController,

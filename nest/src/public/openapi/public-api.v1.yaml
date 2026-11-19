@@ -398,6 +398,69 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /v1/projects/{key}/tasks/{seq}/comments:
+    get:
+      tags: [Tasks]
+      summary: タスクのコメント一覧
+      description: |
+        タスクのコメントを投稿の古い順で取得する。本文は Markdown。
+        投稿者の表示名は authorMemberId をメンバー一覧（GET /projects/{key}/members）の id と突き合わせて解決する。
+      operationId: listTaskComments
+      parameters:
+        - $ref: '#/components/parameters/ProjectKey'
+        - $ref: '#/components/parameters/TaskSeq'
+      responses:
+        '200':
+          description: コメント一覧（古い順）
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Comment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+    post:
+      tags: [Tasks]
+      summary: タスクへのコメント投稿
+      description: |
+        タスクにコメントを投稿する。本文は Markdown。
+        投稿者は API キーの持ち主本人（そのプロジェクトでのメンバー）に固定され、指定はできない。
+        本文中の `@ユーザー名` はプロジェクトメンバーへのメンション通知になる（画面からの投稿と同じ）。
+        API キーの持ち主がプロジェクトのメンバーでない場合は 403。
+      operationId: createTaskComment
+      parameters:
+        - $ref: '#/components/parameters/ProjectKey'
+        - $ref: '#/components/parameters/TaskSeq'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommentCreate'
+      responses:
+        '201':
+          description: 投稿したコメント
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /v1/tasks/search:
     get:
       tags: [Tasks]
@@ -983,6 +1046,34 @@ components:
           format: uuid
           description: メンバー ID（assigneeMemberId / requesterMemberId が参照）
         displayName: { type: string }
+
+    CommentCreate:
+      type: object
+      required: [body]
+      properties:
+        body:
+          type: string
+          minLength: 1
+          maxLength: 50000
+          description: コメント本文（Markdown）
+
+    Comment:
+      type: object
+      required: [id, body, authorMemberId, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        body:
+          type: string
+          description: コメント本文（Markdown）
+        authorMemberId:
+          type: string
+          format: uuid
+          nullable: true
+          description: 投稿者のメンバー ID（GET /projects/{key}/members の id）。削除済みメンバーは null
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
 
     Department:
       type: object
