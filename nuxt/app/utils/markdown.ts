@@ -64,6 +64,9 @@ md.renderer.rules.imageurl = (tokens, idx) => {
 // ===== #15 内部タスクリンク =====
 md.inline.ruler.before('link', 'taskref', (state: StateInline, silent: boolean): boolean => {
   if (state.src[state.pos] !== '#') return false;
+  // [#123 タスク名](url) のようにリンク文字列の中にある場合は、<a> の入れ子になるので変換しない
+  // （linkLevel は markdown-it 13+ の実装にあるが @types/markdown-it に未定義のため型を補う）
+  if ((state as StateInline & { linkLevel: number }).linkLevel > 0) return false;
   const prev = state.pos > 0 ? (state.src[state.pos - 1] ?? ' ') : ' ';
   if (/[0-9A-Za-z]/.test(prev)) return false;
   const m = /^#(\d+)/.exec(state.src.slice(state.pos));
