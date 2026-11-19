@@ -421,7 +421,7 @@ const copyShareLink = (e: MouseEvent) => {
   if (!task) return;
   const url = `${window.location.origin}/${currentTenantKey.value}/${task.shortCode}`;
   if (e.shiftKey) {
-    copyToClipboard(`[${task.content}](${url})`, 'Markdown リンクをコピーしました');
+    copyToClipboard(`[#${task.seq} ${task.content}](${url})`, 'Markdown リンクをコピーしました');
   } else {
     copyToClipboard(url, 'タスクのリンクをコピーしました');
   }
